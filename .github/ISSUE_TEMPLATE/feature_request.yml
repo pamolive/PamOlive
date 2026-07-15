@@ -1,37 +1,37 @@
-name: Proposition d'évolution
-description: Proposer une capacité ou une amélioration du produit
+name: Feature request
+description: Propose a product capability or improvement
 title: "[Feature] "
 labels: [enhancement, triage]
 body:
   - type: textarea
     id: problem
     attributes:
-      label: Problème à résoudre
-      description: Décrivez le besoin métier ou opérationnel, sans donnée réelle.
+      label: Problem to solve
+      description: Describe the business or operational need without real data.
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: Solution proposée
+      label: Proposed solution
     validations:
       required: true
   - type: textarea
     id: permissions
     attributes:
-      label: Rôles et permissions concernés
-      description: Qui peut voir, exécuter, approuver, auditer ou administrer cette fonction ?
+      label: Affected roles and permissions
+      description: Who may view, run, approve, audit, or administer this feature?
     validations:
       required: true
   - type: textarea
     id: audit
     attributes:
-      label: Audit et risques
-      description: Quels événements doivent être tracés et quels abus faut-il empêcher ?
+      label: Audit and risks
+      description: Which events must be recorded and which abuse cases must be prevented?
   - type: checkboxes
     id: safety
     attributes:
-      label: Données sensibles
+      label: Sensitive data
       options:
-        - label: La proposition ne contient aucun secret ni détail d'un système réel.
+        - label: The proposal contains no secrets or details from a real system.
           required: true

@@ -1,48 +1,46 @@
-# Politique de sécurité
+# Security Policy
 
-La sécurité est une fonction du produit, pas une garantie implicite. PAM-olive est
-encore en phase pré‑V1 et ne doit pas être considéré comme certifié ou prêt pour un
-déploiement critique sans revue indépendante.
+Security is a product function, not an implied guarantee. PAM-olive is still in a
+pre-V1 phase and must not be considered certified or ready for a critical deployment
+without an independent review.
 
-## Versions suivies
+## Supported versions
 
-| Version | Correctifs de sécurité |
+| Version | Security fixes |
 | --- | --- |
-| Dernière préversion sur la branche principale | Oui, au mieux des capacités du projet |
-| Anciennes préversions | Non |
-| `1.x` | Pas encore publiée |
+| Latest prerelease on the main branch | Yes, to the best of the project's ability |
+| Older prereleases | No |
+| `1.x` | Not released yet |
 
-## Signaler une vulnérabilité
+## Reporting a vulnerability
 
-Ne publiez jamais une vulnérabilité, un secret, un enregistrement de session ou des
-données personnelles dans une issue publique.
+Never publish a vulnerability, secret, session recording, or personal data in a
+public issue.
 
-Utilisez en priorité **Security → Report a vulnerability** dans le dépôt GitHub afin
-d'ouvrir un avis de sécurité privé. Si cette fonction n'est pas encore activée,
-contactez le propriétaire du dépôt par un canal privé et demandez un canal chiffré
-avant de transmettre les détails.
+Prefer **Security → Report a vulnerability** in the GitHub repository to open a
+private security advisory. If this feature is not enabled yet, contact the repository
+owner through a private channel and request an encrypted channel before sharing details.
 
-Le signalement devrait contenir :
+A report should contain:
 
-- la version ou le commit concerné ;
-- le composant et les prérequis ;
-- des étapes de reproduction minimales avec des données factices ;
-- l'impact attendu et, si possible, une piste de correction ;
-- aucune clé, adresse interne ou donnée issue d'un système réel.
+- the affected version or commit;
+- the component and prerequisites;
+- minimal reproduction steps using fake data;
+- the expected impact and, if possible, a suggested fix;
+- no keys, internal addresses, or data from a real system.
 
-## Périmètre particulièrement sensible
+## Particularly sensitive areas
 
-- contournement RBAC, de politique, d'approbation ou de MFA ;
-- accès inter-utilisateurs aux coffres ou divulgation d'un identifiant de cible ;
-- réutilisation d'un bail de secret ou d'un ticket de session ;
-- contournement de la vérification des clés d'hôte SSH ;
-- falsification ou rupture silencieuse de la chaîne d'audit ;
-- évasion de la passerelle, injection de commande ou accès à la base depuis celle-ci ;
-- exposition de secrets dans une URL, un journal, un export ou un enregistrement.
+- bypassing RBAC, policies, approvals, or MFA;
+- cross-user vault access or target credential disclosure;
+- reuse of a secret lease or session ticket;
+- bypassing SSH host-key verification;
+- tampering with or silently breaking the audit chain;
+- gateway escape, command injection, or database access from a gateway;
+- exposure of secrets in URLs, logs, exports, or recordings.
 
-## Attentes de déploiement
+## Deployment expectations
 
-Les opérateurs doivent fournir des clés aléatoires distinctes, TLS, une politique de
-sauvegarde/restauration testée, une rotation des clés, des restrictions réseau et une
-supervision. Les exemples et valeurs de CI ne sont jamais des secrets de production.
-Consultez [docs/security.md](docs/security.md) avant tout déploiement.
+Operators must provide distinct random keys, TLS, a tested backup and restore policy,
+key rotation, network restrictions, and monitoring. Examples and CI values are never
+production secrets. Read [docs/security.md](docs/security.md) before any deployment.

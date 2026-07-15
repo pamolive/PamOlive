@@ -1,26 +1,29 @@
 # Architecture
 
-Chaque domaine est une application Django indépendante. Les vues orchestrent les entrées, les services portent les règles métier et les modèles garantissent les invariants persistants.
+Each domain is an independent Django application. Views orchestrate inputs, services
+implement business rules, and models enforce persistent invariants.
 
-Le navigateur ne reçoit jamais les identifiants d’une cible. Une passerelle de session dédiée récupère le secret au dernier moment, établit la connexion et diffuse uniquement le terminal ou l’affichage distant.
+The browser never receives target credentials. A dedicated session gateway retrieves
+the secret at the last moment, establishes the connection, and streams only the
+terminal or remote display.
 
-## Flux d’accès
+## Access flow
 
-1. L’utilisateur demande un accès selon une politique.
-2. Le moteur vérifie RBAC, MFA, durée et fenêtre temporelle.
-3. Un approbateur distinct accepte ou refuse.
-4. Une session à durée limitée est créée.
-5. La passerelle ouvre la connexion sans exposer le secret.
-6. Les événements et la référence d’enregistrement sont audités.
+1. The user requests access under a policy.
+2. The engine checks RBAC, MFA, duration, and time windows.
+3. A separate approver accepts or denies the request.
+4. A time-limited session is created.
+5. The gateway opens the connection without exposing the secret.
+6. Events and the recording reference are audited.
 
-## Isolation des protocoles
+## Protocol isolation
 
-SSH est relayé par un broker ASGI dédié qui vérifie la clé d'hôte et chiffre la trace
-avant écriture. RDP utilise Apache Guacamole sur une origine distincte. Un broker de
-lancement consomme le ticket PAM-olive, obtient le secret via l'API interne signée et
-génère une authentification JSON Guacamole expirant après 15 secondes. `guacd` n'est
-jamais publié sur un port hôte.
+SSH is relayed by a dedicated ASGI broker that verifies the host key and encrypts the
+trace before writing it. RDP uses Apache Guacamole on a separate origin. A launch
+broker consumes the PAM-olive ticket, retrieves the secret through the signed internal
+API, and generates Guacamole JSON authentication that expires after 15 seconds.
+`guacd` is never published on a host port.
 
-Les réseaux Docker `rdp_launch`, `rdp_auth`, `rdp_frontend` et `rdp_guacd` séparent le
-formulaire public, l'échange JSON, l'interface HTML5 et le démon RDP passif. Seul `guacd`
-possède un accès sortant vers les cibles. Le détail est dans [RDP](rdp.md).
+The Docker networks `rdp_launch`, `rdp_auth`, `rdp_frontend`, and `rdp_guacd` separate
+the public form, JSON exchange, HTML5 interface, and passive RDP daemon. Only `guacd`
+has outbound access to targets. See [RDP](rdp.md) for details.

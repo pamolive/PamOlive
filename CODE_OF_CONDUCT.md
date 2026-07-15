@@ -1,16 +1,15 @@
-# Code de conduite
+# Code of Conduct
 
-PAM-olive veut offrir un espace de collaboration professionnel, respectueux et sûr.
+PAM-olive aims to provide a professional, respectful, and safe collaboration space.
 
-Les participants s'engagent à communiquer avec courtoisie, critiquer les idées plutôt
-que les personnes, accueillir les niveaux d'expérience différents, protéger les données
-sensibles et respecter les décisions de sécurité coordonnées.
+Participants agree to communicate courteously, criticize ideas rather than people,
+welcome different experience levels, protect sensitive data, and respect coordinated
+security decisions.
 
-Le harcèlement, les attaques personnelles, la discrimination, la publication de données
-privées, l'intimidation et l'exploitation irresponsable d'une vulnérabilité ne sont pas
-acceptés.
+Harassment, personal attacks, discrimination, publication of private data,
+intimidation, and irresponsible exploitation of vulnerabilities are not accepted.
 
-Un comportement problématique peut être signalé en privé aux responsables du dépôt. Les
-mainteneurs peuvent modérer, masquer ou refuser une contribution et limiter la
-participation afin de protéger le projet et sa communauté. Les incidents de sécurité
-suivent séparément [SECURITY.md](SECURITY.md).
+Problematic behavior may be reported privately to the repository maintainers. The
+maintainers may moderate, hide, or reject contributions and limit participation to
+protect the project and its community. Security incidents are handled separately
+under [SECURITY.md](SECURITY.md).

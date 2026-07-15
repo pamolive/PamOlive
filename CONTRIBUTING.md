@@ -1,20 +1,19 @@
-# Contribuer à PAM-olive
+# Contributing to PAM-olive
 
-Merci de contribuer à un PAM open source maintenable. Toute modification doit préserver
-la séparation des privilèges, la traçabilité et la compatibilité des migrations.
+Thank you for helping build a maintainable open-source PAM. Every change must preserve
+privilege separation, traceability, and migration compatibility.
 
-## Avant de commencer
+## Before you start
 
-- utilisez une issue pour une évolution importante ou une modification du modèle de
-  sécurité ;
-- signalez les vulnérabilités exclusivement selon [SECURITY.md](SECURITY.md) ;
-- n'utilisez jamais de secret, d'adresse interne, de clé privée ou de donnée de
-  production dans un test, une capture ou une issue ;
-- acceptez le [code de conduite](CODE_OF_CONDUCT.md).
+- use an issue for a significant feature or security-model change;
+- report vulnerabilities only as described in [SECURITY.md](SECURITY.md);
+- never use a secret, internal address, private key, or production data in a test,
+  screenshot, or issue;
+- follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Environnement de développement
+## Development environment
 
-Avec Python 3.12 ou ultérieur :
+With Python 3.12 or later:
 
 ```sh
 python -m venv .venv
@@ -22,27 +21,27 @@ python -m pip install -e ".[dev]"
 python manage.py migrate
 ```
 
-Avec Docker :
+With Docker:
 
 ```sh
 sh scripts/bootstrap.sh
 docker compose --profile test run --rm --build test
 ```
 
-Le bootstrap refuse volontairement d'écraser un `.env` existant.
+The bootstrap script deliberately refuses to overwrite an existing `.env` file.
 
-## Règles d'architecture
+## Architecture rules
 
-- les modèles portent les invariants persistants ;
-- les services portent les règles métier et les contrôles d'autorisation ;
-- les vues restent minces et ne manipulent pas directement les secrets ;
-- chaque évolution de modèle possède une migration additive et relisible ;
-- les permissions sont testées en cas autorisé **et** refusé ;
-- les secrets ne passent ni dans les URLs, ni dans les tâches, ni dans les logs ;
-- l'audit d'une action sensible fait partie de la même évolution fonctionnelle ;
-- les composants de passerelle restent indépendants de Django et de la base.
+- models enforce persistent invariants;
+- services implement business rules and authorization checks;
+- views remain thin and never manipulate secrets directly;
+- every model change includes an additive, reviewable migration;
+- permissions are tested for both allowed **and** denied cases;
+- secrets never travel through URLs, tasks, or logs;
+- auditing a sensitive action is part of the same functional change;
+- gateway components remain independent from Django and the database.
 
-## Vérifications obligatoires
+## Required checks
 
 ```sh
 ruff check .
@@ -52,22 +51,22 @@ pytest --cov=cbpam --cov-fail-under=90
 mkdocs build --strict
 ```
 
-Une modification de modèle, permission, workflow d'approbation, secret ou session doit
-ajouter des tests de régression. La couverture globale ne peut pas descendre sous 90 %.
+A change to a model, permission, approval workflow, secret, or session must add
+regression tests. Overall coverage must remain at or above 90%.
 
 ## Pull requests
 
-Une pull request doit être limitée à un objectif cohérent et contenir :
+A pull request should have one coherent objective and include:
 
-- le problème et la solution ;
-- l'impact de sécurité et de migration ;
-- les tests exécutés ;
-- la documentation et l'entrée de changelog associées ;
-- des captures sans données sensibles pour une modification d'interface.
+- the problem and solution;
+- security and migration impact;
+- tests performed;
+- related documentation and changelog entry;
+- screenshots without sensitive data for interface changes.
 
-Utilisez de préférence des messages de commit de forme `type(scope): description`, par
-exemple `feat(policies): enforce source network constraints` ou
+Prefer commit messages in the form `type(scope): description`, for example
+`feat(policies): enforce source network constraints` or
 `fix(gateway): reject a reused session ticket`.
 
-En contribuant, vous acceptez que votre contribution soit distribuée sous la licence
-AGPL-3.0-or-later du projet.
+By contributing, you agree that your contribution is distributed under the
+project's AGPL-3.0-or-later license.

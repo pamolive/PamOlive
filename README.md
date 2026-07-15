@@ -1,101 +1,98 @@
 # PAM-olive
 
-PAM-olive est une plateforme open source de gestion des accès privilégiés (PAM),
-construite avec Django, PostgreSQL, Redis, Celery, une passerelle SSH isolée et
-Apache Guacamole pour le courtage RDP HTML5.
+PAM-olive is an open-source privileged access management (PAM) platform built
+with Django, PostgreSQL, Redis, Celery, an isolated SSH gateway, and Apache
+Guacamole for HTML5 RDP brokering.
 
-> **Statut : pré‑V1.** Le socle fonctionnel et de sécurité est activement développé.
-> Cette version n'est pas encore déclarée prête pour une production exposée à
-> Internet. La décision de sortie V1 sera documentée, testée et annoncée explicitement.
+> **Status: pre-V1.** The functional and security foundation is under active
+> development. This release is not yet declared ready for Internet-facing
+> production use. The V1 release decision will be explicitly documented,
+> tested, and announced.
 
-## Capacités actuelles
+## Current capabilities
 
-- rôles système `superadmin`, `administrator`, `auditor` et `user`, complétés par
-  des capacités granulaires ;
-- appartenance d'un utilisateur à plusieurs groupes et attributions temporaires ;
-- annuaires LDAP/Active Directory et fédération OIDC configurables ;
-- groupes de cibles, domaines, comptes locaux et clés d'hôte SSH approuvées ;
-- politiques par groupe, cible, identifiant, protocole, réseau, horaire et quota ;
-- approbations à quorum, séparation demandeur/approbateur et référence de ticket ;
-- coffre personnel chiffré et coffre d'identifiants de cibles ;
-- MFA TOTP locale, baux de secrets courts et à usage unique ;
-- sessions SSH par ticket éphémère, passerelle isolée et enregistrements chiffrés ;
-- lancement RDP gouverné par ticket à usage unique, origine dédiée et Apache Guacamole 1.6.0 ;
-- journal d'audit signé, chaîné, vérifiable et exportable ;
-- consoles distinctes pour l'utilisateur, l'administration produit et le
-  super administrateur Django.
+- `superadmin`, `administrator`, `auditor`, and `user` system roles, extended
+  by granular capabilities;
+- membership in multiple groups and temporary assignments;
+- configurable LDAP/Active Directory sources and OIDC federation;
+- target groups, domains, local accounts, and approved SSH host keys;
+- policies by group, target, credential, protocol, network, schedule, and quota;
+- quorum approvals, requester/approver separation, and ticket references;
+- an encrypted personal vault and target credential vault;
+- local TOTP MFA, recovery codes, and short single-use secret leases;
+- SSH sessions using ephemeral tickets, an isolated gateway, and encrypted recordings;
+- governed RDP launch using a single-use ticket, dedicated origin, and Apache Guacamole 1.6.0;
+- a signed, chained, verifiable, and exportable audit log;
+- separate consoles for users, product administration, and Django super administration.
 
 ## Architecture
 
 ```text
-Navigateur
+Browser
     |
     v
-Proxy Caddy  ---- /ws/sessions/* ----> Passerelle SSH isolée ----> Cible SSH
+Caddy proxy  ---- /ws/sessions/* ----> Isolated SSH gateway ----> SSH target
     |
-    +----------- application Django ----> PostgreSQL
+    +----------- Django application ----> PostgreSQL
                          |                 Redis
                          +---------------> Celery
 
-Passerelle ---- enregistrements chiffrés ----> volume dédié
-Application ---- événements signés ----------> journal d'audit
+Gateway ----- encrypted recordings ----> dedicated volume
+Application ----- signed events --------> audit log
 
-Navigateur ---- origine RDP dédiée ----> Broker RDP ----> Guacamole ----> guacd ----> Cible RDP
+Browser ---- dedicated RDP origin ----> RDP broker ----> Guacamole ----> guacd ----> RDP target
 ```
 
-La passerelle ne possède ni accès direct à PostgreSQL, ni fichier `.env` applicatif.
-Elle obtient une enveloppe chiffrée à durée de vie courte après validation interne
-signée. Le navigateur ne reçoit jamais le secret de la cible. Le courtage RDP est
-séparé sur une autre origine afin d'isoler le jeton local de l'interface Guacamole.
+The gateway has neither direct PostgreSQL access nor an application `.env` file.
+It receives a short-lived encrypted envelope after signed internal validation.
+The browser never receives the target secret. RDP brokering uses another origin
+to isolate the Guacamole interface's local token.
 
-## Démarrage local avec Docker Compose
+## Local startup with Docker Compose
 
-Prérequis : Docker avec le module Compose, OpenSSL sous Linux, ou PowerShell sous
-Windows.
+Prerequisites: Docker with Compose, OpenSSL on Linux, or PowerShell on Windows.
 
 ```sh
 sh scripts/bootstrap.sh
 ```
 
-Sous Windows :
+On Windows:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
 ```
 
-Les scripts refusent d'écraser un `.env` existant, génèrent des secrets distincts
-pour Django, PostgreSQL, le coffre, l'audit, la passerelle, les enregistrements,
-les opérations et l'authentification JSON Guacamole,
-puis construisent la stack.
+The scripts refuse to overwrite an existing `.env`, generate distinct secrets
+for Django, PostgreSQL, the vault, audit, gateway, recordings, operations, and
+Guacamole JSON authentication, then build the stack.
 
-Créer ensuite le premier super administrateur :
+Create the first super administrator:
 
 ```sh
 docker compose exec web python manage.py createsuperuser
 ```
 
-Ouvrir <http://localhost:8000>. L'origine RDP locale est
-<http://localhost:8081>. Les interfaces sont :
+Open <http://localhost:8000>. The local RDP origin is
+<http://localhost:8081>. The interfaces are:
 
-- `/` : espace utilisateur ;
-- `/admin/` : administration produit selon les capacités ;
-- `/django-admin/` : administration technique réservée aux super administrateurs.
+- `/`: user workspace;
+- `/admin/`: capability-based product administration;
+- `/django-admin/`: technical administration restricted to super administrators.
 
-L'écoute par défaut est limitée à `127.0.0.1`. Le mode HTTP local n'est pas un
-point d'entrée Internet. Une exposition publique exige TLS, des noms d'hôtes et
-origines explicites, une sauvegarde testée et la configuration de production.
+The default listener is restricted to `127.0.0.1`. Local HTTP mode is not an
+Internet entry point. Public exposure requires TLS, explicit host names and
+origins, a tested backup, and production configuration.
 
-## Tests et qualité
+## Tests and quality
 
 ```sh
 docker compose --profile test run --rm --build test
 ```
 
-Le test échoue si une vérification échoue ou si la couverture de `cbpam` descend
-sous 90 %. La CI GitHub vérifie également le lint, les migrations, PostgreSQL,
-les images Docker et l'analyse CodeQL.
+The test command fails if a check fails or if `cbpam` coverage drops below 90%.
+GitHub CI also checks linting, migrations, PostgreSQL, Docker images, and CodeQL.
 
-Pour un environnement Python local :
+For a local Python environment:
 
 ```sh
 python -m pip install -e ".[dev]"
@@ -104,32 +101,30 @@ python manage.py makemigrations --check --dry-run
 pytest --cov=cbpam --cov-fail-under=90
 ```
 
-## Modèle d'autorisation
+## Authorization model
 
-Un utilisateur peut appartenir à plusieurs groupes. Une politique relie des groupes
-d'utilisateurs à des groupes de cibles et limite les actions, identifiants, protocoles,
-réseaux sources, horaires et sessions simultanées. Une autorisation n'est accordée
-que si toutes les contraintes applicables sont satisfaites. Les auditeurs peuvent
-consulter la configuration et les traces sans obtenir les secrets.
+A user may belong to multiple groups. A policy links user groups to target groups
+and restricts actions, credentials, protocols, source networks, schedules, and
+concurrent sessions. Authorization is granted only when every applicable constraint
+is satisfied. Auditors may inspect configuration and traces without obtaining secrets.
 
-Le détail des capacités est dans [docs/permissions.md](docs/permissions.md) et le
-périmètre de sortie dans [docs/v1-scope.md](docs/v1-scope.md). L'architecture et
-les limites du courtage RDP sont décrites dans [docs/rdp.md](docs/rdp.md).
+See [docs/permissions.md](docs/permissions.md) for capability details and
+[docs/v1-scope.md](docs/v1-scope.md) for release criteria. Architecture and RDP
+brokering limitations are documented in [docs/rdp.md](docs/rdp.md).
 
-## Documentation et contribution
+## Documentation and contribution
 
 ```sh
 mkdocs serve
 ```
 
-La documentation se trouve dans [`docs/`](docs/). Avant toute contribution, lire
-[CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md) et le
-[code de conduite](CODE_OF_CONDUCT.md).
+Documentation lives in [`docs/`](docs/). Before contributing, read
+[CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and the
+[Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Licence et indépendance
+## License and independence
 
-PAM-olive est distribué sous licence
-[GNU AGPL version 3 ou ultérieure](LICENSE). C'est un projet indépendant. Les noms
-et marques de tiers appartiennent à leurs propriétaires respectifs. Le projet
-implémente des pratiques PAM publiquement documentées sans reprendre de code
-propriétaire.
+PAM-olive is licensed under the
+[GNU AGPL version 3 or later](LICENSE). It is an independent project. Third-party
+names and marks belong to their respective owners. The project implements publicly
+documented PAM practices without incorporating proprietary source code.

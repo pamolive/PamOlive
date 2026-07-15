@@ -1,3 +1,3 @@
 # PAM-olive
 
-PAM-olive est une plateforme open source de gestion des accès privilégiés. La version 0.1 pose le socle : comptes, RBAC, coffre, cibles, politiques, approbations, sessions et audit.
+PAM-olive is an open-source privileged access management platform. Version 0.1 established the foundation: accounts, RBAC, vaults, targets, policies, approvals, sessions, and audit.

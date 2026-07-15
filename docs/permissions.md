@@ -1,34 +1,34 @@
-# Matrice de permissions V1
+# V1 Permission Matrix
 
-## Principes
+## Principles
 
-- Refus par défaut : l'absence de permission interdit l'action.
-- Séparation lecture / modification / action sensible.
-- Les droits reçus par plusieurs groupes sont réunis, mais une politique d'accès reste
-  nécessaire pour atteindre une cible ou révéler un secret de cible.
-- Le statut Django `is_superuser` est réservé au Super administrateur technique.
-- Le rôle Administrateur PAM-olive ne donne jamais accès à `/django-admin/`.
+- Deny by default: absence of permission denies the action.
+- Separate read, modify, and sensitive-action permissions.
+- Rights inherited from multiple groups are combined, but an access policy is still
+  required to reach a target or reveal a target secret.
+- Django `is_superuser` status is reserved for the technical Super Administrator.
+- The PAM-olive Administrator role never grants access to `/django-admin/`.
 
-## Profils système
+## System profiles
 
-| Domaine | Super admin | Administrateur | Auditeur | Approbateur | Utilisateur |
+| Domain | Super admin | Administrator | Auditor | Approver | User |
 | --- | --- | --- | --- | --- | --- |
-| Console produit | complet | complet | lecture | approbations | non |
-| Utilisateurs / groupes | complet | gérer | lecture | non | soi-même |
-| Profils de permissions | complet | gérer hors système | lecture | non | non |
-| Sources LDAP/OIDC | complet | gérer / synchroniser | lecture | non | non |
-| Cibles / domaines | complet | gérer | lecture | non | cibles autorisées |
-| Métadonnées des comptes | complet | gérer | lecture sans secret | non | comptes autorisés |
-| Révélation de secrets | selon politique | selon politique | jamais | jamais | selon politique |
-| Politiques | complet | gérer | lecture | non | non |
-| Approbations | complet | décider pour autrui | lecture | décider pour autrui | ses demandes |
-| Sessions | complet | consulter / terminer | consulter | non | ses sessions |
-| Audit | complet | consulter | consulter / exporter | limité | ses événements |
-| Administration Django | oui | non | non | non | non |
+| Product console | full | full | read | approvals | no |
+| Users / groups | full | manage | read | no | self |
+| Permission profiles | full | manage non-system | read | no | no |
+| LDAP/OIDC sources | full | manage / synchronize | read | no | no |
+| Targets / domains | full | manage | read | no | authorized targets |
+| Account metadata | full | manage | read without secret | no | authorized accounts |
+| Secret reveal | by policy | by policy | never | never | by policy |
+| Policies | full | manage | read | no | no |
+| Approvals | full | decide for others | read | decide for others | own requests |
+| Sessions | full | view / terminate | view | no | own sessions |
+| Audit | full | view | view / export | limited | own events |
+| Django administration | yes | no | no | no | no |
 
-## Familles de capacités
+## Capability families
 
-Les capacités techniques utilisent une notation stable `ressource.action` :
+Technical capabilities use the stable `resource.action` notation:
 
 - `users.view`, `users.manage`
 - `groups.view`, `groups.manage`
@@ -45,5 +45,5 @@ Les capacités techniques utilisent une notation stable `ressource.action` :
 - `audit.view`, `audit.export`
 - `system.view`, `system.manage`
 
-Les profils système sont fournis par migration et ne peuvent pas être supprimés. Leur contenu
-peut évoluer par migration versionnée afin que les montées de version restent reproductibles.
+System profiles are provided by migrations and cannot be deleted. Their content may
+evolve through versioned migrations so upgrades remain reproducible.

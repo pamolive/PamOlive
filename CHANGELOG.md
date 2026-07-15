@@ -1,66 +1,64 @@
 # Changelog
 
-Toutes les modifications notables sont documentées ici. Le projet suit le
-versionnage sémantique à partir de la future V1 ; les versions `0.x` peuvent encore
-faire évoluer les interfaces et le schéma.
+All notable changes are documented here. The project will follow Semantic Versioning
+from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
 ### Added
 
-- Cycle MFA complet : codes de récupération à usage unique, renouvellement et réinitialisation.
-- Codes TOTP dynamiques avec compte à rebours et masquage immédiat des secrets révélés.
-- Plages horaires réutilisables associées aux politiques d'accès.
-- Politiques de rotation séparées, applicables aux identifiants et groupes de cibles.
-- Écrans distincts pour annuaires LDAP/AD et fournisseurs OpenID Connect.
-- Sources d'identité LDAP, Active Directory et OIDC avec correspondance de groupes.
-- Domaines, types de cibles et de comptes, et clés d'hôte SSH approuvées/révoquées.
-- Contraintes de politique par identifiant, protocole, horaire, réseau et concurrence.
-- Quorum d'approbation, groupes d'approbateurs et décisions immuables.
-- Tickets de session et baux de secrets courts, liés à la source et à usage unique.
-- Passerelle SSH isolée, terminal WebSocket et enregistrements chiffrés scellés.
-- Journal d'audit v2 séquencé, signé, vérifiable et exportable en CSV/JSONL.
-- Préparation GitHub : CI renforcée, CodeQL, Dependabot et pipeline de release GHCR.
-- Rotation orchestrée des identifiants, contrôles de santé, métriques et sauvegardes vérifiables.
-- Trousseau de clés du coffre avec rotation transactionnelle et commande sûre en deux étapes.
-- Courtage RDP par Apache Guacamole 1.6.0 sur origine dédiée, ticket à usage unique et
-  paramètres de sécurité/presse-papiers pilotés par les politiques.
+- Complete MFA lifecycle: single-use recovery codes, regeneration, and reset.
+- Dynamic TOTP codes with a countdown and immediate hiding of revealed secrets.
+- Reusable time frames attached to access policies.
+- Separate rotation policies applicable to credentials and target groups.
+- Separate screens for LDAP/AD directories and OpenID Connect providers.
+- LDAP, Active Directory, and OIDC identity sources with group mapping.
+- Domains, target and account types, and approved/revoked SSH host keys.
+- Policy constraints by credential, protocol, schedule, network, and concurrency.
+- Approval quorum, approver groups, and immutable decisions.
+- Short, source-bound, single-use session tickets and secret leases.
+- Isolated SSH gateway, WebSocket terminal, and sealed encrypted recordings.
+- Sequenced, signed, verifiable audit log v2 with CSV/JSONL export.
+- GitHub readiness: stronger CI, CodeQL, Dependabot, and a GHCR release pipeline.
+- Orchestrated credential rotation, health checks, metrics, and verifiable backups.
+- Vault keyring with transactional rotation and a safe two-step command.
+- RDP brokering through Apache Guacamole 1.6.0 on a dedicated origin, using a
+  single-use ticket and policy-controlled security and clipboard settings.
 
 ### Fixed
 
-- Les lancements de session s'ouvrent dans un nouvel onglet et les refus de sécurité sont
-  expliqués dans PAM-olive au lieu d'être masqués par la page d'erreur du proxy.
-- Les formulaires de droits utilisent des listes de sélection compactes à la place des murs
-  de cases à cocher.
-- L'interface de création de cible est limitée aux équipements SSH et RDP.
-- Déclaration explicite de `requests`, dépendance d'exécution requise par Authlib.
-- Compatibilité Synology DSM des proxies Caddy par capacité `NET_BIND_SERVICE` minimale et
-  réseau public dédié au seul point d'entrée RDP.
+- Session launches open in a new tab, and security denials are explained by
+  PAM-olive instead of being hidden behind the proxy error page.
+- Authorization forms use compact selection lists instead of walls of checkboxes.
+- Target creation is limited to SSH and RDP equipment.
+- Explicit declaration of `requests`, an Authlib runtime dependency.
+- Synology DSM compatibility for Caddy proxies through the minimal
+  `NET_BIND_SERVICE` capability and a public network dedicated to the RDP entry point.
 
 ### Security
 
-- Validation stricte des clés d'hôte SSH ; aucun mode permissif en production.
-- API interne passerelle signée par HMAC et secrets transmis dans une enveloppe Fernet.
-- Réseaux Docker séparés et passerelle sans accès direct à PostgreSQL.
-- Politique CSP avec HTMX auto-hébergé et en-têtes de sécurité applicatifs/proxy.
-- Arrêt distant audité des sessions et scellement de l'enregistrement associé.
-- Authentification JSON Guacamole expirant après 15 secondes, jamais transmise dans une URL.
-- `guacd` sans port hôte, réseaux RDP compartimentés et fonctions de redirection désactivées
-  par défaut.
+- Strict SSH host-key validation with no permissive production mode.
+- HMAC-signed internal gateway API and secrets transported in a Fernet envelope.
+- Separate Docker networks and a gateway without direct PostgreSQL access.
+- CSP with self-hosted HTMX and application/proxy security headers.
+- Audited remote session termination and sealing of the related recording.
+- Guacamole JSON authentication expiring after 15 seconds and never sent in a URL.
+- `guacd` without a host port, compartmentalized RDP networks, and redirection
+  features disabled by default.
 
 ## [0.2.0] - 2026-07-13
 
 ### Added
 
-- Product roles and granular capabilities for administrators, auditors and users.
+- Product roles and granular capabilities for administrators, auditors, and users.
 - Multi-group membership with policies linking user groups to target groups.
-- Personal encrypted vault entries for logins, TOTP seeds, payment cards and secure notes.
+- Personal encrypted vault entries for logins, TOTP seeds, payment cards, and secure notes.
 - Target credential vault with multiple local credentials and optional TOTP per target.
-- Local account profile, password change and TOTP MFA enrollment.
+- Local account profile, password change, and TOTP MFA enrollment.
 - Product administration console for identities, target groups, credentials, policies,
-  approvals, sessions and audit events.
-- Hierarchical, collapsible administration navigation inspired by established PAM workflows.
-- Tests for permission boundaries, MFA, personal vault ownership and approval separation.
+  approvals, sessions, and audit events.
+- Hierarchical, collapsible administration navigation based on established PAM workflows.
+- Tests for permission boundaries, MFA, personal vault ownership, and approval separation.
 
 ### Security
 
@@ -73,9 +71,9 @@ faire évoluer les interfaces et le schéma.
 ### Added
 
 - Modular Django foundation for the CBPAM domains.
-- PostgreSQL, Redis, Channels and Celery runtime.
+- PostgreSQL, Redis, Channels, and Celery runtime.
 - Encrypted credential service and append-only hash-chained audit events.
-- Docker Compose, CI, tests and MkDocs documentation.
+- Docker Compose, CI, tests, and MkDocs documentation.
 
 ### Changed
 

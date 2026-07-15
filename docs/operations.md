@@ -1,110 +1,112 @@
-# Exploitation
+# Operations
 
-Cette page décrit les contrôles disponibles pendant la phase pré‑V1. Les opérations de
-restauration restent interdites sur le NAS de référence tant qu'un exercice isolé et un plan
-de retour arrière n'ont pas été approuvés.
+This page describes the controls available during the pre-V1 phase. Restore
+operations remain prohibited on the reference NAS until an isolated rehearsal
+and rollback plan have been approved.
 
-## Santé
+## Health
 
-| Endpoint | Authentification | Usage |
+| Endpoint | Authentication | Purpose |
 | --- | --- | --- |
-| `/api/health/live/` | aucune | processus web vivant, sans dépendance |
-| `/api/health/ready/` | aucune | PostgreSQL et cache accessibles |
-| `/api/health/integrity/` | jeton Bearer d'exploitation | chaîne d'audit entièrement valide |
-| `/api/metrics/` | jeton Bearer d'exploitation | métriques agrégées au format Prometheus |
+| `/api/health/live/` | none | live web process, without dependencies |
+| `/api/health/ready/` | none | PostgreSQL and cache are reachable |
+| `/api/health/integrity/` | operations Bearer token | complete audit-chain validation |
+| `/api/metrics/` | operations Bearer token | aggregated Prometheus metrics |
 
-Le jeton est `CBPAM_OPERATIONS_TOKEN`. Il doit être différent de toutes les clés de coffre,
-d'audit, de passerelle et d'enregistrement. Il n'est jamais transmis à la passerelle SSH.
+The token is `CBPAM_OPERATIONS_TOKEN`. It must differ from every vault, audit,
+gateway, and recording key. It is never passed to the SSH gateway.
 
-Alertes minimales recommandées :
+Recommended minimum alerts:
 
-- readiness en échec pendant plus de deux minutes ;
-- intégrité d'audit en échec, même une seule fois ;
-- `pam_olive_rotation_jobs_failed` ou `pam_olive_rotation_jobs_action_required` en hausse ;
-- session restant dans l'état `terminating` ;
-- volume PostgreSQL ou enregistrements dépassant 80 % de sa capacité.
+- readiness failing for more than two minutes;
+- any audit-integrity failure;
+- increasing `pam_olive_rotation_jobs_failed` or
+  `pam_olive_rotation_jobs_action_required`;
+- a session remaining in `terminating` state;
+- PostgreSQL or recording storage above 80% capacity.
 
-## Rotation des identifiants de cibles
+## Target credential rotation
 
-Une rotation possède un job immuable et un fournisseur nommé. Le fournisseur est chargé via
-`CBPAM_ROTATION_BACKENDS`, par exemple :
+Rotation behavior is selected through a `SecretRotationPolicy`. The policy defines
+the interval, generation strategy, generated password length, target groups, and an
+internal connector key. Connector implementations are loaded through
+`CBPAM_ROTATION_BACKENDS`, for example:
 
 ```env
 CBPAM_ROTATION_BACKENDS={"linux":"my_plugin.backends.LinuxPasswordBackend"}
 ```
 
-Le fournisseur reçoit l'identifiant, l'ancien secret et un nouveau secret généré. PAM-olive
-chiffre le candidat avant l'appel distant, ne promeut le nouveau secret qu'après succès,
-incrémente sa version et audite le résultat. Une exception inattendue est expurgée. Sans
-fournisseur explicite, le job passe en « action requise » et aucun réseau n'est contacté.
+The connector receives the credential, old secret, and generated candidate secret.
+PAM-olive encrypts the candidate before the remote call, promotes it only after
+success, increments its version, and audits the result. Unexpected exceptions are
+redacted. Without a configured connector, the job moves to “action required” and
+no network is contacted.
 
-La tâche périodique Celery recherche les rotations dues toutes les cinq minutes. Un seul job
-actif est permis par identifiant.
+The periodic Celery task looks for due rotations every five minutes. Only one active
+job is permitted per credential.
 
-## Rotation de la clé maîtresse du coffre
+## Vault master-key rotation
 
-Le trousseau est défini par `CBPAM_VAULT_KEYS` et la clé d'écriture par
-`CBPAM_VAULT_ACTIVE_KEY_ID`. `CBPAM_VAULT_KEY` reste l'entrée compatible identifiée
-`legacy`. Exemple de transition :
+The keyring is defined by `CBPAM_VAULT_KEYS` and the write key by
+`CBPAM_VAULT_ACTIVE_KEY_ID`. `CBPAM_VAULT_KEY` remains the compatible entry identified
+as `legacy`. Example transition:
 
 ```env
-CBPAM_VAULT_KEY=<ancienne-cle-conservee-temporairement>
-CBPAM_VAULT_KEYS={"v2":"<nouvelle-cle-fernet>"}
+CBPAM_VAULT_KEY=<old-key-kept-temporarily>
+CBPAM_VAULT_KEYS={"v2":"<new-fernet-key>"}
 CBPAM_VAULT_ACTIVE_KEY_ID=v2
 ```
 
-Après une sauvegarde vérifiée, exécuter d'abord le contrôle en lecture seule :
+After a verified backup, first run the read-only check:
 
 ```sh
 docker compose exec web python manage.py rotate_vault_key
 ```
 
-Puis seulement si chaque champ est déchiffrable :
+Only when every field can be decrypted, run:
 
 ```sh
 docker compose exec web python manage.py rotate_vault_key \
   --apply --confirm-active-key-id v2
 ```
 
-La commande traite les identifiants, TOTP, coffres personnels, configurations de connecteurs,
-MFA et secrets candidats de rotation dans une transaction. Elle n'incrémente pas la version
-métier du mot de passe. Conserver l'ancienne clé jusqu'à une nouvelle sauvegarde, un nouveau
-dry-run indiquant `pending=0` et un exercice de restauration réussi.
+The command handles credentials, TOTP seeds, personal vaults, connector
+configurations, MFA, and candidate rotation secrets in one transaction. It does
+not increment the business password version. Keep the old key until a new backup,
+a new dry run reporting `pending=0`, and a successful restore rehearsal are complete.
 
-## Sauvegarde
+## Backup
 
-Depuis le répertoire du projet sur une machine Docker :
-
-```sh
-sh scripts/backup.sh /chemin/hors-du-projet/pam-olive-YYYYMMDD-HHMM
-```
-
-Le script :
-
-1. refuse un chemin existant ;
-2. produit un dump PostgreSQL au format personnalisé sans propriétaire ;
-3. copie les enregistrements déjà chiffrés en lecture seule ;
-4. conserve le plan de migrations et la configuration Compose/proxy ;
-5. scelle chaque fichier dans `SHA256SUMS`.
-
-Le fichier `.env` est volontairement exclu. Les clés doivent être exportées et conservées
-séparément dans un coffre hors ligne avec une procédure de double contrôle. Une sauvegarde
-sans les clés est intègre mais indéchiffrable ; une sauvegarde stockée avec les clés ne fournit
-plus de séparation de sécurité.
-
-Vérification non destructive :
+From the project directory on a Docker host:
 
 ```sh
-sh scripts/verify-backup.sh /chemin/vers/la/sauvegarde
+sh scripts/backup.sh /path/outside/project/pam-olive-YYYYMMDD-HHMM
 ```
 
-Cette commande recalcule les empreintes et demande à `pg_restore --list` de lire la structure
-de l'archive. Elle ne se connecte à aucune base de destination et ne restaure rien.
+The script:
 
-## Restauration
+1. refuses an existing destination path;
+2. produces a custom-format PostgreSQL dump without ownership;
+3. copies already encrypted recordings read-only;
+4. retains the migration plan and Compose/proxy configuration;
+5. seals every file in `SHA256SUMS`.
 
-Une restauration doit d'abord être répétée sur une nouvelle stack isolée, avec des volumes
-vides créés pour l'exercice. Elle doit démontrer : migrations, connexion, déchiffrement d'un
-secret factice, vérification de l'audit et lecture d'un enregistrement factice. Aucun script de
-restauration destructive n'est fourni tant que ce scénario n'a pas été validé en CI Docker.
-Ce point reste un bloqueur explicite de la candidate V1.
+The `.env` file is deliberately excluded. Keys must be exported and stored separately
+in an offline vault with dual control. A backup without keys is intact but cannot be
+decrypted; storing a backup with its keys removes security separation.
+
+Non-destructive verification:
+
+```sh
+sh scripts/verify-backup.sh /path/to/backup
+```
+
+This command recalculates hashes and asks `pg_restore --list` to read the archive
+structure. It connects to no destination database and restores nothing.
+
+## Restore
+
+A restore must first be rehearsed on a new isolated stack with empty exercise volumes.
+It must demonstrate migrations, login, decryption of a fake secret, audit validation,
+and reading a fake recording. No destructive restore script is provided until this
+scenario has passed in Docker CI. This remains an explicit V1-candidate blocker.

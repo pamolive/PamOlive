@@ -1,275 +1,260 @@
-# Rapport de construction de PAM-olive V1
+# PAM-olive V1 Build Report
 
-## Statut
+## Status
 
-- Version de départ : 0.2.0
-- Cible : 1.0.0
-- État actuel : architecture V1 en cours, recette Docker active sur le NAS, non publiable en production
-- Environnements modifiés : dépôt local et stack isolée `/volume1/docker/pam-olive`
-- NAS : modifications limitées au périmètre explicitement autorisé et inventoriées ci-dessous
+- Starting version: 0.2.0
+- Target version: 1.0.0
+- Current state: V1 architecture in progress, active Docker test deployment on the NAS,
+  not yet approved for production
+- Modified environments: local repository and isolated `/volume1/docker/pam-olive` stack
+- NAS scope: every operation is limited to the explicitly authorized project boundary
+  and recorded below
 
-## Références analysées
+## Functional references
 
-Des guides publics d'administration, d'audit et d'utilisation de solutions PAM ont été utilisés
-comme références fonctionnelles. Les concepts retenus sont la navigation dépendante du profil,
-les profils de permissions, les groupes, la séparation cibles/comptes, les autorisations,
-les approbations, la surveillance de session et les historiques d'audit. Aucun code ni élément
-de marque propriétaire n'est réutilisé.
+Public administration, audit, and user guides for established PAM solutions were used
+as functional references. Retained concepts include role-dependent navigation,
+permission profiles, groups, separation of targets and accounts, authorizations,
+approvals, session monitoring, and audit history. No proprietary code or branding is
+incorporated.
 
-## État initial constaté
+## Initial assessment
 
-La v0.2 fournit Django, PostgreSQL, Redis, Channels, Celery, un chiffrement applicatif, des
-groupes multiples, des politiques, des demandes, un audit chaîné, un coffre personnel, la MFA
-locale et une console moderne. Les principaux écarts V1 sont :
+Version 0.2 provided Django, PostgreSQL, Redis, Channels, Celery, application-level
+encryption, multiple groups, policies, requests, a chained audit log, a personal vault,
+local MFA, and a modern console. The main V1 gaps were:
 
-- granularité insuffisante des permissions ;
-- absence de profils Approbateur et d'identités externes structurées ;
-- connecteurs LDAP/OIDC non implémentés ;
-- absence de domaines et de typologie complète des cibles et comptes ;
-- workflow d'approbation à décision unique ;
-- absence de bail de secret et de rotation orchestrée ;
-- courtage et enregistrement SSH/RDP non prêts ;
-- observabilité, sauvegarde et restauration encore incomplètes.
+- insufficient permission granularity;
+- no structured approver profile or external identities;
+- LDAP/OIDC connectors not implemented;
+- incomplete domain, target, and account models;
+- single-decision approval workflow;
+- no short-lived secret leases or orchestrated rotation;
+- SSH/RDP brokering and recording not ready;
+- incomplete observability, backup, and restore procedures.
 
-## Journal des opérations
+## Operations log
 
-### 2026-07-13 - Cadrage V1
+### July 13, 2026 — V1 scope
 
-- Lecture des modèles et paramètres existants.
-- Analyse des sommaires et pages structurantes des trois guides fournis.
-- Création du périmètre V1 et de la matrice de permissions.
-- Formalisation de la règle de non-modification du NAS.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Reviewed existing models and settings.
+- Studied public functional documentation for administration, audit, and user flows.
+- Created the V1 scope and permission matrix.
+- Formalized the NAS non-modification rule.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lot identités, permissions et domaines
+### July 13, 2026 — Identities, permissions, and domains
 
-- Extension des capacités en droits de lecture, gestion et actions sensibles.
-- Prise en compte des délégations directes avec dates de début et de fin.
-- Ajout du profil système Approbateur et de son groupe dédié.
-- Ajout des sources LDAP, Active Directory et OIDC avec configuration chiffrée.
-- Ajout des identités externes et des correspondances de groupes.
-- Ajout des domaines, types de cibles et types de comptes privilégiés.
-- Extension de la console produit sans exposition des secrets de connecteur.
-- Migrations vérifiées additives : aucune suppression ni renommage destructif.
-- Résultat : 40 tests réussis, couverture 93,86 %, contrôle Django valide.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Expanded capabilities into read, manage, and sensitive-action permissions.
+- Added direct delegations with start and end dates.
+- Added a dedicated Approver system profile and group.
+- Added encrypted LDAP, Active Directory, and OIDC source configuration.
+- Added external identities and group mappings.
+- Added domains and detailed target and privileged-account types.
+- Extended the product console without disclosing connector secrets.
+- Verified additive migrations with no destructive deletion or rename.
+- Result: 40 tests passed, 93.86% coverage, valid Django checks.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lot fédération et approbations
+### July 13, 2026 — Federation and approvals
 
-- Adaptateur LDAP/Active Directory avec TLS, pagination et erreurs non sensibles.
-- Synchronisation Celery désactivée par défaut et testée par adaptateur simulé.
-- Provisionnement OIDC à la première connexion avec contrôle des groupes.
-- Traçabilité de l’origine des appartenances externes afin de préserver les ajouts manuels.
-- Révocation des appartenances gérées lorsque le groupe externe disparaît.
-- Quorum configurable, groupes d’approbateurs et référence de ticket obligatoire par politique.
-- Historique immuable de chaque décision et refus des décisions en double.
-- Résultat : 51 tests réussis, couverture 92,68 %, contrôle Django valide.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Added a TLS-capable, paginated LDAP/Active Directory adapter with safe errors.
+- Added disabled-by-default Celery synchronization tested through a simulated adapter.
+- Added first-login OIDC provisioning with group checks.
+- Tracked externally managed memberships while preserving manual assignments.
+- Revoked managed memberships when the external group disappears.
+- Added configurable quorum, approver groups, and policy-level mandatory ticket references.
+- Added immutable decision history and duplicate-decision rejection.
+- Result: 51 tests passed, 92.68% coverage, valid Django checks.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lots baux de secrets et autorisations de session
+### July 13, 2026 — Secret leases and session authorization
 
-- Ajout de baux de secrets limités à 15–300 secondes et consommables une seule fois.
-- Stockage exclusif du hachage des jetons ; aucun jeton brut n’est persisté.
-- Contrôle central des politiques, approbations actives et MFA avant toute consultation.
-- Ajout de tickets de session limités à 15–120 secondes, liés à l’utilisateur, au compte,
-  à la cible, au protocole, à la politique et à l’adresse d’origine.
-- Une approbation valide peut autoriser plusieurs sessions dans sa fenêtre, chacune possédant
-  son propre ticket et sa propre trace d’audit.
-- Le ticket est envoyé dans le premier message WebSocket et jamais dans une URL HTTP ou
-  WebSocket susceptible d’être journalisée.
-- L’écran Cibles propose une session uniquement si l’action `start_session` est accordée.
-- Réponse terminal marquée `private`, `no-store` et `must-revalidate`.
-- Tant que le broker isolé n’est pas disponible, le canal valide le ticket puis termine la
-  session en échec avec le motif `gateway_not_configured`. Aucun secret n’est consommé et
-  aucune connexion distante n’est tentée : comportement fermé par défaut.
-- Migration de session vérifiée : champs additifs, nouveau ticket et assouplissement du lien
-  demande/session ; aucune table ni colonne supprimée.
-- Résultat : 60 tests réussis, couverture 92,99 %, style et contrôle Django valides.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Added 15-to-300-second, single-use secret leases.
+- Persisted only token hashes; raw tokens are never stored.
+- Centralized policy, approval, and MFA checks before every reveal.
+- Added 15-to-120-second session tickets bound to user, account, target, protocol,
+  policy, and source address.
+- Allowed a valid approval to authorize multiple sessions in its time window, each
+  with an independent ticket and audit trail.
+- Moved the ticket to the first WebSocket message so it never appears in an HTTP or
+  WebSocket URL.
+- Exposed session actions only when `start_session` is authorized.
+- Marked terminal responses `private`, `no-store`, and `must-revalidate`.
+- Enforced fail-closed behavior while the isolated broker was unavailable.
+- Verified additive session migrations without table or column removal.
+- Result: 60 tests passed, 92.99% coverage, valid style and Django checks.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lot intégrité et export d’audit
+### July 13, 2026 — Audit integrity and export
 
-- Version 2 du journal avec séquence stricte, contenu canonique recalculable et signature HMAC.
-- État de tête verrouillé en transaction afin de sérialiser les écritures concurrentes.
-- Reprise non destructive des événements v1, conservés et identifiés comme historiques.
-- Validation de la continuité, des liens, empreintes, signatures et de la tête de chaîne.
-- Export CSV ou JSON Lines limité à 10 000 événements, soumis à `audit.export`.
-- Export bloqué avec HTTP 409 si une falsification est détectée.
-- Expurgation récursive des mots de passe, secrets, clés, cookies, jetons et tickets présents
-  dans les métadonnées ; neutralisation des cellules CSV interprétables comme formules.
-- Empreinte SHA-256 fournie avec le téléchargement et export lui-même audité.
-- Interface d’audit enrichie avec état d’intégrité, filtres et boutons conditionnels.
-- Tests adversariaux par altération directe de la base de test : falsification détectée et
-  export refusé comme prévu.
-- Résultat : 64 tests réussis, couverture 92,86 %, style et contrôle Django valides.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Introduced a strictly sequenced v2 audit log with canonical content and HMAC signatures.
+- Serialized concurrent writes using a transactionally locked chain head.
+- Preserved v1 events as identified historical entries.
+- Validated sequence continuity, links, hashes, signatures, and chain head.
+- Added CSV and JSON Lines export limited to 10,000 events and protected by `audit.export`.
+- Blocked export with HTTP 409 when tampering is detected.
+- Recursively redacted passwords, secrets, keys, cookies, tokens, and tickets and
+  neutralized CSV formula injection.
+- Added SHA-256 download fingerprints and auditing of exports themselves.
+- Added integrity state, filters, and conditional actions to the audit interface.
+- Adversarial direct-database tests successfully detected tampering and denied export.
+- Result: 64 tests passed, 92.86% coverage, valid style and Django checks.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lot broker SSH isolé et confiance d’hôte
+### July 13, 2026 — Isolated SSH broker and host trust
 
-- Ajout d’un registre de clés d’hôte SSH avec empreinte SHA-256, approbateur, justification,
-  historique et révocation auditée.
-- Refus d’émettre un ticket SSH en l’absence d’une clé d’hôte active.
-- Broker ASGI séparé : aucun accès à PostgreSQL, Redis, la clé du coffre ou la clé d’audit.
-- Protocole interne HMAC horodaté et enveloppe de connexion chiffrée à usage court.
-- Le secret est échangé et consommé côté broker ; il n’est jamais envoyé au navigateur.
-- Connexion AsyncSSH avec `known_hosts` obligatoire, mot de passe ou clé privée en mémoire.
-- Relais terminal WebSocket avec entrée, sortie, redimensionnement et contrôle clavier.
-- Enregistrement chiffré de chaque flux, permissions `0600`, empreinte SHA-256 et audit de
-  scellement ; aucune donnée de session n’est enregistrée en clair.
-- Canal interne de terminaison temps réel signé : état `terminating`, arrêt du processus SSH,
-  clôture et rapport au web. Un ticket non consommé est révoqué sans ouvrir le broker.
-- Correction d’un scénario de déni de service : un ticket invalide ne peut jamais provoquer
-  un rapport de clôture sur la session qu’il prétend viser.
-- Test SSH réel sur boucle locale : la clé approuvée connecte et une clé différente échoue.
-- Architecture Compose à deux réseaux, proxy Caddy 2.11.4 seul exposé, gateway en lecture
-  seule, sans capacités Linux et sans secrets applicatifs. Dix assertions locales réussies.
-- Docker n’étant pas installé sur le poste, la validation native `docker compose config` et la
-  construction des images restent à exécuter dans un environnement isolé autorisé.
-- HTMX 2.0.10 auto-hébergé après vérification SHA-384 ; CSP et en-têtes navigateur stricts.
-- Résultat : 79 tests réussis, couverture 90,31 %, style et contrôle Django valides.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Added an SSH host-key registry with SHA-256 fingerprint, approver, justification,
+  history, and audited revocation.
+- Denied SSH ticket issuance without an active approved host key.
+- Added a separate ASGI broker with no PostgreSQL, Redis, vault-key, or audit-key access.
+- Added a timestamped HMAC internal protocol and short-lived encrypted connection envelope.
+- Secrets are exchanged and consumed broker-side and never sent to the browser.
+- Added AsyncSSH connections with mandatory `known_hosts`, supporting passwords and
+  private keys in memory.
+- Added WebSocket terminal relay for input, output, resizing, and keyboard control.
+- Added encrypted stream recording with `0600` permissions, SHA-256 fingerprints, and
+  audited sealing; session data is never stored in plain text.
+- Added a signed real-time termination channel and safe revocation of unused tickets.
+- Fixed a denial-of-service path where an invalid ticket could report closure for a
+  session it merely claimed to identify.
+- A real loopback SSH test connected with the approved key and rejected a different key.
+- Added two-network Compose isolation with Caddy as the only exposed component and a
+  read-only, capability-free gateway.
+- Vendored and integrity-checked HTMX, with strict CSP and browser headers.
+- Result: 79 tests passed, 90.31% coverage, valid style and Django checks.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lot contraintes de politique et préparation GitHub
+### July 13, 2026 — Policy constraints and GitHub preparation
 
-- Restriction facultative des politiques à des identifiants et protocoles déterminés.
-- Périodes de validité, jours de semaine, plages horaires incluant le passage de minuit,
-  réseaux sources CIDR et limite de sessions simultanées.
-- Application du même moteur de politique aux demandes, baux de secrets et tickets de session.
-- Refus fermé des réseaux mal configurés et contrôle de la source transmise par le proxy interne.
-- Licence AGPL-3.0-or-later complète et licence Zero-Clause BSD conservée avec HTMX.
-- README, politique de sécurité, guide de contribution, notice et code de conduite réécrits
-  pour refléter le statut pré-V1 sans promesse de production prématurée.
-- CI GitHub avec PostgreSQL, migrations, couverture minimale de 90 %, documentation stricte,
-  validation et tests des images Docker.
-- Analyse CodeQL, mises à jour Dependabot et pipeline de publication GHCR déclenché uniquement
-  par un tag correspondant à la version du projet, avec provenance et SBOM des images.
-- Modèles d’issues et de pull request interdisant les secrets et données de systèmes réels.
-- Vérification locale : YAML valide, documentation stricte construite, dépendances cohérentes,
-  style propre, contrôle Django sans erreur et aucune migration manquante.
-- Résultat : 89 tests réussis, couverture 91,43 % sur 2 941 instructions mesurées.
-- Le dépôt Git local est autonome mais n’a pas encore de commit ni de dépôt distant ; aucun
-  contenu n’a été poussé vers GitHub à ce stade.
-- Docker reste absent du poste local : le job GitHub préparé devra encore démontrer la
-  construction Compose native dans un environnement éphémère.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Added optional policy restrictions for credentials and protocols.
+- Added validity periods, weekdays, overnight time windows, source CIDRs, and concurrent
+  session limits.
+- Applied the same policy engine to requests, secret leases, and session tickets.
+- Added fail-closed behavior for invalid network configuration and verified proxy source data.
+- Completed AGPL-3.0-or-later licensing and retained the vendored HTMX license.
+- Reworked README, security policy, contribution guide, notice, and code of conduct to
+  accurately describe pre-V1 status.
+- Added GitHub CI for PostgreSQL, migrations, 90% minimum coverage, strict documentation,
+  image build, and image testing.
+- Added CodeQL, Dependabot, and tag-gated GHCR publication with provenance and SBOMs.
+- Added issue and pull-request templates that prohibit real secrets and system data.
+- Result: 89 tests passed, 91.43% coverage across 2,941 measured statements.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lot exploitation, rotation et trousseau de clés
+### July 13, 2026 — Operations, rotation, and keyring
 
-- Orchestration idempotente des rotations avec fournisseurs configurables, reprise après échec,
-  secret candidat chiffré et promotion uniquement après succès du système cible.
-- Planification Celery des rotations arrivées à échéance et console d'historique dédiée.
-- Endpoints séparés de vivacité, disponibilité, intégrité et métriques agrégées protégées par
-  un jeton d'exploitation distinct.
-- Sauvegarde non destructive avec `pg_dump`, enregistrements SSH chiffrés, configuration,
-  manifeste SHA-256 et vérification indépendante sans restauration implicite.
-- Trousseau multi-clés pour tous les champs chiffrés et commande de rotation transactionnelle,
-  en simulation par défaut et avec confirmation explicite pour appliquer.
-- Point de contrôle : 102 tests réussis, couverture 90,67 %, style, Django, migrations et
-  documentation stricte valides.
-- La restauration native reste à répéter dans une stack Docker jetable avant la candidate V1.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Added idempotent rotation orchestration with configurable connectors, retry behavior,
+  encrypted candidate secrets, and promotion only after target success.
+- Added Celery scheduling for due rotations and a dedicated history console.
+- Added separate liveness, readiness, integrity, and token-protected metrics endpoints.
+- Added non-destructive backup using `pg_dump`, encrypted SSH recordings, configuration,
+  a SHA-256 manifest, and independent verification without implicit restoration.
+- Added a multi-key vault keyring and transactional key rotation command that defaults
+  to dry-run and requires explicit confirmation to apply.
+- Result: 102 tests passed, 90.67% coverage, valid style, Django, migration, and strict
+  documentation checks.
+- Native restore rehearsal in an ephemeral Docker stack remained a V1 requirement.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-13 - Lot courtage RDP et origine dédiée
+### July 13, 2026 — RDP brokering and dedicated origin
 
-- Analyse des sources officielles Apache Guacamole 1.6.0 et vérification du stockage navigateur
-  `GUAC_AUTH_TOKEN`, du format `ClientIdentifier` et du contrat `guacamole-auth-json`.
-- Origine RDP distincte, broker de lancement minimal, POST sans ticket dans l'URL et page de
-  transition avec CSP à nonce et cache interdit.
-- Authentification JSON HMAC-SHA256/AES-128-CBC compatible avec l'implémentation Apache,
-  expiration à 15 secondes, données et connexion à usage unique.
-- Paramètres de cible NLA/NLA étendu/TLS, empreintes de certificat, clavier et redimensionnement.
-  Aucun mode `ignore-cert`, `any` ou chiffrement RDP hérité n'est proposé.
-- Copie et collage séparés par politique, tous deux refusés par défaut ; lecteur, impression et
-  microphone désactivés dans l'enveloppe Guacamole.
-- Services Compose Guacamole 1.6.0, guacd, broker et proxy RDP isolés sur quatre réseaux internes.
-  `guacd` n'expose aucun port hôte et possède seul la sortie vers les cibles.
-- Une régression du formulaire de cible SSH, causée par des champs RDP initialement requis,
-  a été détectée par la suite complète puis corrigée par des valeurs RDP conditionnelles.
-- Résultat final du lot : 113 tests réussis, couverture 90,57 %, style, Django, migrations,
-  scripts, YAML et documentation stricte valides.
-- Fermeture forcée, état de fin réel, enregistrement RDP chiffré et validation Docker native
-  restent des bloqueurs explicites de candidate V1.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Validated Apache Guacamole 1.6.0 JSON authentication and browser-token behavior
+  against official documentation and source contracts.
+- Added a distinct RDP origin, minimal launch broker, ticket-free URLs, and a transition
+  page with nonce-based CSP and disabled caching.
+- Added compatible HMAC-SHA256/AES-128-CBC JSON authentication with 15-second expiry
+  and single-use connections.
+- Added NLA, extended NLA, TLS, certificate-fingerprint, keyboard, and resizing settings.
+  Permissive certificate and legacy encryption modes are not offered.
+- Separated copy and paste permissions, denied both by default, and disabled drives,
+  printing, and microphones.
+- Added Guacamole 1.6.0, guacd, broker, and proxy services isolated across four internal
+  networks. `guacd` exposes no host port and alone reaches target networks.
+- Fixed a regression where RDP-specific required fields blocked SSH target creation.
+- Result: 113 tests passed, 90.57% coverage, valid style, Django, migration, script,
+  YAML, and strict documentation checks.
+- Encrypted RDP recording and observed forced termination remained V1 blockers.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-14 - Recette visuelle, restauration et point de contrôle
+### July 14, 2026 — Visual acceptance, restore controls, and checkpoint
 
-- Ajout d'une commande de vérification de restauration en lecture seule : migrations à jour,
-  utilisateur témoin facultatif, chaîne d'audit valide et déchiffrement de tous les champs
-  protégés.
-- Ajout d'un scénario de restauration vers une base PostgreSQL distincte et inexistante. Le
-  script exige un accusé explicite, impose un nom de base réservé aux répétitions éphémères et
-  ne contient aucune suppression de base, de volume ou de conteneur.
-- Recette locale sur une nouvelle base SQLite temporaire avec quatre comptes et uniquement des
-  données fictives. La base existante du projet n'a pas été ouverte en écriture.
-- Parcours utilisateur validé dans un navigateur réel : connexion, accueil simplifié, coffre
-  personnel, identifiants de cibles, révélation auditée du mot de passe et du TOTP, groupes de
-  cibles, demandes, compte local et entrée MFA.
-- Parcours administrateur validé : console moderne, utilisateurs, groupes multiples, cibles,
-  politiques, approbations et audit signé. L'administrateur fonctionnel est refusé sur
-  `/django-admin/`.
-- Parcours auditeur validé en lecture seule : aucun formulaire de création et aucune action de
-  décision sur les approbations.
-- Parcours super administrateur validé : accès exclusif à l'administration technique Django.
-- Aucun avertissement ni erreur JavaScript relevé pendant la recette.
-- Résultat global : 115 tests réussis, couverture applicative 90,69 %, style propre, contrôle
-  Django et contrôle de déploiement sans erreur, aucune migration manquante et documentation
-  stricte construite.
-- La publication GitHub est volontairement reportée à une phase ultérieure à la demande du
-  propriétaire du projet. Aucun commit, dépôt distant ou envoi n'a été créé pendant cette phase.
-- La validation native de la stack Docker complète, la répétition réelle de restauration,
-  l'enregistrement RDP chiffré et la fermeture RDP observée côté Guacamole restent nécessaires
-  avant de déclarer une candidate V1 de production.
-- Données, Docker et utilisateurs du NAS : aucune opération effectuée.
+- Added a read-only restore-verification command for migrations, optional witness user,
+  audit-chain integrity, and decryption of all protected fields.
+- Added restore rehearsal into a separate, new PostgreSQL database. It requires explicit
+  acknowledgement, restricts the name to ephemeral rehearsal databases, and performs no
+  database, volume, or container deletion.
+- Tested with a fresh temporary SQLite database, four accounts, and fake data only.
+- Validated user flows: login, simplified dashboard, personal vault, target credentials,
+  audited password/TOTP reveal, target groups, requests, local account, and MFA enrollment.
+- Validated administrator flows: modern console, users, multiple groups, targets, policies,
+  approvals, and signed audit. Product administrators were denied `/django-admin/`.
+- Validated read-only auditor flows without creation or approval-decision actions.
+- Validated exclusive technical administration access for super administrators.
+- No browser warnings or JavaScript errors were found during this acceptance pass.
+- Result: 115 tests passed, 90.69% coverage, valid style, Django, deployment, migration,
+  and strict documentation checks.
+- NAS data, Docker services, and users: no operation performed.
 
-### 2026-07-14 - Déploiement de recette Docker sur le NAS
+### July 14, 2026 — NAS Docker test deployment
 
-- Création d'une stack Compose distincte nommée `pam-olive` dans
-  `/volume1/docker/pam-olive`, sans écraser ni modifier `/volume1/docker/cbpam`.
-- Transfert d'une archive propre de 303 entrées, vérifiée par SHA-256 avant extraction.
-- Génération locale au NAS d'un fichier `.env` en mode `0600`, sans afficher les secrets.
-- Exposition du portail sur `0.0.0.0:18081` et de l'origine RDP sur `0.0.0.0:18082`.
-- Création de volumes et réseaux Docker dédiés au projet `pam-olive` ; aucune réutilisation
-  des volumes de l'ancien PAM.
-- Ajout explicite de la dépendance directe `requests`, requise par Authlib au démarrage.
-- Compatibilité Synology DSM : attribution de la seule capacité Linux
-  `NET_BIND_SERVICE` aux proxies Caddy, tout en conservant le système de fichiers en lecture
-  seule, la suppression des autres capacités et `no-new-privileges`.
-- Ajout d'un réseau public dédié au seul proxy RDP pour permettre la publication du port sur
-  Docker DSM. Le broker, Guacamole et guacd restent compartimentés sur leurs réseaux internes.
-- Construction des images, migrations et démarrage des onze services. Les services disposant
-  d'un contrôle de santé sont tous déclarés `healthy`.
-- Contrôles réseau depuis un autre poste : page de connexion HTTP 200, disponibilité HTTP 200
-  et origine RDP HTTP 200.
-- Création du super administrateur applicatif `cyriel`, puis connexion réelle validée dans un
-  navigateur jusqu'au tableau de bord et à la console `/admin/`.
-- Après validation du nouveau portail, arrêt propre et suppression des cinq conteneurs de
-  l'ancien projet `cbpam` et des quatre images applicatives `cbpam-*`, conformément à
-  l'autorisation du propriétaire.
-- Préservation vérifiée de `cbpam_postgres_data`, `cbpam_redis_data` et du dossier
-  `/volume1/docker/cbpam`. Aucune commande `prune`, `down -v` ou suppression de volume n'a été
-  utilisée.
-- Vérification finale : Odoo, Psono et BunkerWeb sont restés actifs et n'ont pas été modifiés.
-- GitHub reste volontairement hors périmètre de cette opération.
+- Created a distinct `pam-olive` Compose stack in `/volume1/docker/pam-olive` without
+  overwriting the earlier project directory.
+- Transferred a clean archive and verified its SHA-256 checksum before extraction.
+- Generated a `0600` `.env` locally on the NAS without displaying secrets.
+- Published the portal on `0.0.0.0:18081` and RDP origin on `0.0.0.0:18082`.
+- Created project-specific Docker volumes and networks without reusing earlier PAM volumes.
+- Added the direct `requests` dependency required by Authlib at startup.
+- Added Synology DSM compatibility through the sole `NET_BIND_SERVICE` capability for
+  Caddy proxies while preserving read-only filesystems, dropped capabilities, and
+  `no-new-privileges`.
+- Added a public network only to the RDP proxy so DSM Docker could publish the port.
+  Broker, Guacamole, and guacd remained compartmentalized.
+- Built images, applied migrations, and started eleven services. Every service with a
+  health check reported `healthy`.
+- Validated login, dashboard, product administration, readiness, and both published ports.
+- After explicit owner approval, stopped and removed only the earlier application
+  containers and images. Its PostgreSQL and Redis volumes and project directory were retained.
+- Odoo, Psono, and BunkerWeb remained active and unchanged.
 
-## Vérifications de référence
+### July 15, 2026 — Security, policy, and session refinement (v0.3.0)
 
-Avant le démarrage de la V1, la v0.2 a passé 33 tests avec 94,37 % de couverture sur le NAS.
-Ces résultats constituent la ligne de base ; chaque lot V1 devra maintenir ou améliorer ce
-niveau sans migration destructive.
+- Added ten hashed, single-use MFA recovery codes, regeneration, and secure MFA reset.
+- Added dynamic TOTP refresh with a 30-second progress bar and non-cacheable responses.
+- Added immediate removal of revealed secrets from the rendered page.
+- Added reusable `TimeFrame` schedules and independent `SecretRotationPolicy` objects.
+- Replaced checkbox walls with compact multi-selection lists.
+- Separated LDAP/Active Directory and OpenID Connect administration screens.
+- Limited target creation to SSH and RDP equipment in this phase.
+- Opened sessions in a new tab and replaced proxy-masked host-key denials with a clear,
+  safe corrective page.
+- Retained legacy columns for lossless migrations.
+- Created a verified pre-deployment backup under the PAM-olive project boundary.
+- Result: 120 tests passed with 90.71% application coverage. Ruff, migrations, and the
+  isolated Docker suite passed before deployment.
+- Deployed the updated stack with healthy web, database, cache, gateway, RDP, worker,
+  and proxy services.
+- No third-party NAS data, users, containers, images, or volumes were modified.
 
-## Registre des risques
+## Reference validation
 
-| Risque | Niveau | Mesure prévue |
+Before V1 work started, v0.2 passed 33 tests with 94.37% coverage on the NAS. This is
+the historical baseline; each V1 increment must keep migrations non-destructive and
+maintain at least 90% business-core coverage.
+
+## Risk register
+
+| Risk | Severity | Control |
 | --- | --- | --- |
-| Exposition d'un secret dans les journaux | critique | filtrage, tests et objets secrets opaques |
-| Escalade de privilèges par cumul de groupes | critique | moteur d'autorisation central et tests négatifs |
-| Auto-approbation | élevé | contrainte métier et audit immuable |
-| Perte de données pendant une migration | critique | migrations additives et test de mise à niveau |
-| Compromission du processus web donnant accès SSH | critique | passerelle isolée et jetons éphémères |
-| Réutilisation ou fuite d’un ticket de session | critique | ticket haché, court, usage unique, lié au contexte et absent des URL |
-| Indisponibilité LDAP/OIDC | moyen | cache limité, comptes de secours et erreurs explicites |
+| Secret exposure in logs | critical | redaction, tests, and opaque secret objects |
+| Privilege escalation through combined groups | critical | centralized authorization engine and negative tests |
+| Self-approval | high | business constraint and immutable audit |
+| Data loss during migration | critical | additive migrations and upgrade testing |
+| Web-process compromise enabling SSH access | critical | isolated gateway and ephemeral tickets |
+| Session-ticket reuse or disclosure | critical | short, hashed, single-use, context-bound tickets absent from URLs |
+| LDAP/OIDC outage | medium | bounded cache, break-glass local accounts, and explicit errors |
 
-## Décision de publication
+## Release decision
 
-La mention « candidate V1 » ne sera ajoutée que lorsque tous les critères de
-`docs/v1-scope.md` seront démontrés par tests et consignés dans ce rapport.
+The “V1 candidate” label will be added only after every criterion in
+`docs/v1-scope.md` has been demonstrated by tests and recorded in this report.

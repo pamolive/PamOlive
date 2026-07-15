@@ -1,66 +1,66 @@
-name: Rapport de bug
-description: Signaler un comportement reproductible sans donnée sensible
+name: Bug report
+description: Report reproducible behavior without sensitive data
 title: "[Bug] "
 labels: [bug, triage]
 body:
   - type: markdown
     attributes:
       value: |
-        Ne signalez jamais une vulnérabilité ou un secret ici. Utilisez la procédure privée de SECURITY.md.
+        Never report a vulnerability or secret here. Follow the private process in SECURITY.md.
   - type: input
     id: version
     attributes:
-      label: Version ou commit
-      placeholder: v0.2.0 ou SHA
+      label: Version or commit
+      placeholder: v0.2.0 or SHA
     validations:
       required: true
   - type: dropdown
     id: component
     attributes:
-      label: Composant
+      label: Component
       options:
-        - Interface utilisateur
-        - Administration produit
-        - Identité et RBAC
-        - Politiques et approbations
-        - Coffres
-        - Passerelle et sessions
+        - User interface
+        - Product administration
+        - Identity and RBAC
+        - Policies and approvals
+        - Vaults
+        - Gateway and sessions
         - Audit
-        - Docker et installation
+        - Docker and installation
         - Documentation
-        - Autre
+        - Other
     validations:
       required: true
   - type: textarea
     id: reproduction
     attributes:
-      label: Étapes de reproduction
-      description: Utilisez uniquement des données factices.
+      label: Reproduction steps
+      description: Use fake data only.
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: Résultat attendu
+      label: Expected result
     validations:
       required: true
   - type: textarea
     id: observed
     attributes:
-      label: Résultat observé
+      label: Observed result
     validations:
       required: true
   - type: textarea
     id: environment
     attributes:
-      label: Environnement
-      description: OS, navigateur, Docker et mode d'installation, sans adresse interne.
+      label: Environment
+      description: OS, browser, Docker, and installation mode, without internal addresses.
   - type: checkboxes
     id: safety
     attributes:
-      label: Données sensibles
+      label: Sensitive data
       options:
-        - label: J'ai retiré tous les secrets, identifiants, adresses internes et données personnelles.
+        - label: I removed all secrets, credentials, internal addresses, and personal data.
           required: true
-        - label: Ce rapport n'est pas une vulnérabilité de sécurité.
+        - label: This report is not a security vulnerability.
           required: true

@@ -1,16 +1,16 @@
-# Développement
+# Development
 
-Sous Linux, exécuter `sh scripts/bootstrap.sh`. Sous Windows, exécuter
-`powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1`. Ces scripts
-refusent d’écraser un `.env` existant, génèrent les secrets puis démarrent la
-stack. Les tests s’exécutent avec `pytest`.
+On Linux, run `sh scripts/bootstrap.sh`. On Windows, run
+`powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1`. These scripts
+refuse to overwrite an existing `.env`, generate secrets, and start the stack.
+Tests run with `pytest`.
 
-Sur une machine équipée de Docker, la suite isolée s’exécute avec
-`docker compose --profile test run --rm test`. Elle utilise SQLite et ne touche
-pas à la base de développement. Le service web écoute uniquement sur
-`127.0.0.1:8000`; utiliser un tunnel SSH pour y accéder à distance.
+On a machine with Docker, run the isolated suite with
+`docker compose --profile test run --rm test`. It uses SQLite and does not touch
+the development database. The web service listens only on `127.0.0.1:8000`;
+use an SSH tunnel for remote access.
 
-Pour un test sur un réseau local de confiance, définir `CBPAM_HTTP_BIND=0.0.0.0`
-et `CBPAM_HTTP_PORT=18080`, puis ajouter l’adresse du serveur à
-`DJANGO_ALLOWED_HOSTS` et `DJANGO_CSRF_TRUSTED_ORIGINS`. Ce mode HTTP ne doit
-pas être publié directement sur Internet.
+For testing on a trusted local network, set `CBPAM_HTTP_BIND=0.0.0.0` and
+`CBPAM_HTTP_PORT=18080`, then add the server address to `DJANGO_ALLOWED_HOSTS`
+and `DJANGO_CSRF_TRUSTED_ORIGINS`. This HTTP mode must not be exposed directly
+to the Internet.

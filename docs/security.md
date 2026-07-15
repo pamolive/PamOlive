@@ -1,18 +1,19 @@
-# Sécurité
+# Security
 
-- Aucun secret ne doit apparaître dans les journaux, URLs, tâches Celery ou messages WebSocket.
-- Les secrets sont chiffrés au repos avec une clé fournie hors base de données.
-- Les approbations appliquent la séparation des responsabilités.
-- Les événements d’audit sont immuables et chaînés par empreinte.
-- La production impose HTTPS, cookies sécurisés, HSTS et origines explicites.
-- La passerelle SSH/RDP est un composant séparé et à privilèges minimaux.
-- L'interface RDP utilise une origine dédiée afin que son jeton `GUAC_AUTH_TOKEN` ne soit
-  pas lisible depuis l'origine principale de PAM-olive.
-- Le JSON Guacamole est signé HMAC-SHA256, chiffré AES-128-CBC, valable 15 secondes et
-  contient une connexion à usage unique. Il n'est jamais placé dans une URL.
-- RDP interdit par défaut copie, collage, lecteur virtuel, impression et microphone. La
-  copie et le collage s'activent séparément au niveau d'une politique.
-- PAM-olive ne propose aucun équivalent à `ignore-cert` : un certificat RDP doit être
-  validé par une autorité reconnue ou par des empreintes FreeRDP configurées.
+- Secrets must never appear in logs, URLs, Celery tasks, or WebSocket messages.
+- Secrets are encrypted at rest with a key supplied outside the database.
+- Approvals enforce separation of duties.
+- Audit events are immutable and hash-chained.
+- Production requires HTTPS, secure cookies, HSTS, and explicit origins.
+- The SSH/RDP gateway is a separate, least-privileged component.
+- The RDP interface uses a dedicated origin so its `GUAC_AUTH_TOKEN` cannot be
+  read from the main PAM-olive origin.
+- Guacamole JSON is signed with HMAC-SHA256, encrypted with AES-128-CBC, valid for
+  15 seconds, and contains a single-use connection. It is never placed in a URL.
+- RDP denies copy, paste, virtual drive, printing, and microphone by default. Copy
+  and paste are enabled separately at policy level.
+- PAM-olive offers no equivalent to `ignore-cert`: an RDP certificate must be
+  validated by a trusted authority or configured FreeRDP fingerprints.
 
-Ce socle ne constitue pas encore une certification de sécurité. Un modèle de menace, une revue externe et des tests d’intrusion sont requis avant production.
+This foundation is not a security certification. A threat model, external review,
+and penetration tests are required before production use.

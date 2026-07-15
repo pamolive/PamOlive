@@ -1,15 +1,15 @@
-## Objectif
+## Objective
 
-Décrire le problème et la solution proposée.
+Describe the problem and the proposed solution.
 
-## Sécurité et autorisations
+## Security and authorization
 
-- Quel contrôle d'accès, secret, audit ou flux de session est touché ?
-- Quels cas de refus ont été testés ?
+- Which access control, secret, audit, or session flow is affected?
+- Which denial cases were tested?
 
-## Migrations et compatibilité
+## Migrations and compatibility
 
-Indiquer les migrations, la compatibilité descendante et les opérations requises.
+Describe migrations, backward compatibility, and required operations.
 
 ## Validation
 
@@ -18,5 +18,5 @@ Indiquer les migrations, la compatibilité descendante et les opérations requis
 - [ ] `python manage.py check`
 - [ ] `pytest --cov=cbpam --cov-fail-under=90`
 - [ ] `mkdocs build --strict`
-- [ ] documentation et changelog mis à jour
-- [ ] aucune donnée réelle, clé, adresse interne ou capture sensible incluse
+- [ ] documentation and changelog updated
+- [ ] no real data, keys, internal addresses, or sensitive screenshots included

@@ -1,66 +1,65 @@
-# Périmètre de PAM-olive V1
+# PAM-olive V1 Scope
 
 ## Vision
 
-PAM-olive V1 est un bastion open source destiné à gouverner, délivrer et tracer les accès
-privilégiés. Son architecture s'inspire des concepts éprouvés des produits PAM du marché,
-notamment la séparation des identités, des ressources, des autorisations, des approbations,
-des sessions et de l'audit. Le produit, son code et son identité restent propres à PAM-olive.
+PAM-olive V1 is an open-source bastion designed to govern, deliver, and trace
+privileged access. Its architecture uses proven PAM concepts, including separation
+of identities, resources, authorizations, approvals, sessions, and audit. The
+product, code, and identity remain specific to PAM-olive.
 
-## Critères obligatoires de sortie
+## Mandatory release criteria
 
-Une version ne peut être déclarée « candidate V1 » que si tous les critères suivants sont
-satisfaits :
+A release may be declared a “V1 candidate” only when all the following criteria are met:
 
-1. Les rôles Super administrateur, Administrateur, Auditeur, Approbateur et Utilisateur sont
-   appliqués côté serveur avec des permissions de lecture et de modification distinctes.
-2. Un utilisateur peut appartenir à plusieurs groupes et recevoir l'union contrôlée de leurs
-   autorisations actives.
-3. Les identités locales, LDAP/Active Directory et OpenID Connect sont modélisées, testables et
-   synchronisables sans conserver de mot de passe d'annuaire en clair.
-4. Les équipements, applications, domaines, groupes de cibles et comptes privilégiés sont
-   représentés séparément.
-5. Les secrets sont chiffrés au repos, versionnés, révélés uniquement après autorisation et
-   chaque consultation est auditée.
-6. Les politiques relient explicitement groupes d'utilisateurs, groupes de cibles, comptes,
-   protocoles, plages horaires, MFA et workflow d'approbation.
-7. Un approbateur ne peut jamais approuver sa propre demande. Les décisions, motifs et durées
-   sont immuables dans l'historique d'audit.
-8. Le courtage SSH est isolé du processus web, vérifie une autorisation à durée limitée et
-   produit une trace de session. Le lancement RDP fournit au minimum un flux gouverné et une
-   stratégie de traçabilité documentée.
-9. L'auditeur peut consulter et exporter les événements et sessions sans révéler de secret ni
-   modifier la configuration.
-10. La restauration, la rotation des clés, les contrôles de santé, les métriques et les alertes
-    d'exploitation sont documentés et testés.
-11. Les migrations sont additives, les tests automatisés couvrent au moins 90 % du cœur métier
-    et les contrôles de sécurité Django ne produisent aucune erreur bloquante.
-12. Une installation neuve et une mise à niveau depuis la v0.2 sont toutes deux reproductibles
-    avec Docker Compose sans perte de données.
+1. Super Administrator, Administrator, Auditor, Approver, and User roles are enforced
+   server-side with distinct read and modify permissions.
+2. A user may belong to multiple groups and receive the controlled union of their
+   active authorizations.
+3. Local, LDAP/Active Directory, and OpenID Connect identities are modeled, testable,
+   and synchronizable without storing directory passwords in plain text.
+4. Equipment, applications, domains, target groups, and privileged accounts are
+   represented separately.
+5. Secrets are encrypted at rest, versioned, revealed only after authorization, and
+   every access is audited.
+6. Policies explicitly link user groups, target groups, accounts, protocols, time
+   windows, MFA, and approval workflows.
+7. An approver can never approve their own request. Decisions, reasons, and durations
+   are immutable in audit history.
+8. SSH brokering is isolated from the web process, verifies time-limited authorization,
+   and produces a session trace. RDP launch provides at least a governed flow and a
+   documented traceability strategy.
+9. Auditors may view and export events and sessions without revealing secrets or
+   modifying configuration.
+10. Restore, key rotation, health checks, metrics, and operational alerts are documented
+    and tested.
+11. Migrations are additive, automated tests cover at least 90% of the business core,
+    and Django security checks report no blocking errors.
+12. Both a fresh installation and an upgrade from v0.2 are reproducible with Docker
+    Compose without data loss.
 
-## Domaines fonctionnels V1
+## V1 functional domains
 
-- Identités : comptes locaux, identités externes, MFA, préférences et cycle de vie.
-- RBAC : profils de permissions, groupes, délégations temporaires et limitations.
-- Référentiel : équipements, applications, domaines, groupes et comptes de cibles.
-- Coffres : coffre personnel, coffre des cibles, TOTP, clés SSH et métadonnées de rotation.
-- Autorisations : règles d'accès, protocoles, actions, MFA, horaires et approbations.
-- Approbations : demandes, quorum, décisions, expiration et historique.
-- Sessions : préparation, lancement, surveillance, fermeture et enregistrement.
-- Audit : chaîne d'intégrité, filtres, exports, alertes et intégration SIEM.
-- Connecteurs : LDAP/AD, OIDC, SMTP, SIEM et coffres externes par interfaces extensibles.
-- API : endpoints versionnés, jetons de service limités et documentation OpenAPI.
+- Identities: local accounts, external identities, MFA, preferences, and lifecycle.
+- RBAC: permission profiles, groups, temporary delegations, and restrictions.
+- Inventory: equipment, applications, domains, target groups, and target accounts.
+- Vaults: personal vault, target vault, TOTP, SSH keys, and rotation metadata.
+- Authorizations: access rules, protocols, actions, MFA, schedules, and approvals.
+- Approvals: requests, quorum, decisions, expiration, and history.
+- Sessions: preparation, launch, monitoring, termination, and recording.
+- Audit: integrity chain, filters, exports, alerts, and SIEM integration.
+- Connectors: LDAP/AD, OIDC, SMTP, SIEM, and external vaults through extensible interfaces.
+- API: versioned endpoints, constrained service tokens, and OpenAPI documentation.
 
-## Hors périmètre initial
+## Initially out of scope
 
-- Reproduction à l'identique d'une interface ou d'un code propriétaire.
-- Découverte réseau intrusive activée par défaut.
-- Rotation automatique sur tous les systèmes d'exploitation sans plugin validé.
-- Haute disponibilité multi-site avant validation de la V1 mono-site.
+- Exact reproduction of a proprietary interface or source code.
+- Intrusive network discovery enabled by default.
+- Automatic rotation on every operating system without a validated plugin.
+- Multi-site high availability before validating single-site V1.
 
-## Règle de sécurité du NAS de développement
+## Development NAS safety rule
 
-Le NAS de référence contient des données critiques hors PAM-olive. Aucune opération de
-suppression, de réinitialisation ou de modification de données, volumes, conteneurs ou comptes
-du NAS n'est autorisée pendant la construction locale de la V1. Un futur déploiement nécessitera
-une autorisation explicite, une sauvegarde vérifiée et un plan de retour arrière non destructif.
+The reference NAS contains critical data outside PAM-olive. No deletion, reset, or
+modification of NAS data, volumes, containers, or accounts is authorized during local
+V1 development. A future deployment requires explicit authorization, a verified backup,
+and a non-destructive rollback plan.

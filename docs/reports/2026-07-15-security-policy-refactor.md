@@ -1,55 +1,54 @@
-# Rapport d’évolution — sécurité, politiques et sessions
+# Evolution Report — Security, Policies, and Sessions
 
-Date : 15 juillet 2026
-Version : 0.3.0
+Date: July 15, 2026
+Version: 0.3.0
 
-## Objectif
+## Objective
 
-Cette évolution remplace plusieurs comportements de démonstration par des fonctions métier
-durables : cycle de vie MFA, TOTP dynamique, calendriers de droits réutilisables, séparation
-des sources d’identité, politiques de rotation et diagnostic explicite des refus de session.
+This evolution replaces several demonstration behaviors with durable business
+features: MFA lifecycle management, dynamic TOTP, reusable authorization schedules,
+separate identity sources, rotation policies, and explicit session-denial diagnostics.
 
-## Travaux réalisés
+## Completed work
 
-- MFA TOTP avec dix codes de récupération à usage unique. Seuls leurs condensats sont stockés.
-- Renouvellement des codes et réinitialisation MFA après contrôle du mot de passe et d’un second
-  facteur valide.
-- Rafraîchissement automatique des TOTP toutes les trente secondes, barre de temps et réponse
-  HTTP non mise en cache.
-- Bouton de masquage qui retire immédiatement le secret du document affiché.
-- Objet `TimeFrame` indépendant pour les jours, heures et fenêtres de validité ; une politique
-  peut cumuler plusieurs plages.
-- Objet `SecretRotationPolicy` indépendant pour la fréquence, la méthode, la longueur générée,
-  les groupes de cibles et le connecteur d’exécution.
-- Formulaires d’administration compacts basés sur des listes multi-sélection.
-- Écrans distincts pour LDAP/Active Directory et OpenID Connect.
-- Création de cibles limitée aux équipements SSH et RDP dans cette version.
-- Ouverture des sessions dans un nouvel onglet.
-- Refus de session présenté dans l’interface PAM-olive avec la mesure corrective attendue.
+- TOTP MFA with ten single-use recovery codes. Only their password hashes are stored.
+- Recovery-code regeneration and MFA reset after validating the password and a valid
+  second factor.
+- Automatic TOTP refresh every 30 seconds, a progress bar, and non-cacheable HTTP responses.
+- A hide action that immediately removes the revealed secret from the displayed document.
+- An independent `TimeFrame` object for weekdays, hours, and validity windows; one policy
+  may combine multiple schedules.
+- An independent `SecretRotationPolicy` for frequency, method, generated length, target
+  groups, and execution connector.
+- Compact administration forms based on multi-selection lists.
+- Separate screens for LDAP/Active Directory and OpenID Connect.
+- Target creation limited to SSH and RDP equipment in this release.
+- Session launch in a new browser tab.
+- Session denial displayed in PAM-olive with the expected corrective action.
 
-## Diagnostic de la réponse 403
+## 403 response diagnosis
 
-Les journaux du proxy et de Django ont été corrélés sans modifier la configuration du NAS.
-La requête atteignait bien l’application. Elle était refusée parce que la cible SSH ne possédait
-aucune clé d’hôte approuvée. Ce contrôle est conservé : il protège contre la connexion à un faux
-serveur. L’interface explique désormais qu’un administrateur doit vérifier et approuver la clé
-d’hôte dans la console.
+Proxy and Django logs were correlated without changing NAS configuration. The request
+reached the application correctly. It was denied because the SSH target had no approved
+host key. This check remains enforced because it protects against connecting to an
+impostor server. The interface now explains that an administrator must verify and approve
+the host key in the console.
 
-## Compatibilité et données
+## Compatibility and data
 
-Les anciennes colonnes horaires et de rotation sont conservées pour assurer une migration sans
-perte. Les nouveaux objets sont ajoutés par migrations Django. Aucun conteneur tiers, utilisateur
-NAS ou volume extérieur au projet PAM-olive n’est modifié.
+Legacy schedule and rotation columns are retained to provide a lossless migration path.
+New objects are added through Django migrations. No third-party container, NAS user, or
+volume outside the PAM-olive project was modified.
 
-## Vérifications
+## Validation
 
-- 120 tests automatisés réussis, avec une couverture applicative de 90,71 %.
-- Analyse Ruff sans erreur.
-- Vérification des migrations Django sans changement manquant.
-- Recette Docker isolée réussie avant déploiement sur le NAS.
+- 120 automated tests passed with 90.71% application coverage.
+- Ruff completed without errors.
+- Django migrations contain no missing changes.
+- The isolated Docker test suite passed before deployment to the NAS.
 
-## Suite avant une V1
+## Next steps before V1
 
-La version 0.3.0 reste une version alpha. Les prochains jalons prioritaires sont la validation
-réelle des connecteurs LDAP/OIDC, les connecteurs de rotation distants, les parcours SSH/RDP
-complets sur plusieurs plateformes, le durcissement de l’exposition TLS et les tests de charge.
+Version 0.3.0 remains an alpha release. Priorities include real LDAP/OIDC connector
+validation, remote rotation connectors, complete SSH/RDP journeys across multiple
+platforms, hardened TLS exposure, and load testing.
