@@ -41,7 +41,7 @@ dev = [
   "pytest-cov>=6,<8",
   "ruff>=0.11,<1",
   "mypy>=1.15,<2",
-  "django-stubs>=5.2,<6",
+  "django-stubs>=5.2,<7",
   "mkdocs-material>=9.6,<10",
 ]
 
