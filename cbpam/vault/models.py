@@ -7,6 +7,27 @@ from cbpam.policies.models import AccessPolicy
 from cbpam.targets.models import Target
 
 
+class PersonalVaultGroup(UUIDTimeStampedModel):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="personal_vault_groups",
+    )
+    name = models.CharField(max_length=120)
+
+    class Meta:
+        ordering = ("name",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("owner", "name"),
+                name="unique_personal_vault_group_name_per_owner",
+            )
+        ]
+
+    def __str__(self):
+        return self.name
+
+
 class Credential(UUIDTimeStampedModel):
     class RotationStatus(models.TextChoices):
         NEVER = "never", "Jamais exécutée"
@@ -101,6 +122,13 @@ class PersonalVaultItem(UUIDTimeStampedModel):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="personal_vault_items",
+    )
+    group = models.ForeignKey(
+        PersonalVaultGroup,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="items",
     )
     name = models.CharField(max_length=180)
     item_type = models.CharField(max_length=20, choices=ItemType.choices)

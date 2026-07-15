@@ -3,17 +3,20 @@ import csv
 import hashlib
 import io
 import json
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.contrib.sessions.models import Session
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from cbpam.accounts.models import User
 from cbpam.approvals.models import AccessRequest, ApprovalDecision
@@ -184,8 +187,86 @@ def dashboard(request):
         ).count(),
         "groups_without_policy": groups_without_policy,
         "targets_without_credentials": targets_without_credentials,
+        **_live_dashboard_data(),
     }
     return render(request, "console/dashboard.html", context)
+
+
+def _connected_web_user_ids():
+    user_ids = set()
+    for session in Session.objects.filter(expire_date__gt=timezone.now()).iterator():
+        try:
+            user_id = session.get_decoded().get("_auth_user_id")
+        except (ValueError, TypeError):
+            continue
+        if user_id:
+            try:
+                user_ids.add(int(user_id))
+            except (TypeError, ValueError):
+                continue
+    return user_ids
+
+
+def _live_dashboard_data():
+    since = timezone.now() - timedelta(hours=24)
+    connected_ids = _connected_web_user_ids()
+    database_ok = True
+    cache_ok = True
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except Exception:  # pragma: no cover - defensive operations check
+        database_ok = False
+    try:
+        cache.set("pam-olive-dashboard-probe", "ok", timeout=10)
+        cache_ok = cache.get("pam-olive-dashboard-probe") == "ok"
+    except Exception:  # pragma: no cover - defensive operations check
+        cache_ok = False
+    failures = AuditEvent.objects.filter(
+        action="authentication.password.failed",
+        occurred_at__gte=since,
+    )
+    return {
+        "connected_user_count": len(connected_ids),
+        "connected_users": User.objects.filter(pk__in=connected_ids).order_by("username")[:8],
+        "active_privileged_session_count": PrivilegedSession.objects.filter(
+            status=PrivilegedSession.Status.ACTIVE
+        ).count(),
+        "failed_login_count": failures.count(),
+        "recent_failures": failures.order_by("-occurred_at")[:8],
+        "audit_event_count_24h": AuditEvent.objects.filter(occurred_at__gte=since).count(),
+        "database_ok": database_ok,
+        "cache_ok": cache_ok,
+    }
+
+
+@require_GET
+@login_required
+@capability_required(Role.Capability.CONSOLE_ACCESS)
+def dashboard_status(request):
+    data = _live_dashboard_data()
+    return JsonResponse(
+        {
+            "connected_users": data["connected_user_count"],
+            "active_sessions": data["active_privileged_session_count"],
+            "failed_logins": data["failed_login_count"],
+            "pending_approvals": AccessRequest.objects.filter(
+                status=AccessRequest.Status.PENDING
+            ).count(),
+            "audit_events_24h": data["audit_event_count_24h"],
+            "database": "ok" if data["database_ok"] else "error",
+            "cache": "ok" if data["cache_ok"] else "error",
+            "failures": [
+                {
+                    "at": event.occurred_at.isoformat(),
+                    "source_ip": str(event.source_ip or "—"),
+                    "username": event.metadata.get("username", "—"),
+                }
+                for event in data["recent_failures"]
+            ],
+        }
+    )
 
 
 @login_required

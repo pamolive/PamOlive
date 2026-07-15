@@ -22,6 +22,10 @@ class Domain(UUIDTimeStampedModel):
 
 
 class Target(UUIDTimeStampedModel):
+    class SSHHostKeyPolicy(models.TextChoices):
+        TRUST_ON_FIRST_USE = "tofu", "Trust on first use"
+        STRICT = "strict", "Require prior administrator approval"
+
     class Kind(models.TextChoices):
         DEVICE = "device", "Équipement"
         APPLICATION = "application", "Application"
@@ -56,6 +60,11 @@ class Target(UUIDTimeStampedModel):
     hostname = models.CharField(max_length=255)
     port = models.PositiveIntegerField(validators=[MinValueValidator(1), MaxValueValidator(65535)])
     protocol = models.CharField(max_length=16, choices=Protocol.choices)
+    ssh_host_key_policy = models.CharField(
+        max_length=16,
+        choices=SSHHostKeyPolicy.choices,
+        default=SSHHostKeyPolicy.TRUST_ON_FIRST_USE,
+    )
     platform = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
     enabled = models.BooleanField(default=True)

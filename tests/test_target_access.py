@@ -96,6 +96,7 @@ def test_session_opens_new_tab_and_missing_host_key_has_clear_message(client):
         hostname="10.0.0.8",
         port=22,
         protocol=Target.Protocol.SSH,
+        ssh_host_key_policy=Target.SSHHostKeyPolicy.STRICT,
     )
     credential = Credential.objects.create(
         name="root",

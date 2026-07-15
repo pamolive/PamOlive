@@ -12,7 +12,13 @@ from django.utils.cache import patch_cache_control
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from cbpam.accounts.forms import MFAConfirmForm, MFASecurityForm, ProfileForm
+from cbpam.accounts.forms import (
+    MFAConfirmForm,
+    MFASecurityForm,
+    PreferencesForm,
+    ProfileForm,
+)
+from cbpam.accounts.models import User
 from cbpam.approvals.forms import AccessRequestForm
 from cbpam.approvals.models import AccessRequest
 from cbpam.audit.services import record_event
@@ -36,7 +42,7 @@ from cbpam.policies.services import (
 )
 from cbpam.sessions.models import PrivilegedSession
 from cbpam.sessions.services import issue_session_ticket
-from cbpam.vault.forms import PersonalVaultItemForm
+from cbpam.vault.forms import PersonalVaultGroupForm, PersonalVaultItemForm
 from cbpam.vault.leases import consume_secret_lease, issue_secret_lease
 from cbpam.vault.models import Credential, PersonalVaultItem
 from cbpam.vault.services import VaultCipher, totp_code
@@ -68,11 +74,20 @@ def dashboard(request):
 @login_required
 def passwords_page(request):
     source_ip = request_client_ip(request)
-    form = PersonalVaultItemForm(request.POST or None)
-    if request.method == "POST" and form.is_valid():
+    action = request.POST.get("action", "item")
+    form = PersonalVaultItemForm(
+        request.POST if request.method == "POST" and action == "item" else None,
+        owner=request.user,
+    )
+    group_form = PersonalVaultGroupForm(
+        request.POST if request.method == "POST" and action == "group" else None,
+        owner=request.user,
+    )
+    if request.method == "POST" and action == "item" and form.is_valid():
         cipher = VaultCipher()
         item = PersonalVaultItem.objects.create(
             owner=request.user,
+            group=form.cleaned_data["group"],
             name=form.cleaned_data["name"],
             item_type=form.cleaned_data["item_type"],
             favorite=form.cleaned_data["favorite"],
@@ -81,6 +96,15 @@ def passwords_page(request):
         )
         record_event(actor=request.user, action="personal_vault.item_created", resource=item)
         messages.success(request, "L’élément a été ajouté à votre coffre personnel.")
+        return redirect("passwords")
+    if request.method == "POST" and action == "group" and group_form.is_valid():
+        group = group_form.save()
+        record_event(
+            actor=request.user,
+            action="personal_vault.group_created",
+            resource=group,
+        )
+        messages.success(request, "Le groupe de mots de passe a été créé.")
         return redirect("passwords")
 
     target_credentials = []
@@ -109,10 +133,58 @@ def passwords_page(request):
         "passwords.html",
         {
             "form": form,
-            "personal_items": request.user.personal_vault_items.all(),
+            "group_form": group_form,
+            "personal_groups": request.user.personal_vault_groups.prefetch_related("items"),
+            "ungrouped_items": request.user.personal_vault_items.filter(group__isnull=True),
+            "personal_items": request.user.personal_vault_items.select_related("group"),
             "target_credentials": target_credentials,
         },
     )
+
+
+@login_required
+def edit_personal_item(request, pk):
+    item = get_object_or_404(PersonalVaultItem, pk=pk, owner=request.user)
+    cipher = VaultCipher()
+    payload = cipher.decrypt_payload(item.encrypted_payload, key_id=item.encryption_key_id)
+    initial = {
+        **payload,
+        "name": item.name,
+        "item_type": item.item_type,
+        "favorite": item.favorite,
+        "group": item.group,
+    }
+    form = PersonalVaultItemForm(
+        request.POST or None,
+        initial=initial,
+        owner=request.user,
+    )
+    if request.method == "POST" and form.is_valid():
+        item.name = form.cleaned_data["name"]
+        item.item_type = form.cleaned_data["item_type"]
+        item.favorite = form.cleaned_data["favorite"]
+        item.group = form.cleaned_data["group"]
+        item.encrypted_payload = cipher.encrypt_payload(form.encrypted_payload_data())
+        item.encryption_key_id = cipher.active_key_id
+        item.save(
+            update_fields=(
+                "name",
+                "item_type",
+                "favorite",
+                "group",
+                "encrypted_payload",
+                "encryption_key_id",
+                "updated_at",
+            )
+        )
+        record_event(
+            actor=request.user,
+            action="personal_vault.item_updated",
+            resource=item,
+        )
+        messages.success(request, "L’élément du coffre a été modifié.")
+        return redirect("passwords")
+    return render(request, "vault/edit.html", {"form": form, "item": item})
 
 
 @require_POST
@@ -312,6 +384,7 @@ def start_session(request, pk):
 @login_required
 def account_page(request):
     profile_form = ProfileForm(instance=request.user)
+    preferences_form = PreferencesForm(instance=request.user)
     password_form = PasswordChangeForm(request.user)
     if request.method == "POST":
         action = request.POST.get("action")
@@ -324,6 +397,17 @@ def account_page(request):
                 )
                 messages.success(request, "Votre profil a été mis à jour.")
                 return redirect("account")
+        elif action == "preferences":
+            preferences_form = PreferencesForm(request.POST, instance=request.user)
+            if preferences_form.is_valid():
+                preferences_form.save()
+                record_event(
+                    actor=request.user,
+                    action="account.preferences_updated",
+                    resource=request.user,
+                )
+                messages.success(request, "Vos préférences ont été mises à jour.")
+                return redirect("account")
         elif action == "password":
             password_form = PasswordChangeForm(request.user, request.POST)
             if password_form.is_valid():
@@ -333,7 +417,7 @@ def account_page(request):
                 messages.success(request, "Votre mot de passe a été modifié.")
                 return redirect("account")
     mfa_device = request.user.mfa_devices.filter(kind=MFADevice.Kind.TOTP, confirmed=True).first()
-    for form in (profile_form, password_form):
+    for form in (profile_form, preferences_form, password_form):
         for field in form.fields.values():
             field.widget.attrs["class"] = "console-input"
     return render(
@@ -341,6 +425,7 @@ def account_page(request):
         "account.html",
         {
             "profile_form": profile_form,
+            "preferences_form": preferences_form,
             "password_form": password_form,
             "mfa_device": mfa_device,
             "mfa_security_form": MFASecurityForm(user=request.user),
@@ -348,6 +433,37 @@ def account_page(request):
                 used_at__isnull=True
             ).count(),
         },
+    )
+
+
+@require_POST
+@login_required
+def update_ui_preferences(request):
+    theme = request.POST.get("preferred_theme", "")
+    language = request.POST.get("preferred_language", "")
+    update_fields = []
+    if theme in User.Theme.values:
+        request.user.preferred_theme = theme
+        update_fields.append("preferred_theme")
+    if language in User.Language.values:
+        request.user.preferred_language = language
+        request.session["preferred_language"] = language
+        update_fields.append("preferred_language")
+    if not update_fields:
+        return JsonResponse({"detail": "Invalid preference."}, status=400)
+    update_fields.append("updated_at") if hasattr(request.user, "updated_at") else None
+    request.user.save(update_fields=update_fields)
+    record_event(
+        actor=request.user,
+        action="account.preferences_updated",
+        resource=request.user,
+        metadata={"fields": update_fields},
+    )
+    return JsonResponse(
+        {
+            "theme": request.user.preferred_theme,
+            "language": request.user.preferred_language,
+        }
     )
 
 

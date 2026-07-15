@@ -288,6 +288,7 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
             "hostname",
             "port",
             "protocol",
+            "ssh_host_key_policy",
             "platform",
             "description",
             "rdp_security",
@@ -303,6 +304,7 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
             "hostname": "Nom d’hôte ou adresse IP",
             "port": "Port",
             "protocol": "Protocole",
+            "ssh_host_key_policy": "Vérification de l’identité SSH",
             "platform": "Plateforme",
             "description": "Description",
             "rdp_security": "Sécurité RDP",
@@ -329,6 +331,10 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
         )
         self.fields["kind"].required = False
         self.fields["kind"].initial = Target.Kind.DEVICE
+        self.fields["ssh_host_key_policy"].required = False
+        self.fields["ssh_host_key_policy"].initial = (
+            Target.SSHHostKeyPolicy.TRUST_ON_FIRST_USE
+        )
         rdp_defaults = {
             "rdp_security": Target.RDPSecurity.NLA,
             "rdp_server_layout": "fr-be-azerty",
@@ -345,6 +351,10 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
     def clean(self):
         cleaned = super().clean()
         cleaned["kind"] = Target.Kind.DEVICE
+        cleaned["ssh_host_key_policy"] = (
+            cleaned.get("ssh_host_key_policy")
+            or Target.SSHHostKeyPolicy.TRUST_ON_FIRST_USE
+        )
         if cleaned.get("protocol") not in {Target.Protocol.SSH, Target.Protocol.RDP}:
             self.add_error("protocol", "Seuls les équipements SSH et RDP sont disponibles.")
         if cleaned.get("protocol") == Target.Protocol.RDP:

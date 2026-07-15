@@ -17,17 +17,38 @@ from cbpam.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
 from cbpam.rbac.models import Role, RoleAssignment, UserGroup
 from cbpam.sessions.models import PrivilegedSession, SessionTicket
 from cbpam.targets.models import Domain, Target, TargetGroup, TargetHostKey
-from cbpam.vault.models import Credential, PersonalVaultItem, SecretLease
+from cbpam.vault.models import Credential, PersonalVaultGroup, PersonalVaultItem, SecretLease
 
 
 @admin.register(User)
 class CBPAMUserAdmin(UserAdmin):
     list_display = ("username", "email", "display_name", "is_active", "is_staff")
     fieldsets = UserAdmin.fieldsets + (
-        ("CBPAM", {"fields": ("display_name", "is_service_account")}),
+        (
+            "PAM-olive",
+            {
+                "fields": (
+                    "display_name",
+                    "is_service_account",
+                    "preferred_theme",
+                    "preferred_language",
+                )
+            },
+        ),
     )
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ("CBPAM", {"fields": ("email", "display_name", "is_service_account")}),
+        (
+            "PAM-olive",
+            {
+                "fields": (
+                    "email",
+                    "display_name",
+                    "is_service_account",
+                    "preferred_theme",
+                    "preferred_language",
+                )
+            },
+        ),
     )
 
 
@@ -189,6 +210,7 @@ admin.site.register(DirectoryGroupMapping)
 admin.site.register(ExternalIdentity)
 admin.site.register(ExternalGroupMembership)
 admin.site.register(PersonalVaultItem)
+admin.site.register(PersonalVaultGroup)
 
 
 @admin.register(TargetHostKey)

@@ -125,6 +125,8 @@ def test_session_ticket_rejects_unsupported_protocol_foreign_user_and_changed_ip
     ticket.refresh_from_db()
     assert ticket.consumed_at is None
     TargetHostKey.objects.filter(target=credential.target).update(revoked_at=timezone.now())
+    credential.target.ssh_host_key_policy = Target.SSHHostKeyPolicy.STRICT
+    credential.target.save(update_fields=("ssh_host_key_policy", "updated_at"))
     with pytest.raises(PermissionDenied, match="Aucune clé d’hôte SSH approuvée"):
         issue_session_ticket(user=user, credential=credential)
 

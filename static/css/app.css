@@ -524,3 +524,102 @@ svg { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Theme, supplied brand assets, and interactive vault/admin refinements */
+.logo-asset { position: relative; display: block; overflow: hidden; }
+.logo-asset img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scale(2.12); }
+.logo-light { display: none; }
+html[data-theme="light"] .logo-dark { display: none; }
+html[data-theme="light"] .logo-light { display: block; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.language-quick-select select { height: 34px; padding: 0 8px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); background: var(--surface); outline: 0; font-size: 9px; font-weight: 750; cursor: pointer; }
+.language-quick-select select:focus { border-color: var(--border-strong); }
+.theme-toggle { flex: 0 0 auto; }
+.secondary-action { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 15px; border: 1px solid var(--border-strong); border-radius: 11px; color: var(--olive); background: rgba(189,219,98,.035); font-size: 10px; font-weight: 760; cursor: pointer; }
+.secondary-action:hover { background: rgba(189,219,98,.08); }
+.vault-create-actions { display: flex; align-items: center; gap: 9px; }
+.compact-popover { width: min(350px, 90vw); }
+.vault-folder { margin-top: 23px; }
+.vault-folder-heading { display: flex; align-items: center; gap: 11px; padding: 12px 2px; border-bottom: 1px solid var(--border); }
+.vault-folder-heading > div { display: grid; gap: 3px; }
+.vault-folder-heading strong { font-size: 11px; }
+.vault-folder-heading small { color: var(--muted); font-size: 8px; }
+.folder-icon { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--border-strong); border-radius: 9px; color: var(--olive); background: rgba(189,219,98,.05); }
+.vault-card-actions { display: grid; grid-template-columns: 1fr auto; gap: 7px; }
+.vault-card-actions form { min-width: 0; }
+.vault-edit-button { display: grid; place-items: center; min-width: 72px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 9px; color: var(--muted); font-size: 9px; font-weight: 720; }
+.vault-edit-button:hover { color: var(--text); border-color: var(--border-strong); }
+.vault-edit-card { position: static; width: min(720px, 100%); margin: 28px auto 0; }
+[data-vault-field][hidden] { display: none !important; }
+.live-stat-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.live-stat { position: relative; overflow: hidden; }
+.live-stat::after { content: ""; position: absolute; top: 13px; right: 13px; width: 6px; height: 6px; border-radius: 50%; background: var(--olive); box-shadow: 0 0 0 4px rgba(189,219,98,.08); }
+.failure-stat::after { background: var(--danger); box-shadow: 0 0 0 4px rgba(255,143,134,.08); }
+.admin-live-grid { display: grid; grid-template-columns: 1.1fr .9fr; gap: 14px; margin-top: 14px; }
+.admin-live-grid .panel { min-height: 320px; }
+.service-status-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 18px; }
+.service-status { display: grid; grid-template-columns: 8px 1fr; align-items: center; gap: 10px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: rgba(255,255,255,.018); }
+.service-status > span { width: 7px; height: 7px; border-radius: 50%; background: var(--danger); }
+.service-status.is-ok > span { background: var(--olive); box-shadow: 0 0 0 4px rgba(189,219,98,.07); }
+.service-status > div { display: grid; gap: 3px; }
+.service-status strong { font-size: 9px; }
+.service-status small { color: var(--muted); font-size: 8px; }
+.connected-user-list { margin-top: 22px; padding-top: 17px; border-top: 1px solid var(--border); }
+.connected-user-list h3 { margin: 0 0 10px; font-size: 10px; }
+.connected-user-list > span { display: inline-flex; align-items: center; gap: 7px; margin: 0 7px 7px 0; padding: 6px 9px 6px 6px; border: 1px solid var(--border); border-radius: 999px; }
+.connected-user-list i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: var(--olive); background: rgba(189,219,98,.08); font-size: 8px; font-style: normal; }
+.connected-user-list b { font-size: 8px; }
+.failure-log-list { margin-top: 15px; }
+.failure-log-row { display: grid; grid-template-columns: 30px 1fr; align-items: center; gap: 10px; padding: 11px 0; border-top: 1px solid var(--border); }
+.failure-log-row > span { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; color: var(--danger); background: rgba(255,92,80,.07); font-weight: 800; }
+.failure-log-row > div { display: grid; gap: 3px; min-width: 0; }
+.failure-log-row strong { overflow: hidden; font-size: 9px; text-overflow: ellipsis; }
+.failure-log-row small { color: var(--muted); font-size: 8px; }
+
+html[data-theme="light"] {
+  --bg: #f4f6f1;
+  --bg-soft: #eef2ea;
+  --surface: #ffffff;
+  --surface-raised: #f8faf6;
+  --surface-hover: #edf2e8;
+  --border: rgba(35, 49, 38, .13);
+  --border-strong: rgba(101, 128, 38, .34);
+  --text: #182019;
+  --muted: #687269;
+  --muted-strong: #4e5a51;
+  --olive: #6f8e23;
+  --olive-bright: #a9cd42;
+  --olive-deep: #526c18;
+  --danger: #bd453d;
+  --shadow: 0 26px 70px rgba(25, 38, 28, .14);
+  color-scheme: light;
+}
+html[data-theme="light"], html[data-theme="light"] body { background: var(--bg); }
+html[data-theme="light"] .app-body { background: radial-gradient(circle at 85% -20%, rgba(130,165,55,.13), transparent 36%), var(--bg); }
+html[data-theme="light"] .topbar { background: rgba(250,252,248,.88); }
+html[data-theme="light"] .panel,
+html[data-theme="light"] .home-shortcut,
+html[data-theme="light"] .vault-card,
+html[data-theme="light"] .target-group-card,
+html[data-theme="light"] .resource-form-card,
+html[data-theme="light"] .resource-list-card,
+html[data-theme="light"] .console-stat,
+html[data-theme="light"] .governance-flow,
+html[data-theme="light"] .data-panel { background: linear-gradient(145deg, #fff, #f7faf5); }
+html[data-theme="light"] .popover-card,
+html[data-theme="light"] .console-input,
+html[data-theme="light"] .audit-filter-bar input,
+html[data-theme="light"] .decision-form input { color: var(--text); background: #fff; }
+html[data-theme="light"] .secret-output,
+html[data-theme="light"] .mfa-setup-copy code { background: rgba(33,48,36,.045); }
+html[data-theme="light"] .topnav-link.is-active { color: #40550f; background: rgba(111,142,35,.12); }
+html[data-theme="light"] .recovery-code-grid code { color: var(--olive-deep); background: #f7faf4; }
+html[data-theme="light"] .console-sidebar { background: #edf2ea; }
+
+@media (max-width: 1250px) {
+  .live-stat-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 900px) {
+  .admin-live-grid, .service-status-grid { grid-template-columns: 1fr; }
+  .vault-create-actions { align-items: stretch; flex-direction: column; width: 100%; }
+}

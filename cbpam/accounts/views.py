@@ -6,7 +6,9 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 
+from cbpam.audit.models import AuditChainState
 from cbpam.audit.services import record_event
+from cbpam.common.network import request_client_ip
 from cbpam.connectors.models import IdentitySource
 from cbpam.connectors.oidc import oidc_client_for, provision_oidc_identity
 
@@ -23,6 +25,27 @@ class PAMOliveLoginView(LoginView):
             enabled=True,
         ).order_by("name")
         return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        record_event(
+            actor=form.get_user(),
+            action="authentication.password.succeeded",
+            resource=form.get_user(),
+            source_ip=request_client_ip(self.request),
+        )
+        return response
+
+    def form_invalid(self, form):
+        chain = AuditChainState.objects.get(pk=1)
+        record_event(
+            actor=None,
+            action="authentication.password.failed",
+            resource=chain,
+            metadata={"username": str(form.data.get("username", ""))[:150]},
+            source_ip=request_client_ip(self.request),
+        )
+        return super().form_invalid(form)
 
 
 def oidc_login(request, slug):

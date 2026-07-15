@@ -70,6 +70,21 @@ class ProfileForm(forms.ModelForm):
             field.widget.attrs["class"] = "console-input"
 
 
+class PreferencesForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ("preferred_theme", "preferred_language")
+        labels = {
+            "preferred_theme": "Theme",
+            "preferred_language": "Language",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs["class"] = "console-input"
+
+
 class MFAConfirmForm(forms.Form):
     token = forms.CharField(
         label="Code à six chiffres",

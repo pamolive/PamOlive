@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% load static %}
+{% block title %}{{ ui.edit }} · {{ item.name }} · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero"><div><span class="eyebrow"><i></i> {{ ui.my_vault }}</span><h1>{{ ui.edit }} {{ item.name }}.</h1><p>{{ ui.private_items }}</p></div><a class="secondary-action" href="{% url 'passwords' %}">← {{ ui.passwords }}</a></header>
+<section class="resource-form-card vault-edit-card"><div class="resource-card-title"><span>{{ ui.personal }}</span><strong>{{ item.name }}</strong></div><form method="post" class="console-form" data-vault-form>{% csrf_token %}{% for field in form %}<div class="console-field {% if field.errors %}has-error{% endif %}" data-vault-field="{{ field.name }}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}<button class="primary-button" type="submit">{{ ui.save_vault }}</button></form></section>
+<script src="{% static 'js/vault-form.js' %}" defer></script>
+{% endblock %}

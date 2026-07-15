@@ -1,4 +1,4 @@
-{% extends "console/base.html" %}
+{% extends "console/base.html" %}{% load static %}
 {% block console_content %}
 <header class="console-page-header compact">
   <div>
@@ -48,11 +48,11 @@
         <span>{% if editing %}Modifier{% else %}Créer{% endif %}</span>
         <strong>{% if editing %}{{ editing }}{% else %}Nouvel élément{% endif %}</strong>
       </div>
-      <form method="post" class="console-form">
+      <form method="post" class="console-form" data-console-resource="{{ resource }}">
         {% csrf_token %}
         {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
         {% for field in form %}
-          <div class="console-field {% if field.errors %}has-error{% endif %}">
+          <div class="console-field {% if field.errors %}has-error{% endif %}" data-console-field="{{ field.name }}">
             {% if field.field.widget.input_type == 'checkbox' and field.field.widget.allow_multiple_selected != True %}
               <label class="toggle-row">{{ field }}<span><strong>{{ field.label }}</strong>{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</span></label>
             {% else %}
@@ -115,4 +115,5 @@
     </div>
   </section>
 </div>
+<script src="{% static 'js/console-form.js' %}" defer></script>
 {% endblock %}

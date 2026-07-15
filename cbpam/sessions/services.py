@@ -32,6 +32,8 @@ def issue_session_ticket(*, user, credential, lifetime_seconds=60, source_ip=Non
         raise PermissionDenied("Le courtage RDP n'est pas activé sur cette installation.")
     if (
         credential.target.protocol == credential.target.Protocol.SSH
+        and credential.target.ssh_host_key_policy
+        == credential.target.SSHHostKeyPolicy.STRICT
         and not credential.target.host_keys.filter(revoked_at__isnull=True).exists()
     ):
         raise PermissionDenied("Aucune clé d’hôte SSH approuvée n’est disponible pour cette cible.")

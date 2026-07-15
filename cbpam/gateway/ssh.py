@@ -56,6 +56,7 @@ async def bridge_ssh(
     *,
     connect_timeout=10,
     cancellation=None,
+    host_key_callback=None,
 ):
     if envelope.get("protocol") != "ssh":
         raise GatewayProtocolError("Le broker SSH refuse ce protocole.")
@@ -63,7 +64,11 @@ async def bridge_ssh(
         "host": envelope["host"],
         "port": int(envelope["port"]),
         "username": envelope["username"],
-        "known_hosts": envelope["known_hosts"].encode(),
+        "known_hosts": (
+            envelope.get("known_hosts", "").encode()
+            if envelope.get("known_hosts")
+            else None
+        ),
         "connect_timeout": connect_timeout,
         "login_timeout": connect_timeout,
         "keepalive_interval": 30,
@@ -77,6 +82,12 @@ async def bridge_ssh(
         connect_options["password"] = envelope["secret"]
 
     async with asyncssh.connect(**connect_options) as connection:
+        if not envelope.get("known_hosts"):
+            if envelope.get("host_key_policy") != "tofu" or host_key_callback is None:
+                raise GatewayProtocolError("SSH host-key trust is not configured.")
+            public_key = connection.get_server_host_key().export_public_key().decode().strip()
+            if not await host_key_callback(public_key):
+                raise GatewayProtocolError("The observed SSH host key could not be recorded.")
         process = await connection.create_process(
             term_type="xterm-256color",
             term_size=(80, 24),

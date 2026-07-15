@@ -46,6 +46,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "cbpam.accounts.middleware.UserLanguageMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -60,6 +61,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "cbpam.common.ui.ui_context",
             ]
         },
     }
@@ -79,6 +81,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 AUTH_USER_MODEL = "accounts.User"
 LANGUAGE_CODE = "fr-fr"
+LANGUAGES = (("en", "English"), ("fr", "Français"), ("es", "Español"))
 TIME_ZONE = "Europe/Brussels"
 USE_I18N = True
 USE_TZ = True

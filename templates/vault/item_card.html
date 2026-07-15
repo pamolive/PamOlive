@@ -1,0 +1,12 @@
+<article class="vault-card">
+  <div class="vault-card-head">
+    <span class="vault-type-icon">{% if item.item_type == 'card' %}▰{% elif item.item_type == 'totp' %}123{% elif item.item_type == 'note' %}≡{% else %}•••{% endif %}</span>
+    <span><strong>{{ item.name }}</strong><small>{{ item.get_item_type_display }}</small></span>
+    {% if item.favorite %}<b>★</b>{% endif %}
+  </div>
+  <div id="personal-secret-{{ item.pk }}" class="secret-output"><span>••••••••••••</span></div>
+  <div class="vault-card-actions">
+    <form method="post" action="{% url 'reveal_personal_item' item.pk %}" hx-post="{% url 'reveal_personal_item' item.pk %}" hx-target="#personal-secret-{{ item.pk }}" hx-swap="innerHTML">{% csrf_token %}<button class="reveal-button" type="submit">{{ ui.reveal_audit }}</button></form>
+    <a class="vault-edit-button" href="{% url 'edit_personal_item' item.pk %}">{{ ui.edit }}</a>
+  </div>
+</article>

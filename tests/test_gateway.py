@@ -8,6 +8,7 @@ import pytest
 from asgiref.sync import async_to_sync
 from channels.testing import HttpCommunicator, WebsocketCommunicator
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 
 from cbpam.accounts.models import User
@@ -159,6 +160,49 @@ def test_internal_gateway_exchanges_ticket_once_and_records_close(client):
     assert session.recording_reference == f"{session.pk}.pamrec"
     assert AuditEvent.objects.filter(action="session.recording_sealed").exists()
     assert AuditEvent.objects.filter(action="session.closed").exists()
+
+
+@pytest.mark.django_db
+def test_ssh_password_session_trusts_host_key_on_first_use(client):
+    user, credential = gateway_session_fixture()
+    TargetHostKey.objects.filter(target=credential.target).delete()
+    session, _ticket, raw_ticket = issue_session_ticket(user=user, credential=credential)
+
+    authorized = post_signed(
+        client,
+        reverse("gateway_authorize"),
+        {"session_id": str(session.pk), "ticket": raw_ticket},
+    )
+    envelope = decrypt_envelope(
+        authorized.json()["envelope"],
+        settings.CBPAM_GATEWAY_SHARED_KEY,
+    )
+    trusted = post_signed(
+        client,
+        reverse("gateway_trust_host_key"),
+        {"session_id": str(session.pk), "public_key": public_host_key()},
+    )
+
+    assert authorized.status_code == 200
+    assert envelope["credential_kind"] == Credential.Kind.PASSWORD
+    assert envelope["known_hosts"] == ""
+    assert envelope["host_key_policy"] == Target.SSHHostKeyPolicy.TRUST_ON_FIRST_USE
+    assert trusted.status_code == 200
+    assert TargetHostKey.objects.filter(target=credential.target).exists()
+    assert AuditEvent.objects.filter(
+        action="target.host_key_trusted_on_first_use"
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_strict_ssh_target_still_requires_an_approved_host_key():
+    user, credential = gateway_session_fixture()
+    credential.target.host_keys.all().delete()
+    credential.target.ssh_host_key_policy = Target.SSHHostKeyPolicy.STRICT
+    credential.target.save(update_fields=("ssh_host_key_policy", "updated_at"))
+
+    with pytest.raises(PermissionDenied, match="Aucune clé d’hôte SSH approuvée"):
+        issue_session_ticket(user=user, credential=credential)
 
 
 @pytest.mark.django_db

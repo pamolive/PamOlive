@@ -1,7 +1,37 @@
-{% extends "console/base.html" %}
+{% extends "console/base.html" %}{% load static %}
 {% block console_content %}
-<header class="console-page-header"><div><span class="eyebrow"><i></i> Administration</span><h1>Pilotez PAM-olive.</h1><p>Identités, passwords, cibles, approbations et traçabilité depuis une console unique.</p></div><span class="admin-badge"><span></span>{% if user.is_superuser %}Super administrateur{% else %}Console gouvernée{% endif %}</span></header>
-{% if groups_without_policy or targets_without_credentials %}<div class="admin-alert-stack">{% if groups_without_policy %}<div class="compliance-alert"><span>!</span><span><strong>{{ groups_without_policy }} groupe{{ groups_without_policy|pluralize }} sans politique</strong><small>Ces groupes ne donnent encore aucun accès.</small></span><a href="{% url 'console:policies' %}">Configurer</a></div>{% endif %}{% if targets_without_credentials %}<div class="compliance-alert"><span>!</span><span><strong>{{ targets_without_credentials }} cible{{ targets_without_credentials|pluralize }} sans identifiant local</strong><small>Chaque cible doit posséder au moins un identifiant.</small></span><a href="{% url 'console:credentials' %}">Corriger</a></div>{% endif %}</div>{% endif %}
-<div class="console-stat-grid"><a href="{% url 'console:users' %}" class="console-stat"><span>Utilisateurs</span><strong>{{ user_count }}</strong><small>{{ user_group_count }} groupe{{ user_group_count|pluralize }}</small></a><a href="{% url 'console:targets' %}" class="console-stat"><span>Cibles</span><strong>{{ target_count }}</strong><small>{{ target_group_count }} groupe{{ target_group_count|pluralize }}</small></a><a href="{% url 'console:policies' %}" class="console-stat"><span>Politiques</span><strong>{{ policy_count }}</strong><small>Droits effectifs</small></a><a href="{% url 'console:approvals' %}" class="console-stat console-stat-accent"><span>À approuver</span><strong>{{ pending_approval_count }}</strong><small>Décisions en attente</small></a></div>
-<section class="governance-flow"><div class="panel-heading"><div><span class="panel-kicker">Autorisation</span><h2>Groupes multiples, droits explicites</h2></div><span class="soft-badge">Deny by default</span></div><div class="flow-row"><a href="{% url 'console:user_groups' %}" class="flow-node"><span>01</span><strong>Groupes utilisateurs</strong><small>Un utilisateur peut en cumuler plusieurs.</small></a><i class="flow-arrow">→</i><a href="{% url 'console:roles' %}" class="flow-node"><span>02</span><strong>Rôles et politiques</strong><small>Fonctions PAM et accès aux cibles.</small></a><i class="flow-arrow">→</i><a href="{% url 'console:target_groups' %}" class="flow-node"><span>03</span><strong>Groupes de cibles</strong><small>Seulement les périmètres autorisés.</small></a></div></section>
+<div data-admin-dashboard-url="{% url 'console:dashboard_status' %}" data-operational-label="{{ ui.operational }}" data-error-label="{{ ui.error }}" data-empty-failure-label="{{ ui.no_recent_failure }}">
+<header class="console-page-header"><div><span class="eyebrow"><i></i> {{ ui.administration }}</span><h1>{{ ui.control_title }}</h1><p>{{ ui.control_intro }}</p></div><span class="admin-badge"><span></span>{% if user.is_superuser %}Super administrator{% else %}{{ ui.governed_console }}{% endif %}</span></header>
+{% if groups_without_policy or targets_without_credentials %}<div class="admin-alert-stack">{% if groups_without_policy %}<div class="compliance-alert"><span>!</span><span><strong>{{ groups_without_policy }} {{ ui.groups_without_policy }}</strong><small>{{ ui.groups_without_policy_help }}</small></span><a href="{% url 'console:policies' %}">{{ ui.configure }}</a></div>{% endif %}{% if targets_without_credentials %}<div class="compliance-alert"><span>!</span><span><strong>{{ targets_without_credentials }} {{ ui.targets_without_credential }}</strong><small>{{ ui.targets_without_credential_help }}</small></span><a href="{% url 'console:credentials' %}">{{ ui.fix }}</a></div>{% endif %}</div>{% endif %}
+
+<div class="console-stat-grid live-stat-grid">
+  <a href="{% url 'console:users' %}" class="console-stat"><span>{{ ui.users }}</span><strong>{{ user_count }}</strong><small>{{ user_group_count }} {{ ui.user_groups|lower }}</small></a>
+  <a href="{% url 'console:targets' %}" class="console-stat"><span>{{ ui.targets }}</span><strong>{{ target_count }}</strong><small>{{ target_group_count }} {{ ui.target_groups|lower }}</small></a>
+  <div class="console-stat live-stat"><span>{{ ui.connected_users }}</span><strong data-admin-metric="connected_users">{{ connected_user_count }}</strong><small>{{ ui.web_sessions }}</small></div>
+  <a href="{% url 'console:sessions' %}" class="console-stat live-stat"><span>{{ ui.active_sessions }}</span><strong data-admin-metric="active_sessions">{{ active_privileged_session_count }}</strong><small>SSH / RDP</small></a>
+  <div class="console-stat live-stat failure-stat"><span>{{ ui.failed_logins }}</span><strong data-admin-metric="failed_logins">{{ failed_login_count }}</strong><small>{{ ui.authentication }}</small></div>
+  <a href="{% url 'console:approvals' %}" class="console-stat console-stat-accent"><span>{{ ui.pending_approvals }}</span><strong data-admin-metric="pending_approvals">{{ pending_approval_count }}</strong><small>{{ ui.awaiting_decision }}</small></a>
+</div>
+
+<div class="admin-live-grid">
+  <section class="panel admin-status-panel">
+    <div class="panel-heading"><div><span class="panel-kicker">{{ ui.live }}</span><h2>{{ ui.system_state }}</h2></div><span class="soft-badge" data-last-refresh>{{ ui.now }}</span></div>
+    <div class="service-status-grid">
+      <div class="service-status {% if database_ok %}is-ok{% else %}is-error{% endif %}" data-service="database"><span></span><div><strong>{{ ui.database }}</strong><small>{% if database_ok %}{{ ui.operational }}{% else %}{{ ui.error }}{% endif %}</small></div></div>
+      <div class="service-status {% if cache_ok %}is-ok{% else %}is-error{% endif %}" data-service="cache"><span></span><div><strong>{{ ui.cache }}</strong><small>{% if cache_ok %}{{ ui.operational }}{% else %}{{ ui.error }}{% endif %}</small></div></div>
+      <div class="service-status is-ok"><span></span><div><strong>Audit</strong><small><b data-admin-metric="audit_events_24h">{{ audit_event_count_24h }}</b> {{ ui.events_24h }}</small></div></div>
+    </div>
+    <div class="connected-user-list"><h3>{{ ui.connected_users }}</h3>{% for connected_user in connected_users %}<span><i>{{ connected_user.username|first|upper }}</i><b>{{ connected_user.display_name|default:connected_user.username }}</b></span>{% empty %}<small>—</small>{% endfor %}</div>
+  </section>
+  <section class="panel admin-failure-panel">
+    <div class="panel-heading"><div><span class="panel-kicker">{{ ui.security }}</span><h2>{{ ui.recent_failures }}</h2></div><a class="inline-link" href="{% url 'console:audit' %}">{{ ui.audit_log }} →</a></div>
+    <div class="failure-log-list" data-failure-list>
+      {% for failure in recent_failures %}<div class="failure-log-row"><span>!</span><div><strong>{{ failure.metadata.username|default:ui.unknown }}</strong><small>{{ failure.source_ip|default:"—" }} · {{ failure.occurred_at|date:"d M H:i" }}</small></div></div>{% empty %}<div class="empty-state compact-empty"><h3>{{ ui.no_recent_failure }}</h3></div>{% endfor %}
+    </div>
+  </section>
+</div>
+
+<section class="governance-flow"><div class="panel-heading"><div><span class="panel-kicker">{{ ui.authorizations }}</span><h2>{{ ui.multiple_groups_explicit_rights }}</h2></div><span class="soft-badge">{{ ui.deny_by_default }}</span></div><div class="flow-row"><a href="{% url 'console:user_groups' %}" class="flow-node"><span>01</span><strong>{{ ui.user_groups }}</strong><small>{{ ui.multi_group_help }}</small></a><i class="flow-arrow">→</i><a href="{% url 'console:roles' %}" class="flow-node"><span>02</span><strong>{{ ui.roles_permissions }}</strong><small>{{ ui.capability_help }}</small></a><i class="flow-arrow">→</i><a href="{% url 'console:target_groups' %}" class="flow-node"><span>03</span><strong>{{ ui.target_groups }}</strong><small>{{ ui.authorized_scopes_help }}</small></a></div></section>
+</div>
+<script src="{% static 'js/admin-dashboard.js' %}" defer></script>
 {% endblock %}

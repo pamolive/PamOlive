@@ -2,7 +2,7 @@ from django.urls import path
 
 from cbpam.operations.views import audit_integrity, liveness, metrics, readiness
 
-from .gateway import gateway_authorize, gateway_close
+from .gateway import gateway_authorize, gateway_close, gateway_trust_host_key
 from .views import health
 
 urlpatterns = [
@@ -13,4 +13,9 @@ urlpatterns = [
     path("metrics/", metrics, name="metrics"),
     path("internal/gateway/authorize/", gateway_authorize, name="gateway_authorize"),
     path("internal/gateway/close/", gateway_close, name="gateway_close"),
+    path(
+        "internal/gateway/trust-host-key/",
+        gateway_trust_host_key,
+        name="gateway_trust_host_key",
+    ),
 ]

@@ -83,6 +83,15 @@ class GatewayApplication:
                 encryption_key=config.recording_key,
             )
             await _send_json(send, {"type": "status", "state": "authorized"})
+            bridge_options = {}
+            if (
+                envelope.get("host_key_policy") == "tofu"
+                and not envelope.get("known_hosts")
+            ):
+                bridge_options["host_key_callback"] = lambda public_key: client.trust_host_key(
+                    session_id=session_id,
+                    public_key=public_key,
+                )
             reason = await self.bridge(
                 envelope,
                 receive,
@@ -90,6 +99,7 @@ class GatewayApplication:
                 recorder,
                 connect_timeout=config.connect_timeout,
                 cancellation=cancellation,
+                **bridge_options,
             )
             outcome = "closed"
         except (GatewayProtocolError, TimeoutError, json.JSONDecodeError) as error:

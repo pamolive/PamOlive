@@ -6,6 +6,7 @@ app_name = "console"
 
 urlpatterns = [
     path("", views.dashboard, name="dashboard"),
+    path("status/", views.dashboard_status, name="dashboard_status"),
     path("users/", views.users, name="users"),
     path("users/<int:pk>/", views.users, name="user_edit"),
     path("user-groups/", views.user_groups, name="user_groups"),

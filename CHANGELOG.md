@@ -5,7 +5,19 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-15
+
 ### Added
+
+- Dark, light, and system appearance preferences persisted per user.
+- English, French, and Spanish navigation and core user experience.
+- Personal password groups and ownership-protected secret editing.
+- Dynamic personal-vault forms for logins, TOTP seeds, payment cards, and notes.
+- Live administration dashboard with database/cache health, connected users,
+  privileged sessions, authentication failures, approvals, and audit activity.
+- Official PAM-olive logo variants for dark and light interfaces.
+- SSH trust-on-first-use mode as the default, with strict pre-approval remaining
+  available per target.
 
 - Complete MFA lifecycle: single-use recovery codes, regeneration, and reset.
 - Dynamic TOTP codes with a countdown and immediate hiding of revealed secrets.
@@ -25,6 +37,12 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 - RDP brokering through Apache Guacamole 1.6.0 on a dedicated origin, using a
   single-use ticket and policy-controlled security and clipboard settings.
 
+### Changed
+
+- The main navigation now includes an explicit Home entry.
+- SSH sessions can use a username and password without a preinstalled client key.
+- Target forms clearly expose the SSH host identity policy.
+
 ### Fixed
 
 - Session launches open in a new tab, and security denials are explained by
@@ -37,7 +55,11 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Security
 
-- Strict SSH host-key validation with no permissive production mode.
+- First-use SSH host keys are recorded atomically, audited, and reused for all later
+  connections; a changed key is denied instead of silently accepted.
+- Personal vault edits enforce ownership and re-encrypt the complete secret payload.
+- Failed local sign-ins are recorded in the append-only audit chain.
+- SSH host identity validation supports strict pre-approval and audited first use.
 - HMAC-signed internal gateway API and secrets transported in a Fernet envelope.
 - Separate Docker networks and a gateway without direct PostgreSQL access.
 - CSP with self-hosted HTMX and application/proxy security headers.

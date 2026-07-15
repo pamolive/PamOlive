@@ -6,6 +6,7 @@ from cbpam.accounts.views import PAMOliveLoginView, oidc_callback, oidc_login
 from cbpam.api.views import (
     account_page,
     dashboard,
+    edit_personal_item,
     mfa_confirm,
     mfa_recovery_codes,
     mfa_recovery_regenerate,
@@ -19,11 +20,17 @@ from cbpam.api.views import (
     start_session,
     target_credential_totp,
     targets_page,
+    update_ui_preferences,
 )
 
 urlpatterns = [
     path("", dashboard, name="dashboard"),
     path("passwords/", passwords_page, name="passwords"),
+    path(
+        "passwords/personal/<uuid:pk>/edit/",
+        edit_personal_item,
+        name="edit_personal_item",
+    ),
     path("passwords/personal/<uuid:pk>/reveal/", reveal_personal_item, name="reveal_personal_item"),
     path("passwords/personal/<uuid:pk>/totp/", personal_item_totp, name="personal_item_totp"),
     path(
@@ -40,6 +47,7 @@ urlpatterns = [
     path("sessions/start/<uuid:pk>/", start_session, name="start_session"),
     path("requests/", requests_page, name="requests"),
     path("account/", account_page, name="account"),
+    path("account/preferences/ui/", update_ui_preferences, name="update_ui_preferences"),
     path("account/mfa/setup/", mfa_setup, name="mfa_setup"),
     path("account/mfa/<uuid:pk>/confirm/", mfa_confirm, name="mfa_confirm"),
     path("account/mfa/reset/", mfa_reset, name="mfa_reset"),

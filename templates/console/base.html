@@ -7,75 +7,75 @@
     <div class="console-brand-block">
       <span class="console-caption">Console PAM</span>
       <strong>Administration</strong>
-      <small>Identités, accès et traçabilité</small>
+      <small>{{ ui.identities_rights }}, {{ ui.access|lower }} &amp; {{ ui.audit_log|lower }}</small>
     </div>
 
     <nav class="console-nav" aria-label="Navigation administration">
       <a href="{% url 'console:dashboard' %}" class="console-home-link {% if page == 'dashboard' %}is-active{% endif %}">
         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-        <span>Vue d’ensemble</span>
+        <span>{{ ui.admin_overview }}</span>
       </a>
 
       <details class="console-nav-group" {% if page == 'users' or page == 'user_edit' or 'user_group' in page or page == 'roles' or page == 'role_edit' or 'ldap_source' in page or 'oidc_source' in page or 'directory_mapping' in page %}open{% endif %}>
         <summary>
           <span class="nav-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0m1-14v6m-3-3h6"/></svg></span>
-          <span>Identités et droits</span><span class="nav-chevron">⌄</span>
+          <span>{{ ui.identities_rights }}</span><span class="nav-chevron">⌄</span>
         </summary>
         <div class="console-nav-children">
-          <a href="{% url 'console:users' %}" class="{% if page == 'users' or page == 'user_edit' %}is-active{% endif %}"><span>Utilisateurs</span></a>
-          <a href="{% url 'console:user_groups' %}" class="{% if 'user_group' in page %}is-active{% endif %}"><span>Groupes d’utilisateurs</span></a>
-          <a href="{% url 'console:roles' %}" class="{% if page == 'roles' or page == 'role_edit' %}is-active{% endif %}"><span>Rôles et permissions</span></a>
-          <a href="{% url 'console:ldap_sources' %}" class="{% if 'ldap_source' in page %}is-active{% endif %}"><span>Annuaires LDAP / AD</span></a>
-          <a href="{% url 'console:oidc_sources' %}" class="{% if 'oidc_source' in page %}is-active{% endif %}"><span>Fournisseurs OIDC</span></a>
-          <a href="{% url 'console:directory_mappings' %}" class="{% if 'directory_mapping' in page %}is-active{% endif %}"><span>Correspondances de groupes</span></a>
+          <a href="{% url 'console:users' %}" class="{% if page == 'users' or page == 'user_edit' %}is-active{% endif %}"><span>{{ ui.users }}</span></a>
+          <a href="{% url 'console:user_groups' %}" class="{% if 'user_group' in page %}is-active{% endif %}"><span>{{ ui.user_groups }}</span></a>
+          <a href="{% url 'console:roles' %}" class="{% if page == 'roles' or page == 'role_edit' %}is-active{% endif %}"><span>{{ ui.roles_permissions }}</span></a>
+          <a href="{% url 'console:ldap_sources' %}" class="{% if 'ldap_source' in page %}is-active{% endif %}"><span>{{ ui.ldap_directories }}</span></a>
+          <a href="{% url 'console:oidc_sources' %}" class="{% if 'oidc_source' in page %}is-active{% endif %}"><span>{{ ui.oidc_providers }}</span></a>
+          <a href="{% url 'console:directory_mappings' %}" class="{% if 'directory_mapping' in page %}is-active{% endif %}"><span>{{ ui.group_mappings }}</span></a>
         </div>
       </details>
 
       <details class="console-nav-group" {% if 'target_group' in page or page == 'targets' or page == 'target_edit' or page == 'domains' or page == 'domain_edit' or page == 'host_keys' %}open{% endif %}>
         <summary>
           <span class="nav-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="14" width="18" height="6" rx="2"/></svg></span>
-          <span>Cibles</span><span class="nav-chevron">⌄</span>
+          <span>{{ ui.targets }}</span><span class="nav-chevron">⌄</span>
         </summary>
         <div class="console-nav-children">
-          <a href="{% url 'console:target_groups' %}" class="{% if 'target_group' in page %}is-active{% endif %}"><span>Groupes de cibles</span></a>
-          <a href="{% url 'console:targets' %}" class="{% if page == 'targets' or page == 'target_edit' %}is-active{% endif %}"><span>Équipements SSH / RDP</span></a>
-          <a href="{% url 'console:domains' %}" class="{% if page == 'domains' or page == 'domain_edit' %}is-active{% endif %}"><span>Domaines</span></a>
-          <a href="{% url 'console:host_keys' %}" class="{% if page == 'host_keys' %}is-active{% endif %}"><span>Clés d’hôte SSH</span></a>
+          <a href="{% url 'console:target_groups' %}" class="{% if 'target_group' in page %}is-active{% endif %}"><span>{{ ui.target_groups }}</span></a>
+          <a href="{% url 'console:targets' %}" class="{% if page == 'targets' or page == 'target_edit' %}is-active{% endif %}"><span>{{ ui.ssh_rdp_equipment }}</span></a>
+          <a href="{% url 'console:domains' %}" class="{% if page == 'domains' or page == 'domain_edit' %}is-active{% endif %}"><span>{{ ui.domains }}</span></a>
+          <a href="{% url 'console:host_keys' %}" class="{% if page == 'host_keys' %}is-active{% endif %}"><span>{{ ui.ssh_host_keys }}</span></a>
         </div>
       </details>
 
       <details class="console-nav-group" {% if 'credential' in page or page == 'rotation_jobs' or 'rotation_polic' in page %}open{% endif %}>
         <summary>
           <span class="nav-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8m-3 3 3 3"/></svg></span>
-          <span>Gestion des mots de passe</span><span class="nav-chevron">⌄</span>
+          <span>{{ ui.password_management }}</span><span class="nav-chevron">⌄</span>
         </summary>
         <div class="console-nav-children">
-          <a href="{% url 'console:credentials' %}" class="{% if 'credential' in page %}is-active{% endif %}"><span>Identifiants des cibles</span></a>
-          <a href="{% url 'console:rotation_policies' %}" class="{% if 'rotation_polic' in page %}is-active{% endif %}"><span>Politiques de rotation</span></a>
-          <a href="{% url 'console:rotation_jobs' %}" class="{% if page == 'rotation_jobs' %}is-active{% endif %}"><span>Rotations</span></a>
+          <a href="{% url 'console:credentials' %}" class="{% if 'credential' in page %}is-active{% endif %}"><span>{{ ui.target_credentials }}</span></a>
+          <a href="{% url 'console:rotation_policies' %}" class="{% if 'rotation_polic' in page %}is-active{% endif %}"><span>{{ ui.rotation_policies }}</span></a>
+          <a href="{% url 'console:rotation_jobs' %}" class="{% if page == 'rotation_jobs' %}is-active{% endif %}"><span>{{ ui.rotations }}</span></a>
         </div>
       </details>
 
       <details class="console-nav-group" {% if page == 'policies' or page == 'policy_edit' or 'time_frame' in page or page == 'approvals' %}open{% endif %}>
         <summary>
           <span class="nav-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.1 8.3 8 10 4.9-1.7 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-5"/></svg></span>
-          <span>Autorisations</span><span class="nav-chevron">⌄</span>
+          <span>{{ ui.authorizations }}</span><span class="nav-chevron">⌄</span>
         </summary>
         <div class="console-nav-children">
-          <a href="{% url 'console:policies' %}" class="{% if page == 'policies' or page == 'policy_edit' %}is-active{% endif %}"><span>Politiques d’accès</span></a>
-          <a href="{% url 'console:time_frames' %}" class="{% if 'time_frame' in page %}is-active{% endif %}"><span>Plages horaires</span></a>
-          <a href="{% url 'console:approvals' %}" class="{% if page == 'approvals' %}is-active{% endif %}"><span>Approbations en cours</span></a>
+          <a href="{% url 'console:policies' %}" class="{% if page == 'policies' or page == 'policy_edit' %}is-active{% endif %}"><span>{{ ui.access_policies }}</span></a>
+          <a href="{% url 'console:time_frames' %}" class="{% if 'time_frame' in page %}is-active{% endif %}"><span>{{ ui.time_frames }}</span></a>
+          <a href="{% url 'console:approvals' %}" class="{% if page == 'approvals' %}is-active{% endif %}"><span>{{ ui.current_approvals }}</span></a>
         </div>
       </details>
 
       <details class="console-nav-group" {% if page == 'sessions' or page == 'audit' %}open{% endif %}>
         <summary>
           <span class="nav-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m7 9 3 3-3 3m5 0h5"/></svg></span>
-          <span>Surveillance et audit</span><span class="nav-chevron">⌄</span>
+          <span>{{ ui.monitoring_audit }}</span><span class="nav-chevron">⌄</span>
         </summary>
         <div class="console-nav-children">
-          <a href="{% url 'console:sessions' %}" class="{% if page == 'sessions' %}is-active{% endif %}"><span>Sessions</span></a>
-          <a href="{% url 'console:audit' %}" class="{% if page == 'audit' %}is-active{% endif %}"><span>Journal d’audit</span></a>
+          <a href="{% url 'console:sessions' %}" class="{% if page == 'sessions' %}is-active{% endif %}"><span>{{ ui.sessions }}</span></a>
+          <a href="{% url 'console:audit' %}" class="{% if page == 'audit' %}is-active{% endif %}"><span>{{ ui.audit_log }}</span></a>
         </div>
       </details>
     </nav>
@@ -83,7 +83,7 @@
     {% if user.is_superuser %}
       <a class="technical-admin-link" href="/django-admin/">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A8 8 0 0 0 15 6l-.3-2.6h-4L10.4 6A8 8 0 0 0 8.8 7L6.4 6 4.5 9.5 6.5 11a7 7 0 0 0 0 2l-2 1.5L6.4 18l2.4-1a8 8 0 0 0 1.6 1l.3 2.6h4L15 18a8 8 0 0 0 1.6-1l2.4 1 2-3.5-2-1.5a7 7 0 0 0 .1-1Z"/></svg>
-        Administration technique
+        {{ ui.technical_admin }}
       </a>
     {% endif %}
   </aside>

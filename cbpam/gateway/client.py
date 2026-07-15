@@ -63,3 +63,14 @@ class InternalAPIClient:
         except GatewayProtocolError:
             return False
         return True
+
+    async def trust_host_key(self, *, session_id, public_key):
+        try:
+            response = await asyncio.to_thread(
+                self._post,
+                "/api/internal/gateway/trust-host-key/",
+                {"session_id": session_id, "public_key": public_key},
+            )
+        except GatewayProtocolError:
+            return False
+        return response.get("status") in {"known", "trusted"}
