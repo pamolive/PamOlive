@@ -1,0 +1,26 @@
+{
+  admin off
+  auto_https off
+}
+
+:8080 {
+  encode zstd gzip
+
+  handle /api/internal/* {
+    respond 404
+  }
+
+  handle /ws/sessions/* {
+    reverse_proxy gateway:8001
+  }
+
+  handle {
+    reverse_proxy web:8000
+  }
+
+  header {
+    -Server
+    X-Content-Type-Options nosniff
+    Referrer-Policy same-origin
+  }
+}

@@ -1,0 +1,40 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div><span class="eyebrow"><i></i> Traçabilité</span><h1>Audit</h1><p>Journal immuable, signé et exportable des opérations sensibles.</p></div>
+  <span class="integrity-badge {% if not integrity.valid %}is-invalid{% endif %}">
+    <i></i>{% if integrity.valid %}Chaîne vérifiée{% else %}Intégrité compromise{% endif %}
+  </span>
+</header>
+
+<section class="audit-integrity-panel {% if not integrity.valid %}is-invalid{% endif %}">
+  <div><span class="panel-kicker">Intégrité cryptographique</span><strong>{{ integrity.checked_events }} événement{{ integrity.checked_events|pluralize }} contrôlé{{ integrity.checked_events|pluralize }}</strong><small>Empreinte de tête : <code>{{ integrity.head_hash|default:"chaîne vide" }}</code>{% if integrity.legacy_events %} · {{ integrity.legacy_events }} historique{{ integrity.legacy_events|pluralize }} v1{% endif %}</small></div>
+  {% if integrity.issues %}<ul>{% for issue in integrity.issues %}<li>{{ issue }}</li>{% endfor %}</ul>{% endif %}
+</section>
+
+<form method="get" class="audit-filter-bar">
+  <label><span>Action</span><input name="action" value="{{ filters.action }}" placeholder="session.opened"></label>
+  <label><span>Acteur</span><input name="actor" value="{{ filters.actor }}" placeholder="utilisateur"></label>
+  <label><span>Du</span><input type="date" name="from" value="{{ filters.from }}"></label>
+  <label><span>Au</span><input type="date" name="to" value="{{ filters.to }}"></label>
+  <button class="secondary-button" type="submit">Filtrer</button>
+  {% if can_export and integrity.valid %}
+  <span class="audit-export-actions">
+    <a class="secondary-button" href="{% url 'console:audit_export' 'csv' %}?{{ request.GET.urlencode }}">CSV</a>
+    <a class="secondary-button" href="{% url 'console:audit_export' 'jsonl' %}?{{ request.GET.urlencode }}">JSONL</a>
+  </span>
+  {% endif %}
+</form>
+
+<section class="data-panel">
+  <div class="data-table-head audit-columns"><span>Séquence / date</span><span>Acteur</span><span>Action</span><span>Ressource</span></div>
+  {% for event in events %}
+  <article class="data-table-row audit-columns">
+    <span><strong>#{{ event.sequence }} · {{ event.occurred_at|date:"d M Y" }}</strong><small>{{ event.occurred_at|date:"H:i:s" }} · v{{ event.hash_version }}</small></span>
+    <span><strong>{{ event.actor|default:"Système" }}</strong><small>{{ event.source_ip|default:"Adresse non fournie" }}</small></span>
+    <span><code>{{ event.action }}</code></span>
+    <span><strong>{{ event.resource_type }}</strong><small>{{ event.resource_id }}</small></span>
+  </article>
+  {% empty %}<div class="empty-state"><h3>Aucun événement correspondant</h3></div>{% endfor %}
+</section>
+{% endblock %}

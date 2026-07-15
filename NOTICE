@@ -1,0 +1,17 @@
+PAM-olive
+Copyright (C) 2026 PAM-olive contributors
+
+PAM-olive is an independent open-source project. It is not affiliated with,
+endorsed by, sponsored by, or certified by WALLIX. WALLIX and any other
+third-party names or marks are the property of their respective owners.
+
+The project studies publicly documented privileged-access-management concepts.
+No proprietary WALLIX source code is included.
+
+The web interface includes a vendored copy of htmx under the Zero-Clause BSD
+license. Its license is reproduced next to the vendored asset under
+static/vendor/htmx/LICENSE.
+
+The Docker Compose deployment can run the official Apache Guacamole 1.6.0
+client and guacd container images, distributed separately under the Apache
+License 2.0. No Apache Guacamole source code is vendored in this repository.

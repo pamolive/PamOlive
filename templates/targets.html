@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Cibles · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero">
+  <div>
+    <span class="eyebrow"><i></i> Périmètres autorisés</span>
+    <h1>Cibles.</h1>
+    <p>Seuls les groupes de cibles accordés par vos politiques sont affichés.</p>
+  </div>
+  <a class="primary-action" href="{% url 'requests' %}">Mes demandes{% if pending_request_count %}<span>{{ pending_request_count }}</span>{% endif %}</a>
+</header>
+<div class="target-group-grid">
+  {% for group in target_groups %}
+  <section class="target-group-card" id="group-{{ group.pk }}">
+    <div class="target-group-head">
+      <span class="group-icon">{{ group.name|first|upper }}</span>
+      <span><strong>{{ group.name }}</strong><small>{{ group.description|default:"Groupe de cibles autorisé" }}</small></span>
+      <span class="soft-badge">{{ group.visible_targets|length }} cible{{ group.visible_targets|length|pluralize }}</span>
+    </div>
+    <div class="target-list">
+      {% for entry in group.visible_targets %}
+      <article class="target-row">
+        <span class="protocol-tile">{{ entry.target.protocol|upper }}</span>
+        <span class="target-copy">
+          <strong>{{ entry.target.name }}</strong>
+          <small>{{ entry.target.hostname }}:{{ entry.target.port }} · {{ entry.credentials|length }} identifiant{{ entry.credentials|length|pluralize }}</small>
+        </span>
+        <span class="target-actions">
+          {% if 'start_session' in entry.actions %}
+            {% for credential in entry.credentials %}
+            <form method="post" action="{% url 'start_session' credential.pk %}">
+              {% csrf_token %}
+              <button class="inline-session-button" type="submit">Ouvrir · {{ credential.username }}</button>
+            </form>
+            {% empty %}<small>Aucun compte</small>{% endfor %}
+          {% elif 'request_access' in entry.actions %}
+            <a href="{% url 'requests' %}" class="inline-link">Demander →</a>
+          {% else %}
+            <span class="locked-label">Consultation seule</span>
+          {% endif %}
+        </span>
+      </article>
+      {% empty %}<div class="empty-state compact-empty"><p>Ce groupe ne contient encore aucune cible.</p></div>{% endfor %}
+    </div>
+  </section>
+  {% empty %}
+  <div class="empty-panel full-width">
+    <h3>Aucun groupe de cibles accessible</h3>
+    <p>Vous ne verrez ici que les groupes explicitement autorisés par une politique active.</p>
+    <a class="secondary-button compact-button" href="{% url 'requests' %}">Voir mes demandes</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

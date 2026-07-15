@@ -1,0 +1,46 @@
+{% load static %}
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="theme-color" content="#0b110e">
+  <title>{% block title %}PAM-olive{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <script src="{% static 'vendor/htmx/htmx-2.0.10.min.js' %}" defer></script>
+</head>
+<body class="{% block body_class %}app-body{% endblock %}">
+{% block body %}
+  <div class="app-frame">
+    <header class="topbar">
+      <a href="/" class="brand" aria-label="PAM-olive, accueil">
+        {% include "components/logo_mark.html" %}
+        <span class="brand-name">PAM<span>-olive</span></span>
+      </a>
+      {% if user.is_authenticated %}
+      <nav class="topnav" aria-label="Navigation principale">
+        <a href="{% url 'passwords' %}" class="topnav-link {% if request.resolver_match.url_name == 'passwords' %}is-active{% endif %}">Password</a>
+        <a href="{% url 'targets' %}" class="topnav-link {% if request.resolver_match.url_name == 'targets' or request.resolver_match.url_name == 'requests' %}is-active{% endif %}">Cibles</a>
+        {% if user.can_access_console %}<a href="{% url 'console:dashboard' %}" class="topnav-link {% if request.resolver_match.namespace == 'console' %}is-active{% endif %}">Administration</a>{% endif %}
+      </nav>
+      <div class="account-menu">
+        <a href="{% url 'account' %}" class="account-link" title="Paramètres du compte">
+          <span class="avatar">{{ user.username|first|upper }}</span>
+          <span class="account-copy"><strong>{{ user.display_name|default:user.username }}</strong><small>Mon compte</small></span>
+        </a>
+        <form method="post" action="{% url 'logout' %}">
+          {% csrf_token %}
+          <button class="icon-button" aria-label="Se déconnecter" title="Se déconnecter"><svg viewBox="0 0 24 24"><path d="M10 17l5-5-5-5M15 12H3m10-9h6a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-6"/></svg></button>
+        </form>
+      </div>
+      {% endif %}
+    </header>
+    <main class="app-content">
+      {% if messages %}<div class="message-stack">{% for message in messages %}<div class="message {% if message.tags %}message-{{ message.tags }}{% endif %}">{{ message }}</div>{% endfor %}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+{% endblock %}
+</body>
+</html>

@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality-and-tests:
+    name: Quality, PostgreSQL and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pamolive
+          POSTGRES_USER: pamolive
+          POSTGRES_PASSWORD: ci-only-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pamolive -d pamolive"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://pamolive:ci-only-postgres-password@localhost:5432/pamolive
+      DJANGO_SECRET_KEY: ci-only-secret-key-with-more-than-fifty-characters-never-use-in-production
+      DJANGO_SETTINGS_MODULE: config.settings.test
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project and development tools
+        run: python -m pip install -e ".[dev]"
+
+      - name: Check dependency consistency
+        run: python -m pip check
+
+      - name: Lint Python
+        run: ruff check .
+
+      - name: Check shell script syntax
+        run: sh -n scripts/*.sh
+
+      - name: Check Django configuration
+        run: python manage.py check
+
+      - name: Refuse missing migrations
+        run: python manage.py makemigrations --check --dry-run
+
+      - name: Apply migrations to PostgreSQL
+        run: python manage.py migrate --noinput
+
+      - name: Run tests with coverage gate
+        run: >-
+          pytest --cov=cbpam --cov-report=term-missing
+          --cov-report=xml:coverage.xml --cov-fail-under=90
+
+      - name: Build documentation strictly
+        run: mkdocs build --strict
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
+          retention-days: 14
+
+  compose:
+    name: Compose, smoke test, backup and restore rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Generate ephemeral CI secrets without starting services
+        env:
+          CBPAM_BOOTSTRAP_PREPARE_ONLY: "true"
+        run: sh scripts/bootstrap.sh
+
+      - name: Validate Compose model
+        run: docker compose config --quiet
+
+      - name: Build PAM-olive images
+        run: docker compose build web gateway rdp-broker test
+
+      - name: Start the full stack and wait for health checks
+        run: docker compose up --detach --wait --wait-timeout 240
+
+      - name: Smoke-test PAM and dedicated RDP origins
+        run: |
+          curl --fail --silent --show-error http://127.0.0.1:8000/api/health/ready/
+          curl --fail --silent --show-error --location http://127.0.0.1:8081/guacamole/ >/dev/null
+          docker compose exec -T rdp-broker python -c \
+            "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health/live/', timeout=3)"
+
+      - name: Run the isolated test image
+        run: docker compose --profile test run --rm test
+
+      - name: Seed encrypted restore marker
+        run: |
+          docker compose exec -T web python manage.py shell <<'PY'
+          from cbpam.accounts.models import User
+          from cbpam.audit.services import record_event
+          from cbpam.vault.models import PersonalVaultItem
+          from cbpam.vault.services import VaultCipher
+
+          user = User.objects.create_user(username="ci-restore-marker")
+          cipher = VaultCipher()
+          PersonalVaultItem.objects.create(
+              owner=user,
+              name="CI restore marker",
+              item_type=PersonalVaultItem.ItemType.NOTE,
+              encrypted_payload=cipher.encrypt_payload({"note": "ci-restore-fixture"}),
+              encryption_key_id=cipher.active_key_id,
+          )
+          record_event(actor=user, action="restore.marker_created", resource=user)
+          PY
+
+      - name: Create and verify sealed backup
+        run: |
+          sh scripts/backup.sh "$RUNNER_TEMP/pam-olive-backup"
+          sh scripts/verify-backup.sh "$RUNNER_TEMP/pam-olive-backup"
+
+      - name: Restore into a separate ephemeral database and verify
+        env:
+          CBPAM_RESTORE_REHEARSAL_ACK: ephemeral-ci-only
+        run: >-
+          sh scripts/restore-rehearsal.sh
+          "$RUNNER_TEMP/pam-olive-backup"
+          "pamolive_restore_rehearsal_${GITHUB_RUN_ID}"
+          ci-restore-marker
+
+      - name: Stop ephemeral CI stack
+        if: always()
+        run: docker compose down --volumes --remove-orphans

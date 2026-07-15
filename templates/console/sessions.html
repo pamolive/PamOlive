@@ -1,0 +1,23 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div><span class="eyebrow"><i></i> Surveillance</span><h1>Sessions</h1><p>État, compte utilisé, enregistrement et terminaison des sessions privilégiées.</p></div>
+  <span class="admin-badge"><span></span>{% if can_terminate %}Supervision active{% else %}Lecture seule{% endif %}</span>
+</header>
+<section class="data-panel">
+  <div class="data-table-head session-columns"><span>Utilisateur</span><span>Cible / compte</span><span>Durée</span><span>Statut / trace</span><span>Action</span></div>
+  {% for session in sessions %}
+  <article class="data-table-row session-columns">
+    <span><strong>{{ session.user }}</strong><small>{{ session.client_ip|default:"Adresse non fournie" }}</small></span>
+    <span><strong>{{ session.target.name }}</strong><small>{{ session.target.protocol|upper }} · {{ session.credential.username|default:"Compte historique" }}</small></span>
+    <span><strong>{{ session.started_at|date:"d/m/Y H:i"|default:"Non démarrée" }}</strong><small>Expiration : {{ session.expires_at|date:"d/m/Y H:i"|default:"Non définie" }}</small></span>
+    <span><span class="request-status status-{{ session.status }}">{{ session.get_status_display }}</span><small>{% if session.recording_reference %}{{ session.recording_reference }}{% elif session.termination_reason %}{{ session.termination_reason }}{% else %}Aucune trace scellée{% endif %}</small></span>
+    <span>
+      {% if can_terminate and session.status == 'created' or can_terminate and session.status == 'active' or can_terminate and session.status == 'terminating' %}
+      <form method="post" action="{% url 'console:terminate_session' session.pk %}">{% csrf_token %}<button class="reject-button" type="submit">{% if session.status == 'terminating' %}Relancer la coupure{% else %}Terminer{% endif %}</button></form>
+      {% else %}<small>Aucune action</small>{% endif %}
+    </span>
+  </article>
+  {% empty %}<div class="empty-state"><h3>Aucune session enregistrée</h3></div>{% endfor %}
+</section>
+{% endblock %}

@@ -1,0 +1,266 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pamolive}
+      POSTGRES_USER: ${POSTGRES_USER:-pamolive}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be configured}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [backend]
+    restart: unless-stopped
+
+  web:
+    build: .
+    env_file: .env
+    environment:
+      CBPAM_TRUST_PROXY_HEADERS: "true"
+    command: ["sh", "-c", "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 config.asgi:application"]
+    expose: ["8000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready/', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks: [frontend, backend]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    environment:
+      CBPAM_INTERNAL_URL: http://web:8000
+      CBPAM_GATEWAY_SHARED_KEY: ${CBPAM_GATEWAY_SHARED_KEY:?CBPAM_GATEWAY_SHARED_KEY must be configured}
+      CBPAM_RECORDING_KEY: ${CBPAM_RECORDING_KEY:?CBPAM_RECORDING_KEY must be configured}
+      CBPAM_RECORDING_DIR: /recordings
+    expose: ["8001"]
+    depends_on: [web]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health/live/', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks: [frontend]
+    volumes:
+      - recordings_data:/recordings
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  rdp-broker:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    command: ["daphne", "-b", "0.0.0.0", "-p", "8002", "cbpam.rdp.asgi:application"]
+    environment:
+      CBPAM_INTERNAL_URL: http://web:8000
+      CBPAM_GATEWAY_SHARED_KEY: ${CBPAM_GATEWAY_SHARED_KEY:?CBPAM_GATEWAY_SHARED_KEY must be configured}
+      CBPAM_GUACAMOLE_JSON_KEY: ${CBPAM_GUACAMOLE_JSON_KEY:?CBPAM_GUACAMOLE_JSON_KEY must be configured}
+      CBPAM_GUACAMOLE_INTERNAL_URL: http://guacamole:8080/guacamole
+      CBPAM_RDP_LAUNCH_LIFETIME_SECONDS: "15"
+    expose: ["8002"]
+    depends_on:
+      web: {condition: service_healthy}
+      guacamole: {condition: service_healthy}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health/live/', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+    networks: [frontend, rdp_launch, rdp_auth]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  guacd:
+    image: guacamole/guacd:1.6.0
+    expose: ["4822"]
+    networks: [rdp_guacd, egress]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  guacamole:
+    image: guacamole/guacamole:1.6.0
+    environment:
+      GUACD_HOSTNAME: guacd
+      JSON_ENABLED: "true"
+      JSON_SECRET_KEY: ${CBPAM_GUACAMOLE_JSON_KEY:?CBPAM_GUACAMOLE_JSON_KEY must be configured}
+      REMOTE_IP_VALVE_ENABLED: "true"
+      REMOTE_IP_VALVE_REMOTE_IP_HEADER: X-Forwarded-For
+      REMOTE_IP_VALVE_PROTOCOL_HEADER: X-Forwarded-Proto
+      REMOTE_IP_VALVE_INTERNAL_PROXIES: ".*"
+    expose: ["8080"]
+    depends_on: [guacd]
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-ec",
+          "exec 3<>/dev/tcp/127.0.0.1/8080",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [rdp_frontend, rdp_auth, rdp_guacd]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  rdp-proxy:
+    image: caddy:2.11.4-alpine
+    ports:
+      - "${CBPAM_RDP_HTTP_BIND:-127.0.0.1}:${CBPAM_RDP_HTTP_PORT:-8081}:8081"
+    volumes:
+      - ./deploy/Caddyfile.rdp:/etc/caddy/Caddyfile:ro
+    depends_on:
+      rdp-broker: {condition: service_healthy}
+      guacamole: {condition: service_healthy}
+    networks: [rdp_public, rdp_launch, rdp_frontend]
+    read_only: true
+    tmpfs:
+      - /config:rw,noexec,nosuid,size=16m
+      - /data:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  proxy:
+    image: caddy:2.11.4-alpine
+    ports:
+      - "${CBPAM_HTTP_BIND:-127.0.0.1}:${CBPAM_HTTP_PORT:-8000}:8080"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      web: {condition: service_healthy}
+      gateway: {condition: service_healthy}
+    networks: [frontend]
+    read_only: true
+    tmpfs:
+      - /config:rw,noexec,nosuid,size=16m
+      - /data:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  worker:
+    build: .
+    env_file: .env
+    command: ["celery", "-A", "config", "worker", "-l", "INFO"]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [backend, egress]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+
+  beat:
+    build: .
+    env_file: .env
+    command:
+      [
+        "celery",
+        "-A",
+        "config",
+        "beat",
+        "-l",
+        "INFO",
+        "--schedule=/tmp/celerybeat-schedule",
+      ]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    networks: [backend]
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DATABASE_URL: sqlite:////tmp/pam-olive-test.sqlite3
+      DJANGO_SECRET_KEY: isolated-test-only-secret-key-not-for-production
+    command: ["pytest", "--cov=cbpam", "--cov-fail-under=90", "-q"]
+
+volumes:
+  postgres_data:
+  redis_data:
+  recordings_data:
+
+networks:
+  frontend:
+    internal: false
+  backend:
+    internal: true
+  egress:
+    internal: false
+  rdp_public:
+    internal: false
+  rdp_launch:
+    internal: true
+  rdp_auth:
+    internal: true
+  rdp_frontend:
+    internal: true
+  rdp_guacd:
+    internal: true

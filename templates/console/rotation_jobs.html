@@ -1,0 +1,31 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Gestion des mots de passe</span>
+    <h1>Rotations.</h1>
+    <p>Historique immuable des changements de secrets orchestrés par un fournisseur explicite.</p>
+  </div>
+</header>
+
+<section class="resource-list-card">
+  <div class="resource-list-head">
+    <div><span>Historique</span><strong>{{ rotation_jobs|length }} opération{{ rotation_jobs|length|pluralize }}</strong></div>
+  </div>
+  <div class="resource-list">
+    {% for job in rotation_jobs %}
+      <div class="resource-item">
+        <span class="resource-avatar">↻</span>
+        <span class="resource-copy">
+          <strong>{{ job.credential.name }}</strong>
+          <small>{{ job.credential.target.name }} · {{ job.backend|default:"Fournisseur non configuré" }} · version {{ job.previous_key_version }}{% if job.new_key_version %} → {{ job.new_key_version }}{% endif %}</small>
+          {% if job.error_message %}<small>{{ job.error_message }}</small>{% endif %}
+        </span>
+        <span class="resource-state {% if job.status == 'failed' or job.status == 'action_required' %}is-warning{% endif %}">{{ job.get_status_display }}</span>
+      </div>
+    {% empty %}
+      <div class="empty-state"><h3>Aucune rotation</h3><p>Les opérations planifiées et manuelles apparaîtront ici.</p></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

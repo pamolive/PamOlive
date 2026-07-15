@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Session {{ privileged_session.target.name }} · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero terminal-hero">
+  <div>
+    <span class="eyebrow"><i></i> Session privilégiée contrôlée</span>
+    <h1>{{ privileged_session.target.name }}.</h1>
+    <p>{{ privileged_session.credential.username }}@{{ privileged_session.target.hostname }}:{{ privileged_session.target.port }} · {{ privileged_session.target.protocol|upper }}</p>
+  </div>
+  <a class="secondary-button compact-button" href="{% url 'targets' %}">Retour aux cibles</a>
+</header>
+<section
+  id="pam-terminal"
+  class="terminal-shell"
+  data-session-id="{{ privileged_session.pk }}"
+  data-session-ticket="{{ session_ticket }}"
+  tabindex="0"
+  aria-live="polite"
+>
+  <div class="terminal-toolbar">
+    <span><i id="terminal-status-dot"></i><strong id="terminal-status">Autorisation en cours…</strong></span>
+    <code>{{ privileged_session.pk }}</code>
+  </div>
+  <pre id="terminal-output" class="terminal-output">pam-olive · Vérification du ticket éphémère…
+</pre>
+</section>
+<p class="terminal-notice">Les identifiants techniques ne sont jamais envoyés au navigateur. La connexion distante sera établie par le broker isolé lorsqu’il sera configuré.</p>
+<script src="{% static 'js/terminal.js' %}" defer></script>
+{% endblock %}

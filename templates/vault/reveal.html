@@ -1,0 +1,12 @@
+<div class="revealed-secret">
+  {% if payload.application %}<span><small>Application</small><strong>{{ payload.application }}</strong></span>{% endif %}
+  {% if payload.website_url %}<span><small>URL</small><strong>{{ payload.website_url }}</strong></span>{% endif %}
+  {% if payload.username %}<span><small>Identifiant</small><strong>{{ payload.username }}</strong></span>{% endif %}
+  {% if payload.password %}<span><small>Mot de passe</small><strong class="secret-value">{{ payload.password }}</strong></span>{% endif %}
+  {% if payload.totp_code %}<span><small>Code TOTP actuel</small><strong class="totp-value">{{ payload.totp_code }}</strong></span>{% endif %}
+  {% if payload.card_holder %}<span><small>Titulaire</small><strong>{{ payload.card_holder }}</strong></span>{% endif %}
+  {% if payload.card_number %}<span><small>Numéro</small><strong class="secret-value">{{ payload.card_number }}</strong></span>{% endif %}
+  {% if payload.expiry %}<span><small>Expiration</small><strong>{{ payload.expiry }}</strong></span>{% endif %}
+  {% if payload.cvv %}<span><small>CVV</small><strong class="secret-value">{{ payload.cvv }}</strong></span>{% endif %}
+  {% if payload.notes %}<span><small>Notes</small><strong>{{ payload.notes|linebreaksbr }}</strong></span>{% endif %}
+</div>

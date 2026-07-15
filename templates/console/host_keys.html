@@ -1,0 +1,30 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div><span class="eyebrow"><i></i> Confiance SSH</span><h1>Clés d’hôte</h1><p>Le broker refuse toute cible SSH sans empreinte explicitement approuvée.</p></div>
+  <span class="admin-badge"><span></span>{% if can_manage %}Gestion sécurisée{% else %}Lecture seule{% endif %}</span>
+</header>
+<div class="resource-layout">
+  <section class="resource-form-card">
+    <div class="resource-card-title"><div><span>Nouvelle confiance</span><strong>Importer une clé publique</strong></div></div>
+    <form method="post" class="console-form">{% csrf_token %}
+      {% for field in form %}<div class="console-field {% if field.errors %}has-error{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+      {% if can_manage %}<button class="primary-button" type="submit">Vérifier et approuver</button>{% endif %}
+    </form>
+  </section>
+  <section class="resource-list-card">
+    <div class="resource-list-head"><div><span>Registre de confiance</span><strong>{{ host_keys|length }} clé{{ host_keys|length|pluralize }}</strong></div></div>
+    <div class="host-key-list">
+      {% for key in host_keys %}
+      <article class="host-key-row {% if not key.active %}is-revoked{% endif %}">
+        <span class="protocol-tile">SSH</span>
+        <span><strong>{{ key.target.name }}</strong><code>{{ key.fingerprint_sha256 }}</code><small>{{ key.key_type }} · approuvée par {{ key.trusted_by|default:"Système" }} le {{ key.trusted_at|date:"d/m/Y H:i" }}{% if key.comment %} · {{ key.comment }}{% endif %}</small></span>
+        {% if key.active %}
+          {% if can_manage %}<form method="post" action="{% url 'console:revoke_host_key' key.pk %}">{% csrf_token %}<button class="reject-button" type="submit">Révoquer</button></form>{% else %}<span class="resource-state">Active</span>{% endif %}
+        {% else %}<span class="resource-state is-warning">Révoquée</span>{% endif %}
+      </article>
+      {% empty %}<div class="empty-state"><h3>Aucune clé approuvée</h3><p>Les sessions SSH sont bloquées tant que cette liste est vide.</p></div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

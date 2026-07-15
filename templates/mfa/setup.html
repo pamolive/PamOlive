@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Activer la MFA · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero"><div><span class="eyebrow"><i></i> Sécurité du compte</span><h1>Activer la MFA.</h1><p>Scannez ce QR code avec votre application TOTP puis confirmez le code.</p></div></header>
+<div class="mfa-setup-card"><div class="qr-shell">{{ qr_svg|safe }}</div><div class="mfa-setup-copy"><span class="panel-kicker">Clé manuelle</span><code>{{ secret }}</code><ol><li>Scannez le QR code ou saisissez la clé.</li><li>Attendez qu’un code apparaisse.</li><li>Confirmez ce code ci-dessous.</li></ol><form method="post" action="{% url 'mfa_confirm' device.pk %}" class="console-form">{% csrf_token %}{% for field in form %}<div class="console-field"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}</div>{% endfor %}<button class="primary-button" type="submit">Activer définitivement</button></form></div></div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Gouvernance</span>
+    <h1>Approbations</h1>
+    <p>Traitez les demandes attribuées à vos groupes. Chaque décision est conservée et une demande personnelle ne peut jamais être auto-approuvée.</p>
+  </div>
+</header>
+<section class="data-panel">
+  <div class="data-table-head"><span>Demandeur</span><span>Cible et politique</span><span>Justification</span><span>Statut / décision</span></div>
+  {% for access_request in requests %}
+  <article class="data-table-row">
+    <span><strong>{{ access_request.requester }}</strong><small>{{ access_request.created_at|date:"d M Y à H:i" }}</small></span>
+    <span>
+      <strong>{{ access_request.target.name }}</strong>
+      <small>{{ access_request.policy.name }} · {{ access_request.requested_duration_minutes }} min · {{ access_request.recorded_approval_count }}/{{ access_request.policy.approval_quorum }} approbation{{ access_request.policy.approval_quorum|pluralize }}</small>
+    </span>
+    <span><small>{{ access_request.reason }}{% if access_request.ticket_reference %}<br>Ticket : {{ access_request.ticket_reference }}{% endif %}</small></span>
+    <span>
+      {% if access_request.status == 'pending' and can_decide %}
+      <form method="post" class="decision-form">
+        {% csrf_token %}
+        <input type="hidden" name="request_id" value="{{ access_request.pk }}">
+        <input name="comment" placeholder="Motif de la décision">
+        <button name="decision" value="approve" class="approve-button">Approuver</button>
+        <button name="decision" value="reject" class="reject-button">Refuser</button>
+      </form>
+      {% else %}
+      <span class="request-status status-{{ access_request.status }}">{{ access_request.get_status_display }}</span>
+      {% endif %}
+    </span>
+  </article>
+  {% empty %}<div class="empty-state"><h3>Aucune demande à traiter</h3></div>{% endfor %}
+</section>
+{% endblock %}

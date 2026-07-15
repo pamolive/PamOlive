@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Accueil · PAM-olive{% endblock %}
+{% block content %}
+<section class="simple-hero">
+  <div><span class="eyebrow"><i></i> Espace personnel</span><h1>Bonjour, {{ user.display_name|default:user.username }}.</h1><p>Retrouvez rapidement vos coffres et les environnements auxquels vous avez accès.</p></div>
+  <div class="system-status"><span class="status-pulse"></span><span><strong>Plateforme opérationnelle</strong><small>Coffre et audit disponibles</small></span></div>
+</section>
+
+<div class="home-shortcuts">
+  <a href="{% url 'passwords' %}" class="home-shortcut"><span class="shortcut-icon">•••</span><span><strong>Password</strong><small>{{ personal_secret_count }} élément{{ personal_secret_count|pluralize }} personnel{{ personal_secret_count|pluralize }}</small></span><b>→</b></a>
+  <a href="{% url 'targets' %}" class="home-shortcut"><span class="shortcut-icon">›_</span><span><strong>Cibles</strong><small>{{ target_groups|length }} groupe{{ target_groups|length|pluralize }} accessible{{ target_groups|length|pluralize }}</small></span><b>→</b></a>
+  <a href="{% url 'requests' %}" class="home-shortcut"><span class="shortcut-icon">✓</span><span><strong>Demandes</strong><small>{{ pending_request_count }} en attente</small></span><b>→</b></a>
+</div>
+
+<div class="simple-dashboard-grid">
+  <section class="panel simple-panel">
+    <div class="panel-heading"><div><span class="panel-kicker">Accès</span><h2>Mes groupes de cibles</h2></div><a class="inline-link" href="{% url 'targets' %}">Tout afficher →</a></div>
+    <div class="compact-list">
+      {% for group in target_groups %}<a href="{% url 'targets' %}#group-{{ group.pk }}" class="compact-row"><span class="resource-avatar">{{ group.name|first|upper }}</span><span><strong>{{ group.name }}</strong><small>{{ group.targets.count }} cible{{ group.targets.count|pluralize }}</small></span><b>→</b></a>{% empty %}<div class="empty-state compact-empty"><h3>Aucun groupe accessible</h3><p>Une politique doit relier l’un de vos groupes à un groupe de cibles.</p></div>{% endfor %}
+    </div>
+  </section>
+  <section class="panel simple-panel">
+    <div class="panel-heading"><div><span class="panel-kicker">Activité</span><h2>En cours</h2></div></div>
+    <div class="activity-summary"><div><strong>{{ pending_request_count }}</strong><span>demande{{ pending_request_count|pluralize }} en attente</span></div><div><strong>{{ active_sessions|length }}</strong><span>session{{ active_sessions|length|pluralize }} active{{ active_sessions|length|pluralize }}</span></div></div>
+    {% if pending_requests %}<div class="compact-list">{% for access_request in pending_requests %}<a href="{% url 'requests' %}" class="compact-row"><span class="protocol-tile">{{ access_request.target.protocol|upper }}</span><span><strong>{{ access_request.target.name }}</strong><small>Demande en attente</small></span><span class="request-status">Pending</span></a>{% endfor %}</div>{% endif %}
+  </section>
+</div>
+{% endblock %}

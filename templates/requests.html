@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Demandes · PAM-olive{% endblock %}
+{% block content %}
+<header class="welcome-row requests-header">
+  <div><span class="eyebrow"><i></i> Accès privilégiés</span><h1>Mes demandes.</h1><p>Demandez un accès couvert par les politiques de vos groupes.</p></div>
+</header>
+<div class="requests-layout">
+  <section class="resource-form-card request-form-card">
+    <div class="resource-card-title"><span>Nouvelle demande</span><strong>Justifiez votre besoin</strong></div>
+    {% if form.fields.policy.queryset %}
+    <form method="post" class="console-form">
+      {% csrf_token %}
+      {% for field in form %}<div class="console-field {% if field.errors %}has-error{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<b>*</b>{% endif %}</label>{{ field }}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+      <button class="primary-button" type="submit">Envoyer la demande <svg viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button>
+    </form>
+    {% else %}
+    <div class="policy-empty"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.1 8.3 8 10 4.9-1.7 8-5 8-10V6l-8-3Z"/></svg><strong>Aucune politique disponible</strong><p>Ton groupe doit recevoir une politique autorisant les demandes d’accès.</p></div>
+    {% endif %}
+  </section>
+  <section class="resource-list-card">
+    <div class="resource-list-head"><div><span>Historique</span><strong>{{ requests|length }} demande{{ requests|length|pluralize }}</strong></div></div>
+    <div class="resource-list">
+      {% for access_request in requests %}<div class="resource-item request-item"><span class="resource-avatar">{{ access_request.target.protocol|upper }}</span><span class="resource-copy"><strong>{{ access_request.target.name }}</strong><small>{{ access_request.policy.name }} · {{ access_request.created_at|date:"d M Y à H:i" }} · {{ access_request.requested_duration_minutes }} min</small></span><span class="request-status status-{{ access_request.status }}">{{ access_request.get_status_display }}</span></div>{% empty %}<div class="empty-state"><span class="empty-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/></svg></span><h3>Aucune demande</h3><p>Ton historique apparaîtra ici.</p></div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

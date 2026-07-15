@@ -1,0 +1,108 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Administration</span>
+    {% if resource == 'users' %}
+      <h1>Utilisateurs</h1><p>Gérez les comptes locaux. Les droits sont attribués via les groupes et les délégations.</p>
+    {% elif resource == 'user_groups' %}
+      <h1>Groupes utilisateurs</h1><p>Un utilisateur peut appartenir à plusieurs groupes et cumuler leurs profils autorisés.</p>
+    {% elif resource == 'roles' %}
+      <h1>Profils de permissions</h1><p>Séparez la consultation, la gestion et les actions sensibles pour chaque domaine.</p>
+    {% elif resource == 'identity_sources' %}
+      <h1>Sources d’identité</h1><p>Configurez LDAP, Active Directory et OpenID Connect sans exposer leurs secrets.</p>
+    {% elif resource == 'directory_mappings' %}
+      <h1>Correspondances de groupes</h1><p>Reliez les groupes externes aux groupes PAM-olive lors des synchronisations.</p>
+    {% elif resource == 'domains' %}
+      <h1>Domaines</h1><p>Organisez les comptes locaux et les comptes de domaine séparément des cibles.</p>
+    {% elif resource == 'targets' %}
+      <h1>Cibles</h1><p>Référencez équipements et applications avec leur protocole et leur domaine.</p>
+    {% elif resource == 'target_groups' %}
+      <h1>Groupes de cibles</h1><p>Les utilisateurs ne voient que les groupes accordés par leurs politiques.</p>
+    {% elif resource == 'credentials' %}
+      <h1>Comptes des cibles</h1><p>Gérez comptes locaux, comptes de domaine, services, clés et stratégies de rotation.</p>
+    {% else %}
+      <h1>Politiques d’accès</h1><p>Reliez groupes utilisateurs, groupes de cibles et actions autorisées.</p>
+    {% endif %}
+  </div>
+  {% if resource == 'credentials' and editing and can_rotate %}
+    <form method="post" action="{% url 'console:rotate_credential' editing.pk %}">
+      {% csrf_token %}
+      <button class="primary-button" type="submit">Déclencher la rotation <span>→</span></button>
+    </form>
+  {% elif not can_manage %}<span class="admin-badge"><span></span>Lecture seule</span>{% endif %}
+</header>
+
+<div class="resource-layout {% if not can_manage %}readonly-layout{% endif %}">
+  {% if can_manage %}
+    <section class="resource-form-card">
+      <div class="resource-card-title">
+        <span>{% if editing %}Modifier{% else %}Créer{% endif %}</span>
+        <strong>{% if editing %}{{ editing }}{% else %}Nouvel élément{% endif %}</strong>
+      </div>
+      <form method="post" class="console-form">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+          <div class="console-field {% if field.errors %}has-error{% endif %}">
+            {% if field.field.widget.input_type == 'checkbox' and field.field.widget.allow_multiple_selected != True %}
+              <label class="toggle-row">{{ field }}<span><strong>{{ field.label }}</strong>{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</span></label>
+            {% else %}
+              <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<b>*</b>{% endif %}</label>
+              {{ field }}
+              {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
+            {% endif %}
+            {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+          </div>
+        {% endfor %}
+        <div class="form-actions">
+          {% if editing %}<a href="." class="cancel-button">Annuler</a>{% endif %}
+          <button class="primary-button" type="submit">Enregistrer <span>→</span></button>
+        </div>
+      </form>
+    </section>
+  {% endif %}
+
+  <section class="resource-list-card">
+    <div class="resource-list-head"><div><span>Répertoire</span><strong>{{ objects|length }} élément{{ objects|length|pluralize }}</strong></div></div>
+    <div class="resource-list">
+      {% for object in objects %}
+        <a class="resource-item" href="{% if resource == 'users' %}{% url 'console:user_edit' object.pk %}{% elif resource == 'user_groups' %}{% url 'console:user_group_edit' object.pk %}{% elif resource == 'roles' %}{% url 'console:role_edit' object.pk %}{% elif resource == 'identity_sources' %}{% url 'console:identity_source_edit' object.pk %}{% elif resource == 'directory_mappings' %}{% url 'console:directory_mapping_edit' object.pk %}{% elif resource == 'domains' %}{% url 'console:domain_edit' object.pk %}{% elif resource == 'targets' %}{% url 'console:target_edit' object.pk %}{% elif resource == 'target_groups' %}{% url 'console:target_group_edit' object.pk %}{% elif resource == 'credentials' %}{% url 'console:credential_edit' object.pk %}{% else %}{% url 'console:policy_edit' object.pk %}{% endif %}">
+          <span class="resource-avatar">
+            {% if resource == 'users' %}{{ object.username|first|upper }}
+            {% elif resource == 'targets' %}{{ object.protocol|upper }}
+            {% elif resource == 'credentials' %}•••
+            {% elif resource == 'directory_mappings' %}↔
+            {% else %}{{ object.name|first|upper }}{% endif %}
+          </span>
+          <span class="resource-copy">
+            <strong>
+              {% if resource == 'users' %}{{ object.display_name|default:object.username }}
+              {% elif resource == 'directory_mappings' %}{{ object.external_group }}
+              {% else %}{{ object.name }}{% endif %}
+            </strong>
+            {% if resource == 'users' %}<small>{{ object.email }} · {{ object.pam_user_groups.count }} groupe{{ object.pam_user_groups.count|pluralize }}</small>
+            {% elif resource == 'user_groups' %}<small>{{ object.member_count }} membre{{ object.member_count|pluralize }} · {{ object.roles.count }} profil{{ object.roles.count|pluralize }}</small>
+            {% elif resource == 'roles' %}<small>{{ object.capabilities|length }} permission{{ object.capabilities|length|pluralize }}</small>
+            {% elif resource == 'identity_sources' %}<small>{{ object.get_kind_display }} · {{ object.identity_count }} identité{{ object.identity_count|pluralize }} · {{ object.mapping_count }} correspondance{{ object.mapping_count|pluralize }}</small>
+            {% elif resource == 'directory_mappings' %}<small>{{ object.source.name }} → {{ object.user_group.name }}</small>
+            {% elif resource == 'domains' %}<small>{{ object.get_kind_display }} · {{ object.target_count }} cible{{ object.target_count|pluralize }} · {{ object.credential_count }} compte{{ object.credential_count|pluralize }}</small>
+            {% elif resource == 'targets' %}<small>{{ object.hostname }}:{{ object.port }} · {{ object.get_kind_display }} · {{ object.credential_count }} compte{{ object.credential_count|pluralize }}</small>
+            {% elif resource == 'target_groups' %}<small>{{ object.target_count }} cible{{ object.target_count|pluralize }}</small>
+            {% elif resource == 'credentials' %}<small>{{ object.target.name }} · {{ object.username }} · {{ object.get_account_type_display }} · Rotation : {{ object.get_last_rotation_status_display }}</small>
+            {% else %}<small>{% for label in object.action_labels %}{{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}</small>{% endif %}
+          </span>
+          <span class="resource-state {% if resource == 'user_groups' and not object.has_active_policy %}is-warning{% endif %}">
+            {% if resource == 'user_groups' and not object.has_active_policy %}À configurer
+            {% elif object.enabled or object.is_active %}Actif
+            {% else %}Inactif{% endif %}
+          </span>
+          <svg class="resource-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+        </a>
+      {% empty %}
+        <div class="empty-state"><h3>Aucun élément</h3><p>Le répertoire est vide.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

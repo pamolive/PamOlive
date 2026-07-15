@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Ouverture RDP · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero terminal-hero">
+  <p class="eyebrow">Session privilégiée RDP</p>
+  <h1>Connexion à {{ privileged_session.target.name }}.</h1>
+  <p>Votre autorisation est vérifiée avant l’ouverture du bureau distant.</p>
+</header>
+<section class="terminal-shell rdp-launch-shell">
+  <div class="terminal-toolbar">
+    <span><i></i><strong>Passerelle RDP sécurisée</strong></span>
+    <code>{{ privileged_session.id }}</code>
+  </div>
+  <div class="rdp-launch-content">
+    <div class="empty-icon">↗</div>
+    <h2>Ouverture de la session…</h2>
+    <p>Le ticket éphémère est transmis au broker PAM-olive par une requête POST.</p>
+    <form id="rdp-launch-form" method="post" action="{{ rdp_origin }}/launch/">
+      <input type="hidden" name="session_id" value="{{ privileged_session.id }}">
+      <input type="hidden" name="ticket" value="{{ session_ticket }}">
+      <button class="button button-primary" type="submit">Continuer vers le bureau distant</button>
+    </form>
+  </div>
+</section>
+<p class="terminal-notice">Aucun identifiant de cible n’est envoyé à votre navigateur.</p>
+<script src="{% static 'js/rdp-launch.js' %}" defer></script>
+{% endblock %}

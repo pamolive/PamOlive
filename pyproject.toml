@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pam-olive"
+version = "0.2.0"
+description = "PAM-olive, an open-source privileged access management platform"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "AGPL-3.0-or-later"
+keywords = ["pam", "privileged-access-management", "django", "ssh", "security"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Framework :: Django :: 5.2",
+  "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security",
+]
+dependencies = [
+  "Django>=5.2,<5.3",
+  "channels[daphne]>=4.3,<5",
+  "channels-redis>=4.2,<5",
+  "celery[redis]>=5.6,<5.7",
+  "django-environ>=0.12,<1",
+  "psycopg[binary]>=3.2,<4",
+  "cryptography>=49,<50",
+  "ldap3==2.9.1",
+  "Authlib>=1.7.2,<2",
+  "asyncssh>=2.24,<2.25",
+  "qrcode>=8.2,<9",
+  "requests>=2.32,<3",
+  "whitenoise>=6.9,<7",
+  "gunicorn>=23,<24",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3,<10",
+  "pytest-django>=4.11,<5",
+  "pytest-cov>=6,<8",
+  "ruff>=0.11,<1",
+  "mypy>=1.15,<2",
+  "django-stubs>=5.2,<6",
+  "mkdocs-material>=9.6,<10",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["cbpam", "config"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py", "tests.py"]
+addopts = "-ra --strict-markers --disable-warnings"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "DJ", "UP"]
+ignore = ["DJ001"]

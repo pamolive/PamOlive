@@ -1,0 +1,18 @@
+FROM python:3.12-slim AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN groupadd --system cbpam && useradd --system --gid cbpam --create-home cbpam
+WORKDIR /app
+RUN mkdir /recordings && chown cbpam:cbpam /recordings
+
+COPY pyproject.toml README.md ./
+COPY cbpam ./cbpam
+COPY config ./config
+RUN pip install --upgrade pip && pip install .
+
+USER cbpam
+EXPOSE 8001
+CMD ["daphne", "-b", "0.0.0.0", "-p", "8001", "cbpam.gateway.asgi:application"]

@@ -1,0 +1,66 @@
+name: Rapport de bug
+description: Signaler un comportement reproductible sans donnée sensible
+title: "[Bug] "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ne signalez jamais une vulnérabilité ou un secret ici. Utilisez la procédure privée de SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version ou commit
+      placeholder: v0.2.0 ou SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Composant
+      options:
+        - Interface utilisateur
+        - Administration produit
+        - Identité et RBAC
+        - Politiques et approbations
+        - Coffres
+        - Passerelle et sessions
+        - Audit
+        - Docker et installation
+        - Documentation
+        - Autre
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Étapes de reproduction
+      description: Utilisez uniquement des données factices.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Résultat observé
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environnement
+      description: OS, navigateur, Docker et mode d'installation, sans adresse interne.
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Données sensibles
+      options:
+        - label: J'ai retiré tous les secrets, identifiants, adresses internes et données personnelles.
+          required: true
+        - label: Ce rapport n'est pas une vulnérabilité de sécurité.
+          required: true

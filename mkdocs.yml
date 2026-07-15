@@ -1,0 +1,14 @@
+site_name: PAM-olive
+site_description: PAM-olive, open-source privileged access management
+theme:
+  name: material
+nav:
+  - Accueil: index.md
+  - Architecture: architecture.md
+  - Sécurité: security.md
+  - Développement: development.md
+  - Exploitation: operations.md
+  - Courtage RDP: rdp.md
+  - Périmètre V1: v1-scope.md
+  - Permissions: permissions.md
+  - Rapport V1: v1-report.md

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Connexion · PAM-olive{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+{% block body %}
+<main class="auth-page">
+  <div class="auth-ambient auth-ambient-one"></div>
+  <div class="auth-ambient auth-ambient-two"></div>
+  <section class="auth-story" aria-label="Présentation de PAM-olive">
+    <a href="/" class="brand brand-large" aria-label="PAM-olive, accueil">
+      {% include "components/logo_mark.html" with logo_class="brand-mark brand-mark-large" %}
+      <span class="brand-name">PAM<span>-olive</span></span>
+    </a>
+    <div class="story-content">
+      <span class="eyebrow"><i></i> Privileged Access Management</span>
+      <h1>Les accès sensibles,<br><em>sous contrôle.</em></h1>
+      <p>Une plateforme ouverte pour gouverner, approuver et auditer chaque accès privilégié.</p>
+      <div class="trust-grid">
+        <div class="trust-item">
+          <span class="trust-icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.1 8.3 8 10 4.9-1.7 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-5"/></svg></span>
+          <span><strong>Coffre chiffré</strong><small>Les secrets restent invisibles.</small></span>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <span><strong>Sessions tracées</strong><small>Chaque action devient vérifiable.</small></span>
+        </div>
+        <div class="trust-item">
+          <span class="trust-icon"><svg viewBox="0 0 24 24"><path d="M4 13 9 18 20 7"/></svg></span>
+          <span><strong>Accès gouvernés</strong><small>Les décisions restent explicites.</small></span>
+        </div>
+      </div>
+    </div>
+    <p class="story-footnote">Open source · Conçu avec exigence en Belgique</p>
+  </section>
+
+  <section class="auth-panel">
+    <div class="mobile-brand">
+      {% include "components/logo_mark.html" %}
+      <span class="brand-name">PAM<span>-olive</span></span>
+    </div>
+    <div class="login-card">
+      <div class="login-heading">
+        <span class="status-chip"><i></i> Espace sécurisé</span>
+        <h2>Heureux de vous revoir</h2>
+        <p>Identifiez-vous pour accéder à votre espace privilégié.</p>
+      </div>
+
+      {% if form.non_field_errors %}
+      <div class="form-alert" role="alert">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5m0 3h.01"/></svg>
+        <span>{% for error in form.non_field_errors %}{{ error }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</span>
+      </div>
+      {% endif %}
+
+      <form method="post" class="login-form" novalidate>
+        {% csrf_token %}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <div class="form-field {% if form.username.errors %}has-error{% endif %}">
+          <label for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+          <div class="input-shell">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>
+            {{ form.username }}
+          </div>
+          {% for error in form.username.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-field {% if form.password.errors %}has-error{% endif %}">
+          <div class="label-row"><label for="{{ form.password.id_for_label }}">{{ form.password.label }}</label><span>Connexion protégée</span></div>
+          <div class="input-shell">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            {{ form.password }}
+            <button type="button" class="password-toggle" aria-label="Afficher le mot de passe" aria-pressed="false">
+              <svg class="eye-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+              <svg class="eye-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.6 6.1c.5-.1.9-.1 1.4-.1 6 0 9.5 6 9.5 6a17 17 0 0 1-2.1 2.8M6.4 6.5C3.9 8.2 2.5 12 2.5 12s3.5 6 9.5 6c1.6 0 3-.4 4.2-1"/></svg>
+            </button>
+          </div>
+          {% for error in form.password.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        <div class="form-field {% if form.otp_token.errors %}has-error{% endif %}">
+          <div class="label-row"><label for="{{ form.otp_token.id_for_label }}">{{ form.otp_token.label }}</label><span>Si activé sur votre compte</span></div>
+          <div class="input-shell">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg>
+            {{ form.otp_token }}
+          </div>
+          {% for error in form.otp_token.errors %}<span class="field-error">{{ error }}</span>{% endfor %}
+        </div>
+        <button type="submit" class="primary-button">
+          <span>Accéder à PAM-olive</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+        </button>
+      </form>
+
+      {% if oidc_sources %}
+      <div class="identity-provider-divider"><span>ou continuer avec</span></div>
+      <div class="identity-provider-list">
+        {% for source in oidc_sources %}
+        <a class="identity-provider-button" href="{% url 'oidc_login' source.slug %}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8a4 4 0 1 1 8 0v3m-9 0h10v9H7z"/><path d="M12 15v2"/></svg>
+          <span>{{ source.name }}</span>
+          <span aria-hidden="true">→</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="security-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.1 8.3 8 10 4.9-1.7 8-5 8-10V6l-8-3Z"/></svg>
+        <span>Session protégée et journalisée</span>
+      </div>
+    </div>
+    <p class="auth-support">Un problème d’accès ? <span>Contactez votre administrateur.</span></p>
+  </section>
+</main>
+<script>
+  (() => {
+    const button = document.querySelector('.password-toggle');
+    const input = document.getElementById('id_password');
+    if (!button || !input) return;
+    button.addEventListener('click', () => {
+      const visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      button.setAttribute('aria-pressed', String(!visible));
+      button.setAttribute('aria-label', visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe');
+    });
+  })();
+</script>
+{% endblock %}
