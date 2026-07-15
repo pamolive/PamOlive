@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from cbpam.accounts.models import User
 from cbpam.console.forms import AccessPolicyForm
-from cbpam.policies.models import AccessPolicy
+from cbpam.policies.models import AccessPolicy, TimeFrame
 from cbpam.policies.services import policy_is_current
 from cbpam.rbac.models import UserGroup
 from cbpam.sessions.services import consume_session_ticket, issue_session_ticket
@@ -119,6 +119,24 @@ def test_policy_handles_validity_weekdays_and_overnight_window():
     assert not policy_is_current(policy, at=monday_midday)
     policy.weekdays = [2]
     assert not policy_is_current(policy, at=monday_late)
+
+
+@pytest.mark.django_db
+def test_policy_uses_reusable_time_frames_instead_of_legacy_schedule():
+    _user, _target, _allowed, _denied, policy, _users, _targets = constrained_policy_fixture()
+    monday_late = timezone.make_aware(datetime(2026, 7, 13, 23, 30))
+    frame = TimeFrame.objects.create(
+        name="Maintenance de nuit",
+        weekdays=[0, 1],
+        start_time=time(22, 0),
+        end_time=time(6, 0),
+    )
+    policy.time_frames.add(frame)
+    policy.weekdays = [4]
+
+    assert policy_is_current(policy, at=monday_late)
+    assert policy_is_current(policy, at=monday_late + timedelta(hours=2))
+    assert not policy_is_current(policy, at=monday_late.replace(hour=12))
 
 
 @pytest.mark.django_db

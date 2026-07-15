@@ -6,6 +6,49 @@ from cbpam.rbac.models import Role, UserGroup
 from cbpam.targets.models import Target, TargetGroup
 
 
+class TimeFrame(UUIDTimeStampedModel):
+    name = models.CharField(max_length=150, unique=True)
+    weekdays = models.JSONField(default=list, blank=True)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
+    valid_from = models.DateTimeField(null=True, blank=True)
+    valid_until = models.DateTimeField(null=True, blank=True)
+    enabled = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+
+class SecretRotationPolicy(UUIDTimeStampedModel):
+    class Strategy(models.TextChoices):
+        GENERATED_PASSWORD = "generated_password", "Mot de passe généré"
+
+    name = models.CharField(max_length=150, unique=True)
+    target_groups = models.ManyToManyField(
+        TargetGroup,
+        related_name="rotation_policies",
+        blank=True,
+    )
+    strategy = models.CharField(
+        max_length=32,
+        choices=Strategy.choices,
+        default=Strategy.GENERATED_PASSWORD,
+    )
+    interval_days = models.PositiveIntegerField(
+        default=30,
+        validators=[MinValueValidator(1), MaxValueValidator(3650)],
+    )
+    password_length = models.PositiveSmallIntegerField(
+        default=32,
+        validators=[MinValueValidator(16), MaxValueValidator(128)],
+    )
+    connector_key = models.CharField(max_length=100, blank=True)
+    enabled = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+
 class AccessPolicy(UUIDTimeStampedModel):
     class Action(models.TextChoices):
         REQUEST_ACCESS = "request_access", "Demander un accès"
@@ -28,6 +71,11 @@ class AccessPolicy(UUIDTimeStampedModel):
     approver_groups = models.ManyToManyField(
         UserGroup,
         related_name="approval_policies",
+        blank=True,
+    )
+    time_frames = models.ManyToManyField(
+        TimeFrame,
+        related_name="access_policies",
         blank=True,
     )
     actions = models.JSONField(default=list)

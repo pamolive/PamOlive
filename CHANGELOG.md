@@ -8,6 +8,11 @@ faire évoluer les interfaces et le schéma.
 
 ### Added
 
+- Cycle MFA complet : codes de récupération à usage unique, renouvellement et réinitialisation.
+- Codes TOTP dynamiques avec compte à rebours et masquage immédiat des secrets révélés.
+- Plages horaires réutilisables associées aux politiques d'accès.
+- Politiques de rotation séparées, applicables aux identifiants et groupes de cibles.
+- Écrans distincts pour annuaires LDAP/AD et fournisseurs OpenID Connect.
 - Sources d'identité LDAP, Active Directory et OIDC avec correspondance de groupes.
 - Domaines, types de cibles et de comptes, et clés d'hôte SSH approuvées/révoquées.
 - Contraintes de politique par identifiant, protocole, horaire, réseau et concurrence.
@@ -23,6 +28,11 @@ faire évoluer les interfaces et le schéma.
 
 ### Fixed
 
+- Les lancements de session s'ouvrent dans un nouvel onglet et les refus de sécurité sont
+  expliqués dans PAM-olive au lieu d'être masqués par la page d'erreur du proxy.
+- Les formulaires de droits utilisent des listes de sélection compactes à la place des murs
+  de cases à cocher.
+- L'interface de création de cible est limitée aux équipements SSH et RDP.
 - Déclaration explicite de `requests`, dépendance d'exécution requise par Authlib.
 - Compatibilité Synology DSM des proxies Caddy par capacité `NET_BIND_SERVICE` minimale et
   réseau public dédié au seul point d'entrée RDP.

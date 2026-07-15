@@ -28,7 +28,7 @@
         <span class="target-actions">
           {% if 'start_session' in entry.actions %}
             {% for credential in entry.credentials %}
-            <form method="post" action="{% url 'start_session' credential.pk %}">
+            <form method="post" action="{% url 'start_session' credential.pk %}" target="_blank">
               {% csrf_token %}
               <button class="inline-session-button" type="submit">Ouvrir · {{ credential.username }}</button>
             </form>

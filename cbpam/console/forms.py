@@ -12,7 +12,7 @@ from cbpam.connectors.services import (
     set_identity_source_configuration,
     validate_identity_source_configuration,
 )
-from cbpam.policies.models import AccessPolicy
+from cbpam.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
 from cbpam.rbac.models import Role, UserGroup
 from cbpam.targets.models import Domain, Target, TargetGroup, TargetHostKey
 from cbpam.targets.services import parse_ssh_public_key
@@ -74,8 +74,8 @@ class UserGroupForm(ConsoleFormMixin, forms.ModelForm):
             "enabled": "Groupe actif",
         }
         widgets = {
-            "users": forms.CheckboxSelectMultiple,
-            "roles": forms.CheckboxSelectMultiple,
+            "users": forms.SelectMultiple(attrs={"size": 7}),
+            "roles": forms.SelectMultiple(attrs={"size": 4}),
         }
 
 
@@ -83,7 +83,7 @@ class RoleForm(ConsoleFormMixin, forms.ModelForm):
     capabilities = forms.MultipleChoiceField(
         label="Droits associés",
         choices=Role.Capability.choices,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.SelectMultiple(attrs={"size": 9}),
         required=False,
     )
 
@@ -109,6 +109,7 @@ class RoleForm(ConsoleFormMixin, forms.ModelForm):
 
 
 class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
+    source_kind = None
     server_uri = forms.CharField(label="Adresse du serveur LDAP", required=False)
     bind_dn = forms.CharField(label="Compte de liaison", required=False)
     bind_password = forms.CharField(
@@ -154,6 +155,21 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if self.source_kind:
+            self.fields["kind"].initial = self.source_kind
+            self.fields["kind"].widget = forms.HiddenInput()
+            if self.source_kind == IdentitySource.Kind.OIDC:
+                for field_name in (
+                    "server_uri", "bind_dn", "bind_password", "base_dn",
+                    "user_filter", "group_filter", "sync_enabled",
+                    "sync_interval_minutes",
+                ):
+                    self.fields.pop(field_name, None)
+            else:
+                for field_name in (
+                    "issuer", "client_id", "client_secret", "scopes", "groups_claim"
+                ):
+                    self.fields.pop(field_name, None)
         if self.instance.pk and self.instance.encrypted_configuration:
             configuration = get_identity_source_configuration(self.instance)
             for field_name in self.fields:
@@ -165,7 +181,8 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        kind = cleaned.get("kind")
+        kind = self.source_kind or cleaned.get("kind")
+        cleaned["kind"] = kind
         if not kind:
             return cleaned
         existing = {}
@@ -209,6 +226,23 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
         if commit:
             source.save()
         return source
+
+
+class LDAPIdentitySourceForm(IdentitySourceForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["kind"].choices = (
+            (IdentitySource.Kind.LDAP, "LDAP"),
+            (IdentitySource.Kind.ACTIVE_DIRECTORY, "Microsoft Active Directory"),
+        )
+        for field_name in (
+            "issuer", "client_id", "client_secret", "scopes", "groups_claim"
+        ):
+            self.fields.pop(field_name, None)
+
+
+class OIDCIdentitySourceForm(IdentitySourceForm):
+    source_kind = IdentitySource.Kind.OIDC
 
 
 class DirectoryGroupMappingForm(ConsoleFormMixin, forms.ModelForm):
@@ -288,6 +322,11 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["kind"].widget = forms.HiddenInput()
+        self.fields["protocol"].choices = (
+            (Target.Protocol.SSH, "SSH"),
+            (Target.Protocol.RDP, "RDP"),
+        )
         self.fields["kind"].required = False
         self.fields["kind"].initial = Target.Kind.DEVICE
         rdp_defaults = {
@@ -305,7 +344,9 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        cleaned["kind"] = cleaned.get("kind") or Target.Kind.DEVICE
+        cleaned["kind"] = Target.Kind.DEVICE
+        if cleaned.get("protocol") not in {Target.Protocol.SSH, Target.Protocol.RDP}:
+            self.add_error("protocol", "Seuls les équipements SSH et RDP sont disponibles.")
         if cleaned.get("protocol") == Target.Protocol.RDP:
             cleaned["rdp_security"] = cleaned.get("rdp_security") or Target.RDPSecurity.NLA
             cleaned["rdp_server_layout"] = cleaned.get("rdp_server_layout") or "fr-be-azerty"
@@ -353,7 +394,7 @@ class TargetGroupForm(ConsoleFormMixin, forms.ModelForm):
             "targets": "Cibles membres",
             "enabled": "Groupe actif",
         }
-        widgets = {"targets": forms.CheckboxSelectMultiple}
+        widgets = {"targets": forms.SelectMultiple(attrs={"size": 8})}
 
 
 class TargetHostKeyForm(ConsoleFormMixin, forms.ModelForm):
@@ -384,30 +425,15 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
     actions = forms.MultipleChoiceField(
         label="Actions autorisées",
         choices=AccessPolicy.Action.choices,
-        widget=forms.CheckboxSelectMultiple,
+        widget=forms.SelectMultiple(attrs={"size": 6}),
         required=True,
     )
     protocols = forms.MultipleChoiceField(
         label="Protocoles autorisés",
-        choices=Target.Protocol.choices,
-        widget=forms.CheckboxSelectMultiple,
+        choices=((Target.Protocol.SSH, "SSH"), (Target.Protocol.RDP, "RDP")),
+        widget=forms.SelectMultiple(attrs={"size": 2}),
         required=False,
         help_text="Vide : tous les protocoles des cibles liées.",
-    )
-    weekdays = forms.MultipleChoiceField(
-        label="Jours autorisés",
-        choices=(
-            (0, "Lundi"),
-            (1, "Mardi"),
-            (2, "Mercredi"),
-            (3, "Jeudi"),
-            (4, "Vendredi"),
-            (5, "Samedi"),
-            (6, "Dimanche"),
-        ),
-        widget=forms.CheckboxSelectMultiple,
-        required=False,
-        help_text="Vide : tous les jours.",
     )
     source_cidrs = forms.CharField(
         label="Réseaux sources autorisés",
@@ -424,6 +450,7 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
             "target_groups",
             "credentials",
             "approver_groups",
+            "time_frames",
             "actions",
             "protocols",
             "requires_approval",
@@ -436,9 +463,6 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
             "allow_clipboard_paste",
             "valid_from",
             "valid_until",
-            "weekdays",
-            "access_start_time",
-            "access_end_time",
             "source_cidrs",
             "enabled",
         )
@@ -448,6 +472,7 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
             "target_groups": "Groupes de cibles",
             "credentials": "Comptes privilégiés concernés",
             "approver_groups": "Groupes d’approbateurs",
+            "time_frames": "Plages horaires",
             "requires_approval": "Approbation obligatoire",
             "approval_quorum": "Nombre d’approbations requises",
             "ticket_required": "Référence de ticket obligatoire",
@@ -458,19 +483,16 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
             "allow_clipboard_paste": "Autoriser le collage vers la session",
             "valid_from": "Valide à partir de",
             "valid_until": "Valide jusqu’au",
-            "access_start_time": "Heure de début",
-            "access_end_time": "Heure de fin",
             "enabled": "Politique active",
         }
         widgets = {
-            "user_groups": forms.CheckboxSelectMultiple,
-            "target_groups": forms.CheckboxSelectMultiple,
-            "credentials": forms.CheckboxSelectMultiple,
-            "approver_groups": forms.CheckboxSelectMultiple,
+            "user_groups": forms.SelectMultiple(attrs={"size": 6}),
+            "target_groups": forms.SelectMultiple(attrs={"size": 6}),
+            "credentials": forms.SelectMultiple(attrs={"size": 6}),
+            "approver_groups": forms.SelectMultiple(attrs={"size": 6}),
+            "time_frames": forms.SelectMultiple(attrs={"size": 5}),
             "valid_from": forms.DateTimeInput(attrs={"type": "datetime-local"}),
             "valid_until": forms.DateTimeInput(attrs={"type": "datetime-local"}),
-            "access_start_time": forms.TimeInput(attrs={"type": "time"}),
-            "access_end_time": forms.TimeInput(attrs={"type": "time"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -486,7 +508,6 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
         cleaned = super().clean()
         cleaned["approval_quorum"] = cleaned.get("approval_quorum") or 1
         cleaned["max_concurrent_sessions"] = cleaned.get("max_concurrent_sessions") or 1
-        cleaned["weekdays"] = [int(day) for day in cleaned.get("weekdays", [])]
         cidr_text = cleaned.get("source_cidrs", "")
         cidrs = [item.strip() for item in cidr_text.replace(",", "\n").splitlines() if item.strip()]
         for cidr in cidrs:
@@ -510,6 +531,71 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
         return cleaned
 
 
+class TimeFrameForm(ConsoleFormMixin, forms.ModelForm):
+    weekdays = forms.MultipleChoiceField(
+        label="Jours actifs",
+        choices=((0, "Lundi"), (1, "Mardi"), (2, "Mercredi"), (3, "Jeudi"),
+                 (4, "Vendredi"), (5, "Samedi"), (6, "Dimanche")),
+        widget=forms.SelectMultiple(attrs={"size": 7}),
+        required=False,
+        help_text="Aucun jour sélectionné signifie tous les jours.",
+    )
+
+    class Meta:
+        model = TimeFrame
+        fields = (
+            "name", "weekdays", "start_time", "end_time", "valid_from", "valid_until", "enabled"
+        )
+        labels = {
+            "name": "Nom de la plage",
+            "start_time": "Heure de début",
+            "end_time": "Heure de fin",
+            "valid_from": "Valide à partir de",
+            "valid_until": "Valide jusqu’au",
+            "enabled": "Plage active",
+        }
+        widgets = {
+            "start_time": forms.TimeInput(attrs={"type": "time"}),
+            "end_time": forms.TimeInput(attrs={"type": "time"}),
+            "valid_from": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+            "valid_until": forms.DateTimeInput(attrs={"type": "datetime-local"}),
+        }
+
+    def clean_weekdays(self):
+        return [int(day) for day in self.cleaned_data["weekdays"]]
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("valid_from") and cleaned.get("valid_until"):
+            if cleaned["valid_from"] >= cleaned["valid_until"]:
+                self.add_error("valid_until", "La fin doit être postérieure au début.")
+        return cleaned
+
+
+class SecretRotationPolicyForm(ConsoleFormMixin, forms.ModelForm):
+    class Meta:
+        model = SecretRotationPolicy
+        fields = (
+            "name", "target_groups", "strategy", "interval_days", "password_length",
+            "connector_key", "enabled",
+        )
+        labels = {
+            "name": "Nom de la politique",
+            "target_groups": "Groupes de cibles",
+            "strategy": "Méthode de rotation",
+            "interval_days": "Fréquence (jours)",
+            "password_length": "Longueur du mot de passe",
+            "connector_key": "Connecteur d’exécution",
+            "enabled": "Politique active",
+        }
+        help_texts = {
+            "connector_key": (
+                "Identifiant interne du connecteur chargé de modifier le compte distant."
+            ),
+        }
+        widgets = {"target_groups": forms.SelectMultiple(attrs={"size": 7})}
+
+
 class TargetCredentialForm(ConsoleFormMixin, forms.ModelForm):
     secret = forms.CharField(
         label="Mot de passe ou clé", required=False, widget=forms.PasswordInput
@@ -526,9 +612,7 @@ class TargetCredentialForm(ConsoleFormMixin, forms.ModelForm):
             "account_type",
             "kind",
             "checkout_enabled",
-            "rotation_enabled",
-            "rotation_interval_days",
-            "rotation_backend",
+            "rotation_policy",
         )
         labels = {
             "name": "Nom de l’identifiant",
@@ -538,15 +622,22 @@ class TargetCredentialForm(ConsoleFormMixin, forms.ModelForm):
             "account_type": "Type de compte",
             "kind": "Type",
             "checkout_enabled": "Consultation autorisée",
-            "rotation_enabled": "Rotation automatique",
-            "rotation_interval_days": "Intervalle de rotation (jours)",
-            "rotation_backend": "Fournisseur de rotation",
+            "rotation_policy": "Politique de rotation automatique",
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["account_type"].required = False
         self.fields["account_type"].initial = Credential.AccountType.LOCAL
+        self.fields["account_type"].choices = (
+            (Credential.AccountType.LOCAL, "Compte local"),
+            (Credential.AccountType.DOMAIN, "Compte de domaine"),
+            (Credential.AccountType.SERVICE, "Compte de service"),
+        )
+        self.fields["kind"].choices = (
+            (Credential.Kind.PASSWORD, "Mot de passe"),
+            (Credential.Kind.SSH_KEY, "Clé privée SSH"),
+        )
 
     def clean(self):
         cleaned = super().clean()
@@ -556,22 +647,6 @@ class TargetCredentialForm(ConsoleFormMixin, forms.ModelForm):
             "domain"
         ):
             self.add_error("domain", "Un compte de domaine doit référencer un domaine.")
-        if cleaned.get("rotation_enabled") and not cleaned.get("rotation_interval_days"):
-            self.add_error(
-                "rotation_interval_days",
-                "Définissez l’intervalle lorsque la rotation est activée.",
-            )
-        if cleaned.get("rotation_enabled") and not cleaned.get("rotation_backend"):
-            self.add_error(
-                "rotation_backend",
-                "Sélectionnez le nom d’un fournisseur explicitement configuré.",
-            )
-        interval = cleaned.get("rotation_interval_days")
-        if interval and not 1 <= interval <= 3650:
-            self.add_error(
-                "rotation_interval_days",
-                "L’intervalle doit être compris entre 1 et 3650 jours.",
-            )
         return cleaned
 
     def save(self, commit=True):
@@ -583,12 +658,15 @@ class TargetCredentialForm(ConsoleFormMixin, forms.ModelForm):
         if self.cleaned_data.get("totp_secret"):
             credential.encrypted_totp_secret = cipher.encrypt(self.cleaned_data["totp_secret"])
             credential.totp_encryption_key_id = cipher.active_key_id
-        if credential.rotation_enabled:
+        if credential.rotation_policy_id:
+            credential.rotation_enabled = False
+            credential.rotation_interval_days = None
+            credential.rotation_backend = ""
             if not credential.next_rotation_at:
                 credential.next_rotation_at = timezone.now()
-            elif "rotation_interval_days" in self.changed_data and credential.last_rotated_at:
+            elif "rotation_policy" in self.changed_data and credential.last_rotated_at:
                 credential.next_rotation_at = credential.last_rotated_at + timedelta(
-                    days=credential.rotation_interval_days
+                    days=credential.rotation_policy.interval_days
                 )
         else:
             credential.next_rotation_at = None

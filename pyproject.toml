@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pam-olive"
-version = "0.2.0"
+version = "0.3.0"
 description = "PAM-olive, an open-source privileged access management platform"
 readme = "README.md"
 requires-python = ">=3.12"

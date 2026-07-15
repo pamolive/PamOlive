@@ -13,7 +13,7 @@ from cbpam.connectors.models import (
 )
 from cbpam.mfa.models import MFADevice
 from cbpam.operations.models import RotationJob
-from cbpam.policies.models import AccessPolicy
+from cbpam.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
 from cbpam.rbac.models import Role, RoleAssignment, UserGroup
 from cbpam.sessions.models import PrivilegedSession, SessionTicket
 from cbpam.targets.models import Domain, Target, TargetGroup, TargetHostKey
@@ -178,6 +178,8 @@ admin.site.register(Role)
 admin.site.register(RoleAssignment)
 admin.site.register(UserGroup)
 admin.site.register(AccessPolicy)
+admin.site.register(TimeFrame)
+admin.site.register(SecretRotationPolicy)
 admin.site.register(TargetGroup)
 admin.site.register(PrivilegedSession)
 admin.site.register(MFADevice)

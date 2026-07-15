@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Codes de récupération · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero"><div><span class="eyebrow"><i></i> Sécurité du compte</span><h1>Codes de récupération.</h1><p>Enregistrez ces codes maintenant. Ils ne seront plus affichés.</p></div></header>
+<section class="resource-form-card recovery-card">
+  <div class="resource-card-title"><span>MFA</span><strong>{% if regenerated %}Nouveaux codes{% else %}Protection activée{% endif %}</strong></div>
+  <p>Chaque code remplace une fois votre code TOTP. Conservez-les hors de PAM-olive, dans un endroit sûr.</p>
+  <div class="recovery-code-grid" aria-label="Codes de récupération">
+    {% for code in recovery_codes %}<code>{{ code }}</code>{% endfor %}
+  </div>
+  <a class="primary-button" href="{% url 'account' %}">J’ai enregistré mes codes</a>
+</section>
+{% endblock %}

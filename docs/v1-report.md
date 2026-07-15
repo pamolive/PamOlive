@@ -10,8 +10,8 @@
 
 ## Références analysées
 
-Les guides d'administration, d'audit et d'utilisation WALLIX Bastion 12.3.6 ont été utilisés
-comme référence fonctionnelle. Les concepts retenus sont la navigation dépendante du profil,
+Des guides publics d'administration, d'audit et d'utilisation de solutions PAM ont été utilisés
+comme références fonctionnelles. Les concepts retenus sont la navigation dépendante du profil,
 les profils de permissions, les groupes, la séparation cibles/comptes, les autorisations,
 les approbations, la surveillance de session et les historiques d'audit. Aucun code ni élément
 de marque propriétaire n'est réutilisé.

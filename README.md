@@ -129,7 +129,7 @@ La documentation se trouve dans [`docs/`](docs/). Avant toute contribution, lire
 ## Licence et indépendance
 
 PAM-olive est distribué sous licence
-[GNU AGPL version 3 ou ultérieure](LICENSE). C'est un projet indépendant, non affilié,
-non soutenu et non certifié par WALLIX. Les noms et marques de tiers appartiennent
-à leurs propriétaires respectifs. Le projet s'inspire de pratiques PAM publiques,
-sans reprendre de code propriétaire.
+[GNU AGPL version 3 ou ultérieure](LICENSE). C'est un projet indépendant. Les noms
+et marques de tiers appartiennent à leurs propriétaires respectifs. Le projet
+implémente des pratiques PAM publiquement documentées sans reprendre de code
+propriétaire.

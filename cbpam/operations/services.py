@@ -6,6 +6,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from django.utils.module_loading import import_string
 
@@ -87,7 +88,9 @@ def _candidate_secret(backend, credential):
 
 @transaction.atomic
 def queue_rotation(*, credential, requested_by=None, reason="", scheduled_for=None):
-    locked_credential = Credential.objects.select_for_update().get(pk=credential.pk)
+    locked_credential = Credential.objects.select_for_update().select_related(
+        "rotation_policy"
+    ).get(pk=credential.pk)
     existing = RotationJob.objects.filter(
         credential=locked_credential,
         status__in=(RotationJob.Status.PENDING, RotationJob.Status.RUNNING),
@@ -98,7 +101,7 @@ def queue_rotation(*, credential, requested_by=None, reason="", scheduled_for=No
         credential=locked_credential,
         requested_by=requested_by,
         reason=(reason or "")[:250],
-        backend=locked_credential.rotation_backend,
+        backend=locked_credential.effective_rotation_backend,
         scheduled_for=scheduled_for or timezone.now(),
         previous_key_version=locked_credential.key_version,
     )
@@ -108,7 +111,7 @@ def queue_rotation(*, credential, requested_by=None, reason="", scheduled_for=No
         resource=job,
         metadata={
             "credential_id": str(locked_credential.pk),
-            "backend": locked_credential.rotation_backend or "unconfigured",
+            "backend": locked_credential.effective_rotation_backend or "unconfigured",
             "scheduled_for": job.scheduled_for.isoformat(),
         },
     )
@@ -241,7 +244,9 @@ def execute_rotation(job_id):
 
     with transaction.atomic():
         job = RotationJob.objects.select_for_update().get(pk=job.pk)
-        credential = Credential.objects.select_for_update().get(pk=credential_id)
+        credential = Credential.objects.select_for_update().select_related(
+            "rotation_policy"
+        ).get(pk=credential_id)
         if job.status != RotationJob.Status.RUNNING:
             raise ValidationError("Rotation job is no longer running")
         now = timezone.now()
@@ -252,8 +257,9 @@ def execute_rotation(job_id):
         credential.last_rotation_status = Credential.RotationStatus.SUCCEEDED
         credential.rotation_failure_count = 0
         credential.next_rotation_at = (
-            now + timedelta(days=credential.rotation_interval_days)
-            if credential.rotation_enabled and credential.rotation_interval_days
+            now + timedelta(days=credential.effective_rotation_interval_days)
+            if credential.automatic_rotation_enabled
+            and credential.effective_rotation_interval_days
             else None
         )
         credential.save(
@@ -302,13 +308,21 @@ def execute_rotation(job_id):
 def schedule_due_rotations(*, now=None, limit=100):
     now = now or timezone.now()
     queued = []
-    credentials = Credential.objects.filter(rotation_enabled=True).order_by(
+    credentials = Credential.objects.select_related("rotation_policy").filter(
+        Q(rotation_enabled=True) | Q(rotation_policy__enabled=True)
+    ).order_by(
         "next_rotation_at", "created_at"
     )[:limit]
     for credential in credentials:
         due_at = credential.next_rotation_at
-        if due_at is None and credential.last_rotated_at and credential.rotation_interval_days:
-            due_at = credential.last_rotated_at + timedelta(days=credential.rotation_interval_days)
+        if (
+            due_at is None
+            and credential.last_rotated_at
+            and credential.effective_rotation_interval_days
+        ):
+            due_at = credential.last_rotated_at + timedelta(
+                days=credential.effective_rotation_interval_days
+            )
             Credential.objects.filter(pk=credential.pk).update(next_rotation_at=due_at)
         if due_at is None or due_at <= now:
             job, created = queue_rotation(

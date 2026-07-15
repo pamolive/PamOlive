@@ -5,11 +5,13 @@ from urllib.parse import quote
 
 import qrcode
 import qrcode.image.svg
+from django.contrib.auth.hashers import check_password, make_password
+from django.db import transaction
 from django.utils import timezone
 
 from cbpam.vault.services import VaultCipher, verify_totp
 
-from .models import MFADevice
+from .models import MFADevice, MFARecoveryCode
 
 
 def generate_totp_secret():
@@ -71,3 +73,49 @@ def verify_user_totp(user, token):
     device.last_used_at = timezone.now()
     device.save(update_fields=["last_used_at", "updated_at"])
     return True
+
+
+def _normalized_recovery_code(value):
+    return "".join(character for character in (value or "").upper() if character.isalnum())
+
+
+@transaction.atomic
+def replace_recovery_codes(user, device, *, count=10):
+    MFARecoveryCode.objects.filter(user=user, device=device).delete()
+    plain_codes = []
+    for _index in range(count):
+        raw = secrets.token_hex(5).upper()
+        MFARecoveryCode.objects.create(
+            user=user,
+            device=device,
+            code_hash=make_password(raw),
+        )
+        plain_codes.append(f"{raw[:5]}-{raw[5:]}")
+    return plain_codes
+
+
+@transaction.atomic
+def consume_recovery_code(user, token):
+    normalized = _normalized_recovery_code(token)
+    if len(normalized) != 10:
+        return False
+    recovery_codes = MFARecoveryCode.objects.select_for_update().filter(
+        user=user,
+        used_at__isnull=True,
+        device__confirmed=True,
+    )
+    for recovery_code in recovery_codes:
+        if check_password(normalized, recovery_code.code_hash):
+            recovery_code.used_at = timezone.now()
+            recovery_code.save(update_fields=("used_at", "updated_at"))
+            return True
+    return False
+
+
+def verify_user_mfa(user, token):
+    return verify_user_totp(user, token) or consume_recovery_code(user, token)
+
+
+@transaction.atomic
+def reset_user_mfa(user):
+    user.mfa_devices.all().delete()

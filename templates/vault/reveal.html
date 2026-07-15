@@ -1,9 +1,10 @@
-<div class="revealed-secret">
+<div class="revealed-secret"{% if totp_refresh_url %} data-totp-url="{{ totp_refresh_url }}"{% endif %}>
+  <button type="button" class="secret-close" data-secret-close aria-label="Masquer le secret">×</button>
   {% if payload.application %}<span><small>Application</small><strong>{{ payload.application }}</strong></span>{% endif %}
   {% if payload.website_url %}<span><small>URL</small><strong>{{ payload.website_url }}</strong></span>{% endif %}
   {% if payload.username %}<span><small>Identifiant</small><strong>{{ payload.username }}</strong></span>{% endif %}
   {% if payload.password %}<span><small>Mot de passe</small><strong class="secret-value">{{ payload.password }}</strong></span>{% endif %}
-  {% if payload.totp_code %}<span><small>Code TOTP actuel</small><strong class="totp-value">{{ payload.totp_code }}</strong></span>{% endif %}
+  {% if payload.totp_code %}<span class="totp-row"><small>Code TOTP actuel</small><strong class="totp-value" data-totp-code>{{ payload.totp_code }}</strong><span class="totp-timer"><i data-totp-progress></i></span><small data-totp-remaining>30 s</small></span>{% endif %}
   {% if payload.card_holder %}<span><small>Titulaire</small><strong>{{ payload.card_holder }}</strong></span>{% endif %}
   {% if payload.card_number %}<span><small>Numéro</small><strong class="secret-value">{{ payload.card_number }}</strong></span>{% endif %}
   {% if payload.expiry %}<span><small>Expiration</small><strong>{{ payload.expiry }}</strong></span>{% endif %}

@@ -2,7 +2,7 @@ import pytest
 from django.urls import reverse
 
 from cbpam.accounts.models import User
-from cbpam.policies.models import AccessPolicy
+from cbpam.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
 from cbpam.rbac.models import Role, UserGroup
 from cbpam.targets.models import Target, TargetGroup
 from cbpam.vault.models import Credential
@@ -27,11 +27,15 @@ def test_administration_subtabs_render(client, administrator):
     for name in (
         "console:roles",
         "console:identity_sources",
+        "console:ldap_sources",
+        "console:oidc_sources",
         "console:directory_mappings",
         "console:domains",
         "console:target_groups",
         "console:credentials",
         "console:policies",
+        "console:time_frames",
+        "console:rotation_policies",
         "console:approvals",
         "console:sessions",
         "console:audit",
@@ -137,3 +141,38 @@ def test_administrator_can_create_local_user(client, administrator):
 
     assert response.status_code == 302
     assert User.objects.filter(username="new-user").exists()
+
+
+@pytest.mark.django_db
+def test_administrator_creates_time_frame_and_rotation_policy(client, administrator):
+    client.force_login(administrator)
+    target_group = TargetGroup.objects.create(name="Managed Linux")
+
+    time_response = client.post(
+        reverse("console:time_frames"),
+        {
+            "name": "Nuits de semaine",
+            "weekdays": [0, 1, 2, 3, 4],
+            "start_time": "22:00",
+            "end_time": "06:00",
+            "enabled": "on",
+        },
+    )
+    rotation_response = client.post(
+        reverse("console:rotation_policies"),
+        {
+            "name": "Comptes Linux mensuels",
+            "target_groups": [target_group.pk],
+            "strategy": SecretRotationPolicy.Strategy.GENERATED_PASSWORD,
+            "interval_days": 30,
+            "password_length": 32,
+            "connector_key": "linux-ssh",
+            "enabled": "on",
+        },
+    )
+
+    assert time_response.status_code == 302
+    assert rotation_response.status_code == 302
+    assert TimeFrame.objects.get(name="Nuits de semaine").weekdays == [0, 1, 2, 3, 4]
+    policy = SecretRotationPolicy.objects.get(name="Comptes Linux mensuels")
+    assert list(policy.target_groups.all()) == [target_group]

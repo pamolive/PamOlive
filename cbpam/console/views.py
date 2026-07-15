@@ -24,7 +24,7 @@ from cbpam.connectors.models import DirectoryGroupMapping, IdentitySource
 from cbpam.operations.models import RotationJob
 from cbpam.operations.services import queue_rotation
 from cbpam.operations.tasks import execute_rotation_job
-from cbpam.policies.models import AccessPolicy
+from cbpam.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
 from cbpam.rbac.models import Role, UserGroup
 from cbpam.rbac.services import can_view_configuration, capability_required, user_has_capability
 from cbpam.sessions.control import notify_gateway_termination
@@ -37,12 +37,15 @@ from .forms import (
     AccessPolicyForm,
     DirectoryGroupMappingForm,
     DomainForm,
-    IdentitySourceForm,
+    LDAPIdentitySourceForm,
+    OIDCIdentitySourceForm,
     RoleForm,
+    SecretRotationPolicyForm,
     TargetCredentialForm,
     TargetForm,
     TargetGroupForm,
     TargetHostKeyForm,
+    TimeFrameForm,
     UserCreateForm,
     UserGroupForm,
     UserUpdateForm,
@@ -242,29 +245,69 @@ def roles(request, pk=None):
 
 @login_required
 @capability_required(Role.Capability.CONSOLE_ACCESS)
-def identity_sources(request, pk=None):
+def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=None):
     can_manage = _configuration_permission(
         request,
         Role.Capability.IDENTITY_SOURCES_MANAGE,
         Role.Capability.IDENTITY_SOURCES_VIEW,
     )
-    instance = get_object_or_404(IdentitySource, pk=pk) if pk else None
-    form = IdentitySourceForm(request.POST or None, instance=instance)
+    kinds = kind if isinstance(kind, (tuple, list, set)) else (kind,)
+    instance = get_object_or_404(IdentitySource, pk=pk, kind__in=kinds) if pk else None
+    form = form_class(request.POST or None, instance=instance)
     if request.method == "POST":
         response = _save_form(
             request,
             form,
             "Source d’identité enregistrée.",
-            "console:identity_sources",
+            redirect_name,
         )
         if response:
             return response
-    objects = IdentitySource.objects.annotate(
+    objects = IdentitySource.objects.filter(kind__in=kinds).annotate(
         identity_count=Count("external_identities", distinct=True),
         mapping_count=Count("group_mappings", distinct=True),
     ).order_by("name")
     return _render_resource(
-        request, form, objects, "identity_sources", instance, can_manage
+        request, form, objects, resource, instance, can_manage
+    )
+
+
+@login_required
+@capability_required(Role.Capability.CONSOLE_ACCESS)
+def ldap_sources(request, pk=None):
+    return _identity_sources(
+        request,
+        kind=(IdentitySource.Kind.LDAP, IdentitySource.Kind.ACTIVE_DIRECTORY),
+        form_class=LDAPIdentitySourceForm,
+        resource="ldap_sources",
+        redirect_name="console:ldap_sources",
+        pk=pk,
+    )
+
+
+@login_required
+@capability_required(Role.Capability.CONSOLE_ACCESS)
+def oidc_sources(request, pk=None):
+    return _identity_sources(
+        request,
+        kind=IdentitySource.Kind.OIDC,
+        form_class=OIDCIdentitySourceForm,
+        resource="oidc_sources",
+        redirect_name="console:oidc_sources",
+        pk=pk,
+    )
+
+
+@login_required
+@capability_required(Role.Capability.CONSOLE_ACCESS)
+def identity_sources(request, pk=None):
+    return _identity_sources(
+        request,
+        kind=(IdentitySource.Kind.LDAP, IdentitySource.Kind.ACTIVE_DIRECTORY),
+        form_class=LDAPIdentitySourceForm,
+        resource="identity_sources",
+        redirect_name="console:identity_sources",
+        pk=pk,
     )
 
 
@@ -449,6 +492,48 @@ def policies(request, pk=None):
         "user_groups", "target_groups", "approver_groups"
     ).order_by("name")
     return _render_resource(request, form, objects, "policies", instance, can_manage)
+
+
+@login_required
+@capability_required(Role.Capability.CONSOLE_ACCESS)
+def time_frames(request, pk=None):
+    can_manage = _configuration_permission(
+        request, Role.Capability.POLICIES_MANAGE, Role.Capability.POLICIES_VIEW
+    )
+    instance = get_object_or_404(TimeFrame, pk=pk) if pk else None
+    form = TimeFrameForm(request.POST or None, instance=instance)
+    if request.method == "POST":
+        response = _save_form(
+            request, form, "Plage horaire enregistrée.", "console:time_frames"
+        )
+        if response:
+            return response
+    return _render_resource(
+        request, form, TimeFrame.objects.order_by("name"), "time_frames", instance, can_manage
+    )
+
+
+@login_required
+@capability_required(Role.Capability.CONSOLE_ACCESS)
+def rotation_policies(request, pk=None):
+    can_manage = _configuration_permission(
+        request, Role.Capability.POLICIES_MANAGE, Role.Capability.POLICIES_VIEW
+    )
+    instance = get_object_or_404(SecretRotationPolicy, pk=pk) if pk else None
+    form = SecretRotationPolicyForm(request.POST or None, instance=instance)
+    if request.method == "POST":
+        response = _save_form(
+            request,
+            form,
+            "Politique de rotation enregistrée.",
+            "console:rotation_policies",
+        )
+        if response:
+            return response
+    objects = SecretRotationPolicy.objects.prefetch_related("target_groups").order_by("name")
+    return _render_resource(
+        request, form, objects, "rotation_policies", instance, can_manage
+    )
 
 
 @login_required

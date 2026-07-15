@@ -42,21 +42,47 @@ def policy_is_current(policy, *, at=None, source_ip=None):
     if policy.valid_until and at >= policy.valid_until:
         return False
     local_at = timezone.localtime(at)
-    if policy.weekdays and local_at.weekday() not in {int(day) for day in policy.weekdays}:
-        return False
-    current_time = local_at.time().replace(tzinfo=None)
-    start = policy.access_start_time
-    end = policy.access_end_time
-    if start and end:
-        if start <= end and not start <= current_time < end:
+    time_frames = list(policy.time_frames.filter(enabled=True))
+    if time_frames:
+        if not any(_time_frame_is_current(frame, local_at) for frame in time_frames):
             return False
-        if start > end and not (current_time >= start or current_time < end):
-            return False
-    elif start and current_time < start:
-        return False
-    elif end and current_time >= end:
+    elif not _legacy_schedule_is_current(policy, local_at):
         return False
     return _source_is_allowed(policy, source_ip)
+
+
+def _clock_is_current(current_time, start, end):
+    if start and end:
+        if start <= end:
+            return start <= current_time < end
+        return current_time >= start or current_time < end
+    if start:
+        return current_time >= start
+    if end:
+        return current_time < end
+    return True
+
+
+def _time_frame_is_current(frame, local_at):
+    if frame.valid_from and local_at < timezone.localtime(frame.valid_from):
+        return False
+    if frame.valid_until and local_at >= timezone.localtime(frame.valid_until):
+        return False
+    if frame.weekdays and local_at.weekday() not in {int(day) for day in frame.weekdays}:
+        return False
+    return _clock_is_current(
+        local_at.time().replace(tzinfo=None), frame.start_time, frame.end_time
+    )
+
+
+def _legacy_schedule_is_current(policy, local_at):
+    if policy.weekdays and local_at.weekday() not in {int(day) for day in policy.weekdays}:
+        return False
+    return _clock_is_current(
+        local_at.time().replace(tzinfo=None),
+        policy.access_start_time,
+        policy.access_end_time,
+    )
 
 
 def policies_allowing(user, action, *, source_ip=None, at=None):

@@ -9,18 +9,26 @@
       <h1>Groupes utilisateurs</h1><p>Un utilisateur peut appartenir à plusieurs groupes et cumuler leurs profils autorisés.</p>
     {% elif resource == 'roles' %}
       <h1>Profils de permissions</h1><p>Séparez la consultation, la gestion et les actions sensibles pour chaque domaine.</p>
+    {% elif resource == 'ldap_sources' %}
+      <h1>Annuaires LDAP / AD</h1><p>Connectez les annuaires d’entreprise et synchronisez leurs identités.</p>
     {% elif resource == 'identity_sources' %}
-      <h1>Sources d’identité</h1><p>Configurez LDAP, Active Directory et OpenID Connect sans exposer leurs secrets.</p>
+      <h1>Annuaires LDAP / AD</h1><p>Connectez les annuaires d’entreprise et synchronisez leurs identités.</p>
+    {% elif resource == 'oidc_sources' %}
+      <h1>Fournisseurs OIDC</h1><p>Configurez séparément l’authentification OpenID Connect.</p>
     {% elif resource == 'directory_mappings' %}
       <h1>Correspondances de groupes</h1><p>Reliez les groupes externes aux groupes PAM-olive lors des synchronisations.</p>
     {% elif resource == 'domains' %}
       <h1>Domaines</h1><p>Organisez les comptes locaux et les comptes de domaine séparément des cibles.</p>
     {% elif resource == 'targets' %}
-      <h1>Cibles</h1><p>Référencez équipements et applications avec leur protocole et leur domaine.</p>
+      <h1>Équipements</h1><p>Référencez uniquement les équipements SSH et RDP de cette version.</p>
     {% elif resource == 'target_groups' %}
       <h1>Groupes de cibles</h1><p>Les utilisateurs ne voient que les groupes accordés par leurs politiques.</p>
     {% elif resource == 'credentials' %}
       <h1>Comptes des cibles</h1><p>Gérez comptes locaux, comptes de domaine, services, clés et stratégies de rotation.</p>
+    {% elif resource == 'time_frames' %}
+      <h1>Plages horaires</h1><p>Définissez les calendriers réutilisables puis associez-les aux politiques d’accès.</p>
+    {% elif resource == 'rotation_policies' %}
+      <h1>Politiques de rotation</h1><p>Centralisez fréquence, méthode et connecteur de changement des mots de passe.</p>
     {% else %}
       <h1>Politiques d’accès</h1><p>Reliez groupes utilisateurs, groupes de cibles et actions autorisées.</p>
     {% endif %}
@@ -67,7 +75,7 @@
     <div class="resource-list-head"><div><span>Répertoire</span><strong>{{ objects|length }} élément{{ objects|length|pluralize }}</strong></div></div>
     <div class="resource-list">
       {% for object in objects %}
-        <a class="resource-item" href="{% if resource == 'users' %}{% url 'console:user_edit' object.pk %}{% elif resource == 'user_groups' %}{% url 'console:user_group_edit' object.pk %}{% elif resource == 'roles' %}{% url 'console:role_edit' object.pk %}{% elif resource == 'identity_sources' %}{% url 'console:identity_source_edit' object.pk %}{% elif resource == 'directory_mappings' %}{% url 'console:directory_mapping_edit' object.pk %}{% elif resource == 'domains' %}{% url 'console:domain_edit' object.pk %}{% elif resource == 'targets' %}{% url 'console:target_edit' object.pk %}{% elif resource == 'target_groups' %}{% url 'console:target_group_edit' object.pk %}{% elif resource == 'credentials' %}{% url 'console:credential_edit' object.pk %}{% else %}{% url 'console:policy_edit' object.pk %}{% endif %}">
+        <a class="resource-item" href="{% if resource == 'users' %}{% url 'console:user_edit' object.pk %}{% elif resource == 'user_groups' %}{% url 'console:user_group_edit' object.pk %}{% elif resource == 'roles' %}{% url 'console:role_edit' object.pk %}{% elif resource == 'ldap_sources' %}{% url 'console:ldap_source_edit' object.pk %}{% elif resource == 'oidc_sources' %}{% url 'console:oidc_source_edit' object.pk %}{% elif resource == 'directory_mappings' %}{% url 'console:directory_mapping_edit' object.pk %}{% elif resource == 'domains' %}{% url 'console:domain_edit' object.pk %}{% elif resource == 'targets' %}{% url 'console:target_edit' object.pk %}{% elif resource == 'target_groups' %}{% url 'console:target_group_edit' object.pk %}{% elif resource == 'credentials' %}{% url 'console:credential_edit' object.pk %}{% elif resource == 'time_frames' %}{% url 'console:time_frame_edit' object.pk %}{% elif resource == 'rotation_policies' %}{% url 'console:rotation_policy_edit' object.pk %}{% else %}{% url 'console:policy_edit' object.pk %}{% endif %}">
           <span class="resource-avatar">
             {% if resource == 'users' %}{{ object.username|first|upper }}
             {% elif resource == 'targets' %}{{ object.protocol|upper }}
@@ -84,12 +92,14 @@
             {% if resource == 'users' %}<small>{{ object.email }} · {{ object.pam_user_groups.count }} groupe{{ object.pam_user_groups.count|pluralize }}</small>
             {% elif resource == 'user_groups' %}<small>{{ object.member_count }} membre{{ object.member_count|pluralize }} · {{ object.roles.count }} profil{{ object.roles.count|pluralize }}</small>
             {% elif resource == 'roles' %}<small>{{ object.capabilities|length }} permission{{ object.capabilities|length|pluralize }}</small>
-            {% elif resource == 'identity_sources' %}<small>{{ object.get_kind_display }} · {{ object.identity_count }} identité{{ object.identity_count|pluralize }} · {{ object.mapping_count }} correspondance{{ object.mapping_count|pluralize }}</small>
+            {% elif resource == 'identity_sources' or resource == 'ldap_sources' or resource == 'oidc_sources' %}<small>{{ object.get_kind_display }} · {{ object.identity_count }} identité{{ object.identity_count|pluralize }} · {{ object.mapping_count }} correspondance{{ object.mapping_count|pluralize }}</small>
             {% elif resource == 'directory_mappings' %}<small>{{ object.source.name }} → {{ object.user_group.name }}</small>
             {% elif resource == 'domains' %}<small>{{ object.get_kind_display }} · {{ object.target_count }} cible{{ object.target_count|pluralize }} · {{ object.credential_count }} compte{{ object.credential_count|pluralize }}</small>
             {% elif resource == 'targets' %}<small>{{ object.hostname }}:{{ object.port }} · {{ object.get_kind_display }} · {{ object.credential_count }} compte{{ object.credential_count|pluralize }}</small>
             {% elif resource == 'target_groups' %}<small>{{ object.target_count }} cible{{ object.target_count|pluralize }}</small>
             {% elif resource == 'credentials' %}<small>{{ object.target.name }} · {{ object.username }} · {{ object.get_account_type_display }} · Rotation : {{ object.get_last_rotation_status_display }}</small>
+            {% elif resource == 'time_frames' %}<small>{{ object.start_time|default:"Toute la journée" }}{% if object.end_time %} → {{ object.end_time }}{% endif %} · {{ object.access_policies.count }} politique{{ object.access_policies.count|pluralize }}</small>
+            {% elif resource == 'rotation_policies' %}<small>Tous les {{ object.interval_days }} jours · {{ object.credentials.count }} compte{{ object.credentials.count|pluralize }}</small>
             {% else %}<small>{% for label in object.action_labels %}{{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}</small>{% endif %}
           </span>
           <span class="resource-state {% if resource == 'user_groups' and not object.has_active_policy %}is-warning{% endif %}">

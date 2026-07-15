@@ -57,6 +57,13 @@ def test_target_password_and_totp_require_policy_actions(client):
     assert b"Code TOTP actuel" in response.content
     assert AuditEvent.objects.filter(action="credential.secret_lease.consumed").exists()
 
+    totp_response = client.get(reverse("target_credential_totp", args=[credential.pk]))
+    assert totp_response.status_code == 200
+    assert len(totp_response.json()["code"]) == 6
+    assert 1 <= totp_response.json()["remaining"] <= 30
+    assert "no-store" in totp_response.headers["Cache-Control"]
+    assert b"data-secret-close" in response.content
+
 
 @pytest.mark.django_db
 def test_targets_page_only_contains_authorized_target_groups(client):
@@ -79,6 +86,34 @@ def test_targets_page_only_contains_authorized_target_groups(client):
     assert b"Allowed" in response.content
     assert hidden_group.name.encode() not in response.content
     assert b"Hidden" not in response.content
+
+
+@pytest.mark.django_db
+def test_session_opens_new_tab_and_missing_host_key_has_clear_message(client):
+    user = User.objects.create_user(username="session-user")
+    target = Target.objects.create(
+        name="SSH without trusted key",
+        hostname="10.0.0.8",
+        port=22,
+        protocol=Target.Protocol.SSH,
+    )
+    credential = Credential.objects.create(
+        name="root",
+        target=target,
+        username="root",
+        kind=Credential.Kind.PASSWORD,
+        encrypted_secret=VaultCipher().encrypt("secret"),
+    )
+    grant_target_actions(user, target, [AccessPolicy.Action.START_SESSION])
+    client.force_login(user)
+
+    target_page = client.get(reverse("targets"))
+    assert b'target="_blank"' in target_page.content
+
+    response = client.post(reverse("start_session", args=[credential.pk]))
+    assert response.status_code == 200
+    assert b"Session non ouverte" in response.content
+    assert b"cl\xc3\xa9 d\xe2\x80\x99h\xc3\xb4te SSH" in response.content
 
 
 @pytest.mark.django_db
@@ -115,3 +150,18 @@ def test_administrator_creates_target_with_initial_local_credential(client):
     assert (
         VaultCipher().decrypt(target.credentials.get().encrypted_secret) == "secret-local-password"
     )
+
+    unsupported = client.post(
+        reverse("console:targets"),
+        {
+            "name": "Unsupported web app",
+            "hostname": "example.test",
+            "port": 443,
+            "protocol": "web",
+            "credential_name": "service",
+            "credential_username": "service",
+            "credential_password": "secret",
+        },
+    )
+    assert unsupported.status_code == 200
+    assert not Target.objects.filter(name="Unsupported web app").exists()

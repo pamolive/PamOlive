@@ -12,13 +12,20 @@ from django.utils.cache import patch_cache_control
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
-from cbpam.accounts.forms import MFAConfirmForm, ProfileForm
+from cbpam.accounts.forms import MFAConfirmForm, MFASecurityForm, ProfileForm
 from cbpam.approvals.forms import AccessRequestForm
 from cbpam.approvals.models import AccessRequest
 from cbpam.audit.services import record_event
 from cbpam.common.network import request_client_ip
 from cbpam.mfa.models import MFADevice
-from cbpam.mfa.services import begin_totp_enrollment, confirm_totp_device, qr_svg, totp_uri
+from cbpam.mfa.services import (
+    begin_totp_enrollment,
+    confirm_totp_device,
+    qr_svg,
+    replace_recovery_codes,
+    reset_user_mfa,
+    totp_uri,
+)
 from cbpam.policies.models import AccessPolicy
 from cbpam.policies.services import (
     actions_for_target,
@@ -119,7 +126,21 @@ def reveal_personal_item(request, pk):
     if payload.get("totp_secret"):
         payload["totp_code"] = totp_code(payload["totp_secret"])
     record_event(actor=request.user, action="personal_vault.item_revealed", resource=item)
-    return render(request, "vault/reveal.html", {"item": item, "payload": payload})
+    return render(
+        request,
+        "vault/reveal.html",
+        {
+            "item": item,
+            "payload": payload,
+            "totp_refresh_url": (
+                request.build_absolute_uri(
+                    f"/passwords/personal/{item.pk}/totp/"
+                )
+                if payload.get("totp_secret")
+                else ""
+            ),
+        },
+    )
 
 
 @require_POST
@@ -154,8 +175,58 @@ def reveal_target_credential(request, pk):
     return render(
         request,
         "vault/reveal.html",
-        {"item": credential, "payload": payload, "is_target_credential": True},
+        {
+            "item": credential,
+            "payload": payload,
+            "is_target_credential": True,
+            "totp_refresh_url": (
+                request.build_absolute_uri(
+                    f"/passwords/target/{credential.pk}/totp/"
+                )
+                if payload.get("totp_code")
+                else ""
+            ),
+        },
     )
+
+
+def _totp_json(secret):
+    now = timezone.now().timestamp()
+    remaining = 30 - (int(now) % 30)
+    response = JsonResponse(
+        {"code": totp_code(secret, timestamp=now), "remaining": remaining, "period": 30}
+    )
+    patch_cache_control(response, no_cache=True, no_store=True, must_revalidate=True, private=True)
+    return response
+
+
+@never_cache
+@login_required
+def personal_item_totp(request, pk):
+    item = get_object_or_404(PersonalVaultItem, pk=pk, owner=request.user)
+    payload = VaultCipher().decrypt_payload(
+        item.encrypted_payload, key_id=item.encryption_key_id
+    )
+    if not payload.get("totp_secret"):
+        raise PermissionDenied
+    return _totp_json(payload["totp_secret"])
+
+
+@never_cache
+@login_required
+def target_credential_totp(request, pk):
+    credential = get_object_or_404(Credential.objects.select_related("target"), pk=pk)
+    if not credential.encrypted_totp_secret or not credential_allows_action(
+        request.user,
+        credential,
+        AccessPolicy.Action.REVEAL_TOTP,
+        source_ip=request_client_ip(request),
+    ):
+        raise PermissionDenied
+    secret = VaultCipher().decrypt(
+        credential.encrypted_totp_secret, key_id=credential.totp_encryption_key_id
+    )
+    return _totp_json(secret)
 
 
 @login_required
@@ -199,11 +270,30 @@ def targets_page(request):
 @login_required
 def start_session(request, pk):
     credential = get_object_or_404(Credential.objects.select_related("target"), pk=pk)
-    session, _ticket, raw_ticket = issue_session_ticket(
-        user=request.user,
-        credential=credential,
-        source_ip=request_client_ip(request),
-    )
+    try:
+        session, _ticket, raw_ticket = issue_session_ticket(
+            user=request.user,
+            credential=credential,
+            source_ip=request_client_ip(request),
+        )
+    except PermissionDenied as error:
+        if "clé d’hôte SSH approuvée" not in str(error):
+            raise
+        record_event(
+            actor=request.user,
+            action="session.start_denied",
+            resource=credential.target,
+            metadata={"reason": str(error), "credential_id": str(credential.pk)},
+        )
+        response = render(
+            request,
+            "sessions/start_denied.html",
+            {"target": credential.target, "reason": str(error)},
+        )
+        patch_cache_control(
+            response, no_cache=True, no_store=True, must_revalidate=True, private=True
+        )
+        return response
     if credential.target.protocol == credential.target.Protocol.RDP:
         template_name = "sessions/rdp_launch.html"
         context = {
@@ -249,7 +339,15 @@ def account_page(request):
     return render(
         request,
         "account.html",
-        {"profile_form": profile_form, "password_form": password_form, "mfa_device": mfa_device},
+        {
+            "profile_form": profile_form,
+            "password_form": password_form,
+            "mfa_device": mfa_device,
+            "mfa_security_form": MFASecurityForm(user=request.user),
+            "recovery_code_count": request.user.mfa_recovery_codes.filter(
+                used_at__isnull=True
+            ).count(),
+        },
     )
 
 
@@ -273,11 +371,62 @@ def mfa_confirm(request, pk):
     )
     form = MFAConfirmForm(request.POST)
     if form.is_valid() and confirm_totp_device(device, form.cleaned_data["token"]):
+        recovery_codes = replace_recovery_codes(request.user, device)
         record_event(actor=request.user, action="account.mfa_enabled", resource=device)
-        messages.success(request, "L’authentification MFA est maintenant activée.")
-        return redirect("account")
+        request.session["new_mfa_recovery_codes"] = recovery_codes
+        request.session["mfa_recovery_regenerated"] = False
+        return redirect("mfa_recovery_codes")
     messages.error(request, "Le code TOTP est incorrect. Recommencez l’activation.")
     return redirect("account")
+
+
+@never_cache
+@login_required
+def mfa_recovery_codes(request):
+    recovery_codes = request.session.pop("new_mfa_recovery_codes", None)
+    regenerated = request.session.pop("mfa_recovery_regenerated", False)
+    if not recovery_codes:
+        return redirect("account")
+    response = render(
+        request,
+        "mfa/recovery_codes.html",
+        {"recovery_codes": recovery_codes, "regenerated": regenerated},
+    )
+    patch_cache_control(response, no_cache=True, no_store=True, must_revalidate=True, private=True)
+    return response
+
+
+@never_cache
+@require_POST
+@login_required
+def mfa_reset(request):
+    form = MFASecurityForm(request.POST, user=request.user)
+    if not form.is_valid():
+        messages.error(request, "La MFA n’a pas été réinitialisée : vérifiez vos codes.")
+        return redirect("account")
+    device = request.user.mfa_devices.filter(confirmed=True).first()
+    reset_user_mfa(request.user)
+    record_event(actor=request.user, action="account.mfa_reset", resource=device)
+    messages.success(request, "La MFA a été désactivée. Vous pouvez l’activer à nouveau.")
+    return redirect("account")
+
+
+@never_cache
+@require_POST
+@login_required
+def mfa_recovery_regenerate(request):
+    form = MFASecurityForm(request.POST, user=request.user)
+    device = get_object_or_404(
+        MFADevice, user=request.user, kind=MFADevice.Kind.TOTP, confirmed=True
+    )
+    if not form.is_valid():
+        messages.error(request, "Les codes n’ont pas été renouvelés : vérifiez vos codes.")
+        return redirect("account")
+    recovery_codes = replace_recovery_codes(request.user, device)
+    record_event(actor=request.user, action="account.mfa_recovery_regenerated", resource=device)
+    request.session["new_mfa_recovery_codes"] = recovery_codes
+    request.session["mfa_recovery_regenerated"] = True
+    return redirect("mfa_recovery_codes")
 
 
 @login_required

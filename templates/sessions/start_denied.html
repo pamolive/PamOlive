@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Session non ouverte · PAM-olive{% endblock %}
+{% block content %}
+<section class="session-denied-card">
+  <span class="session-denied-icon">!</span>
+  <span class="eyebrow"><i></i> Contrôle de sécurité</span>
+  <h1>Session non ouverte.</h1>
+  <p>{{ reason }}</p>
+  {% if target.protocol == 'ssh' %}<div class="session-denied-help"><strong>Action requise</strong><p>Un administrateur doit vérifier puis approuver la clé d’hôte de <b>{{ target.name }}</b> dans Administration → Cibles → Clés d’hôte SSH.</p></div>{% endif %}
+  <button class="secondary-button" type="button" onclick="window.close()">Fermer cet onglet</button>
+</section>
+{% endblock %}

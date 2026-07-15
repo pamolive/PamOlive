@@ -50,6 +50,13 @@ class Credential(UUIDTimeStampedModel):
     rotation_enabled = models.BooleanField(default=False)
     rotation_interval_days = models.PositiveIntegerField(null=True, blank=True)
     rotation_backend = models.CharField(max_length=100, blank=True)
+    rotation_policy = models.ForeignKey(
+        "policies.SecretRotationPolicy",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="credentials",
+    )
     last_rotated_at = models.DateTimeField(null=True, blank=True)
     next_rotation_at = models.DateTimeField(null=True, blank=True, db_index=True)
     last_rotation_status = models.CharField(
@@ -62,6 +69,25 @@ class Credential(UUIDTimeStampedModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def effective_rotation_interval_days(self):
+        if self.rotation_policy_id and self.rotation_policy.enabled:
+            return self.rotation_policy.interval_days
+        return self.rotation_interval_days
+
+    @property
+    def effective_rotation_backend(self):
+        if self.rotation_policy_id and self.rotation_policy.enabled:
+            return self.rotation_policy.connector_key
+        return self.rotation_backend
+
+    @property
+    def automatic_rotation_enabled(self):
+        return bool(
+            (self.rotation_policy_id and self.rotation_policy.enabled)
+            or self.rotation_enabled
+        )
 
 
 class PersonalVaultItem(UUIDTimeStampedModel):
