@@ -54,7 +54,15 @@ def lease_fixture(*, requires_approval=False, requires_mfa=False):
 def test_secret_lease_is_hashed_single_use_and_audited():
     user, credential, _policy = lease_fixture()
 
-    lease, token = issue_secret_lease(user=user, credential=credential, lifetime_seconds=30)
+    with pytest.raises(ValidationError, match="business justification"):
+        issue_secret_lease(user=user, credential=credential, justification="")
+
+    lease, token = issue_secret_lease(
+        user=user,
+        credential=credential,
+        justification="Routine operational access test",
+        lifetime_seconds=30,
+    )
     consumed, secret = consume_secret_lease(token=token, expected_user=user)
 
     assert token not in lease.token_hash
@@ -72,7 +80,11 @@ def test_secret_lease_is_hashed_single_use_and_audited():
 def test_secret_lease_requires_active_approval_and_mfa():
     user, credential, policy = lease_fixture(requires_approval=True, requires_mfa=True)
     with pytest.raises(PermissionDenied, match="Aucune autorisation active"):
-        issue_secret_lease(user=user, credential=credential)
+        issue_secret_lease(
+            user=user,
+            credential=credential,
+            justification="Routine operational access test",
+        )
 
     access_request = AccessRequest.objects.create(
         requester=user,
@@ -84,7 +96,11 @@ def test_secret_lease_requires_active_approval_and_mfa():
         decided_at=timezone.now(),
     )
     with pytest.raises(PermissionDenied, match="Aucune autorisation active"):
-        issue_secret_lease(user=user, credential=credential)
+        issue_secret_lease(
+            user=user,
+            credential=credential,
+            justification="Routine operational access test",
+        )
 
     MFADevice.objects.create(
         user=user,
@@ -93,7 +109,11 @@ def test_secret_lease_requires_active_approval_and_mfa():
         encrypted_configuration=VaultCipher().encrypt("JBSWY3DPEHPK3PXP"),
         confirmed=True,
     )
-    lease, _token = issue_secret_lease(user=user, credential=credential)
+    lease, _token = issue_secret_lease(
+        user=user,
+        credential=credential,
+        justification="Routine operational access test",
+    )
 
     assert lease.access_request == access_request
 
@@ -104,8 +124,17 @@ def test_expired_revoked_or_foreign_lease_is_rejected():
     other = User.objects.create_user(username="other-lease-user", email="other@test.invalid")
 
     with pytest.raises(ValidationError, match="15 et 300"):
-        issue_secret_lease(user=user, credential=credential, lifetime_seconds=5)
-    lease, token = issue_secret_lease(user=user, credential=credential)
+        issue_secret_lease(
+            user=user,
+            credential=credential,
+            justification="Routine operational access test",
+            lifetime_seconds=5,
+        )
+    lease, token = issue_secret_lease(
+        user=user,
+        credential=credential,
+        justification="Routine operational access test",
+    )
     with pytest.raises(PermissionDenied, match="autre utilisateur"):
         consume_secret_lease(token=token, expected_user=other)
 
@@ -113,7 +142,11 @@ def test_expired_revoked_or_foreign_lease_is_rejected():
     with pytest.raises(PermissionDenied, match="expiré"):
         consume_secret_lease(token=token, expected_user=user)
 
-    expired_lease, expired_token = issue_secret_lease(user=user, credential=credential)
+    expired_lease, expired_token = issue_secret_lease(
+        user=user,
+        credential=credential,
+        justification="Routine operational access test",
+    )
     SecretLease.objects.filter(pk=expired_lease.pk).update(
         expires_at=timezone.now() - timedelta(seconds=1)
     )

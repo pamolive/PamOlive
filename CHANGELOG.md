@@ -5,6 +5,46 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+### Added
+
+- Isolated FastAPI keyring with a dedicated master-key volume, separate HKDF-derived
+  encryption/signing keys, and no published port.
+- Transactional legacy-secret and audit-signature migration with mandatory dry-run
+  verification and mixed-state retry support.
+- Global MFA enforcement with a cache-disabled first-login TOTP enrollment flow.
+- Mandatory server-side business justification for every target-secret reveal and
+  SSH/RDP session, persisted on leases and sessions and included in signed audit data.
+- Server-enforced inactivity and absolute browser-session limits with an
+  administration policy screen and expiration audit events.
+- SIEM forwarding through HTTPS webhooks or syslog over TLS, with encrypted bearer
+  tokens, redaction, retry, and a delivery ledger.
+
+### Changed
+
+- Vault encryption, decryption, and audit signing now use the internal keyring API;
+  Django no longer receives vault or audit-signing keys through its environment.
+- Theme and language preferences now use independent, race-free server updates;
+  System, Light, and Dark are explicit choices.
+- Light-theme contrast is stronger across navigation, forms, buttons, badges, and
+  secret panels.
+- Redis now requires authentication and the SSH gateway uses a dedicated egress
+  network separated from the internal web path.
+- Fresh Docker installations use the non-debug base settings profile; public TLS
+  deployments explicitly opt into the hardened production profile.
+
+### Fixed
+
+- Anonymous visitors can choose Auto, Light, or Dark directly on the login page;
+  the preference is stored locally and remains active after authentication.
+- Theme selection now initializes from the persisted preference through a
+  CSP-compatible same-origin script on every page load.
+- The SSH browser gateway now explicitly requests the one-time authorization ticket,
+  removing the WebSocket handshake deadlock before password injection.
+- SSH password sessions no longer fail when Django rejects the Docker service name
+  used as an internal HTTP Host header.
+- Failed gateway WebSockets use an application-valid close code and emit safe,
+  actionable broker logs.
+
 ## [0.4.0] - 2026-07-15
 
 ### Added

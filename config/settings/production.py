@@ -1,28 +1,17 @@
 import re
 from urllib.parse import urlparse
 
-from cryptography.fernet import Fernet
 from django.core.exceptions import ImproperlyConfigured
 
 from .base import *  # noqa: F403
 
 if SECRET_KEY == "unsafe-local-key-change-before-production":  # noqa: F405
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be configured")
-if not CBPAM_VAULT_KEY:  # noqa: F405
-    if not CBPAM_VAULT_KEYS:  # noqa: F405
-        raise ImproperlyConfigured("A vault encryption key must be configured")
-vault_keys = dict(CBPAM_VAULT_KEYS)  # noqa: F405
-if CBPAM_VAULT_KEY:  # noqa: F405
-    vault_keys.setdefault("legacy", CBPAM_VAULT_KEY)  # noqa: F405
-if CBPAM_VAULT_ACTIVE_KEY_ID not in vault_keys:  # noqa: F405
-    raise ImproperlyConfigured("CBPAM_VAULT_ACTIVE_KEY_ID is absent from the vault keyring")
-try:
-    for vault_key in vault_keys.values():
-        Fernet(vault_key.encode() if isinstance(vault_key, str) else vault_key)
-except (TypeError, ValueError) as exc:
-    raise ImproperlyConfigured("Every configured vault key must be a valid Fernet key") from exc
-if len(CBPAM_AUDIT_SIGNING_KEY) < 32:  # noqa: F405
-    raise ImproperlyConfigured("CBPAM_AUDIT_SIGNING_KEY must contain at least 32 characters")
+keyring_url = urlparse(CBPAM_KEYRING_URL)  # noqa: F405
+if CBPAM_KEYRING_BACKEND != "http":  # noqa: F405
+    raise ImproperlyConfigured("Production requires the HTTP keyring backend")
+if keyring_url.scheme != "http" or keyring_url.hostname != "keyring":
+    raise ImproperlyConfigured("CBPAM_KEYRING_URL must point to the internal keyring service")
 if len(CBPAM_GATEWAY_SHARED_KEY) < 32:  # noqa: F405
     raise ImproperlyConfigured("CBPAM_GATEWAY_SHARED_KEY must contain at least 32 characters")
 if len(CBPAM_OPERATIONS_TOKEN) < 32:  # noqa: F405

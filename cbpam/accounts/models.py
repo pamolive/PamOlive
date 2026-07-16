@@ -1,4 +1,6 @@
 from django.contrib.auth.models import AbstractUser
+from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -40,3 +42,43 @@ class User(AbstractUser):
         from cbpam.rbac.models import Role
 
         return self.has_capability(Role.Capability.CONSOLE_ACCESS)
+
+
+class PlatformSecurityPolicy(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    idle_timeout_minutes = models.PositiveIntegerField(
+        default=15,
+        validators=(MinValueValidator(1), MaxValueValidator(1440)),
+        help_text="Disconnect an authenticated browser after this period without activity.",
+    )
+    absolute_session_minutes = models.PositiveIntegerField(
+        default=480,
+        validators=(MinValueValidator(5), MaxValueValidator(10080)),
+        help_text="Require a new sign-in after this total session duration.",
+    )
+    require_mfa_for_all_users = models.BooleanField(
+        default=True,
+        help_text="Require every interactive user to enroll and use MFA at sign-in.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="updated_platform_security_policies",
+    )
+
+    def __str__(self):
+        return "PAM-olive platform security policy"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def clean(self):
+        if self.absolute_session_minutes < self.idle_timeout_minutes:
+            raise ValidationError(
+                "The absolute session duration must be greater than the idle timeout."
+            )

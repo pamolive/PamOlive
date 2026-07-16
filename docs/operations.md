@@ -1,5 +1,22 @@
 # Operations
 
+## Redis
+
+Docker Compose requires both `REDIS_PASSWORD` and a matching authenticated
+`REDIS_URL`. Redis is private and exposes no host port. Never pass the password on a
+command line or commit it to Git. Multi-host deployments must also enable TLS.
+
+## SIEM forwarding
+
+Configure destinations under **Administration → System → SIEM**. HTTPS collectors
+must use an `https://` URL; syslog uses TLS (normally port 6514). Certificate
+verification is enabled by default and should only be disabled during controlled
+diagnostics. Bearer tokens are stored with the vault keyring and are never rendered
+back into the form.
+
+Each forwarding attempt is recorded locally. Failed deliveries are retried by Celery
+and can be inspected without exposing event secrets.
+
 This page describes the controls available during the pre-V1 phase. Restore
 operations remain prohibited on the reference NAS until an isolated rehearsal
 and rollback plan have been approved.
@@ -45,35 +62,28 @@ no network is contacted.
 The periodic Celery task looks for due rotations every five minutes. Only one active
 job is permitted per credential.
 
-## Vault master-key rotation
+## Migration to the isolated keyring
 
-The keyring is defined by `CBPAM_VAULT_KEYS` and the write key by
-`CBPAM_VAULT_ACTIVE_KEY_ID`. `CBPAM_VAULT_KEY` remains the compatible entry identified
-as `legacy`. Example transition:
-
-```env
-CBPAM_VAULT_KEY=<old-key-kept-temporarily>
-CBPAM_VAULT_KEYS={"v2":"<new-fernet-key>"}
-CBPAM_VAULT_ACTIVE_KEY_ID=v2
-```
-
-After a verified backup, first run the read-only check:
+Back up PostgreSQL and `.env`, then start the keyring while keeping the legacy
+`CBPAM_VAULT_*` and `CBPAM_AUDIT_SIGNING_KEY` variables temporarily. Run the
+read-only inventory:
 
 ```sh
-docker compose exec web python manage.py rotate_vault_key
+docker compose exec web python manage.py migrate_secrets_to_keyring
 ```
 
-Only when every field can be decrypted, run:
+After reviewing the counts, apply the transactional migration:
 
 ```sh
-docker compose exec web python manage.py rotate_vault_key \
-  --apply --confirm-active-key-id v2
+docker compose exec web python manage.py migrate_secrets_to_keyring \
+  --apply --confirm MIGRATE-TO-KEYRING
 ```
 
-The command handles credentials, TOTP seeds, personal vaults, connector
-configurations, MFA, and candidate rotation secrets in one transaction. It does
-not increment the business password version. Keep the old key until a new backup,
-a new dry run reporting `pending=0`, and a successful restore rehearsal are complete.
+The command handles target credentials, TOTP seeds, personal vaults, connectors,
+identity sources, MFA, rotation candidates, SIEM tokens, and existing audit
+signatures. Verify the audit chain and functional secret access before removing the
+legacy variables from `.env`. The mixed-state migration is retryable as long as the
+legacy keys remain available.
 
 ## Backup
 

@@ -1,0 +1,26 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div><span class="eyebrow"><i></i> System</span><h1>SIEM integrations</h1><p>Forward signed, redacted audit events to an external HTTPS or TLS syslog collector.</p></div>
+  {% if not can_manage %}<span class="admin-badge"><span></span>{{ ui.read_only }}</span>{% endif %}
+</header>
+<div class="resource-layout {% if not can_manage %}readonly-layout{% endif %}">
+  {% if can_manage %}
+  <section class="resource-form-card">
+    <div class="resource-card-title"><span>{% if editing %}Edit{% else %}Create{% endif %}</span><strong>{% if editing %}{{ editing.name }}{% else %}New SIEM destination{% endif %}</strong></div>
+    <form method="post" class="console-form">{% csrf_token %}
+      {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
+      {% for field in form %}<div class="console-field {% if field.errors %}has-error{% endif %}">{% if field.field.widget.input_type == 'checkbox' %}<label class="toggle-row">{{ field }}<span><strong>{{ field.label }}</strong>{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</span></label>{% else %}<label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<b>*</b>{% endif %}</label>{{ field }}{% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+      <div class="form-actions">{% if editing %}<a href="{% url 'console:siem_integrations' %}" class="cancel-button">Cancel</a>{% endif %}<button class="primary-button" type="submit">Save <span>→</span></button></div>
+    </form>
+  </section>
+  {% endif %}
+  <section class="resource-list-card">
+    <div class="resource-list-head"><div><span>Destinations</span><strong>{{ integrations|length }} configured</strong></div></div>
+    <div class="resource-list">
+      {% for integration in integrations %}<a class="resource-item" href="{% url 'console:siem_integration_edit' integration.pk %}"><span class="resource-avatar">SI</span><span class="resource-copy"><strong>{{ integration.name }}</strong><small>{{ integration.get_kind_display }} · {% if integration.last_delivery_at %}Last attempt {{ integration.last_delivery_at }}{% else %}No delivery yet{% endif %}</small></span><span class="resource-state {% if integration.last_status == 'failed' %}is-warning{% endif %}">{% if not integration.enabled %}Disabled{% elif integration.last_status %}{{ integration.last_status }}{% else %}Ready{% endif %}</span></a>{% empty %}<div class="empty-state"><h3>No SIEM destination</h3><p>Audit events remain in the local immutable chain until a destination is enabled.</p></div>{% endfor %}
+    </div>
+  </section>
+</div>
+<section class="panel siem-delivery-panel"><span class="panel-kicker">Delivery log</span><h2>Recent forwarding attempts</h2><div class="audit-table-wrap"><table class="audit-table"><thead><tr><th>Time</th><th>Destination</th><th>Event</th><th>Status</th><th>Detail</th></tr></thead><tbody>{% for delivery in deliveries %}<tr><td>{{ delivery.attempted_at }}</td><td>{{ delivery.integration.name }}</td><td>#{{ delivery.event.sequence }}</td><td>{{ delivery.get_status_display }}</td><td>{{ delivery.error|default:"—" }}</td></tr>{% empty %}<tr><td colspan="5">No forwarding attempt yet.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

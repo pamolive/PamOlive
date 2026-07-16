@@ -18,10 +18,10 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
-from cbpam.accounts.models import User
+from cbpam.accounts.models import PlatformSecurityPolicy, User
 from cbpam.approvals.models import AccessRequest, ApprovalDecision
 from cbpam.approvals.services import decide_access_request
-from cbpam.audit.models import AuditEvent
+from cbpam.audit.models import AuditEvent, SIEMDelivery, SIEMIntegration
 from cbpam.audit.services import record_event, redact_metadata, verify_audit_chain
 from cbpam.connectors.models import DirectoryGroupMapping, IdentitySource
 from cbpam.operations.models import RotationJob
@@ -42,8 +42,10 @@ from .forms import (
     DomainForm,
     LDAPIdentitySourceForm,
     OIDCIdentitySourceForm,
+    PlatformSecurityPolicyForm,
     RoleForm,
     SecretRotationPolicyForm,
+    SIEMIntegrationForm,
     TargetCredentialForm,
     TargetForm,
     TargetGroupForm,
@@ -53,6 +55,78 @@ from .forms import (
     UserGroupForm,
     UserUpdateForm,
 )
+
+
+@login_required
+def siem_integrations(request, pk=None):
+    can_manage = _configuration_permission(
+        request,
+        Role.Capability.SYSTEM_MANAGE,
+        Role.Capability.SYSTEM_VIEW,
+    )
+    instance = get_object_or_404(SIEMIntegration, pk=pk) if pk else None
+    form = SIEMIntegrationForm(request.POST or None, instance=instance)
+    if request.method == "POST" and form.is_valid():
+        integration = form.save()
+        record_event(
+            actor=request.user,
+            action="system.siem_integration.saved",
+            resource=integration,
+            metadata={"kind": integration.kind, "enabled": integration.enabled},
+        )
+        messages.success(request, "SIEM integration saved.")
+        return redirect("console:siem_integrations")
+    if not can_manage:
+        for field in form.fields.values():
+            field.disabled = True
+    integrations = SIEMIntegration.objects.all()
+    deliveries = SIEMDelivery.objects.select_related("integration", "event")[:25]
+    return render(
+        request,
+        "console/siem_integrations.html",
+        {
+            "form": form,
+            "editing": instance,
+            "integrations": integrations,
+            "deliveries": deliveries,
+            "can_manage": can_manage,
+        },
+    )
+
+
+@login_required
+def security_policy(request):
+    can_manage = _configuration_permission(
+        request,
+        Role.Capability.SYSTEM_MANAGE,
+        Role.Capability.SYSTEM_VIEW,
+    )
+    policy, _created = PlatformSecurityPolicy.objects.get_or_create(pk=1)
+    form = PlatformSecurityPolicyForm(request.POST or None, instance=policy)
+    if request.method == "POST" and form.is_valid():
+        policy = form.save(commit=False)
+        policy.updated_by = request.user
+        policy.save()
+        record_event(
+            actor=request.user,
+            action="system.session_security_policy.updated",
+            resource=policy,
+              metadata={
+                  "idle_timeout_minutes": policy.idle_timeout_minutes,
+                  "absolute_session_minutes": policy.absolute_session_minutes,
+                  "require_mfa_for_all_users": policy.require_mfa_for_all_users,
+              },
+        )
+        messages.success(request, "La politique de session a été mise à jour.")
+        return redirect("console:security_policy")
+    if not can_manage:
+        for field in form.fields.values():
+            field.disabled = True
+    return render(
+        request,
+        "console/security_policy.html",
+        {"form": form, "policy": policy, "can_manage": can_manage},
+    )
 
 
 def _configuration_permission(request, capability, view_capability=None):

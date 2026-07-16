@@ -342,7 +342,11 @@ def test_rdp_broker_reports_failure_after_ticket_consumption():
 @pytest.mark.django_db
 def test_internal_gateway_builds_rdp_envelope_without_ssh_host_key(client, monkeypatch):
     user, credential, policy = rdp_session_fixture()
-    session, _ticket, raw_ticket = issue_session_ticket(user=user, credential=credential)
+    session, _ticket, raw_ticket = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine RDP administration test",
+    )
     monkeypatch.setattr("cbpam.gateway.crypto.time.time", lambda: 1_783_980_000)
     response = signed_gateway_post(
         client,
@@ -364,7 +368,10 @@ def test_internal_gateway_builds_rdp_envelope_without_ssh_host_key(client, monke
 def test_rdp_start_page_posts_ticket_to_dedicated_origin(client):
     user, credential, _policy = rdp_session_fixture()
     client.force_login(user)
-    response = client.post(reverse("start_session", args=[credential.pk]))
+    response = client.post(
+        reverse("start_session", args=[credential.pk]),
+        {"justification": "Routine RDP administration test"},
+    )
 
     assert response.status_code == 200
     assert "no-store" in response.headers["Cache-Control"]

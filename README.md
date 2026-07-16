@@ -18,8 +18,10 @@ Guacamole for HTML5 RDP brokering.
 - target groups, domains, local accounts, and approved SSH host keys;
 - policies by group, target, credential, protocol, network, schedule, and quota;
 - quorum approvals, requester/approver separation, and ticket references;
-- an encrypted personal vault and target credential vault;
-- local TOTP MFA, recovery codes, and short single-use secret leases;
+- an encrypted personal vault and target credential vault backed by an isolated keyring;
+- globally enforced local TOTP MFA, recovery codes, and safe first-login enrollment;
+- mandatory audited business justification for target-secret access and sessions;
+- short, single-use secret leases and session tickets;
 - SSH sessions using ephemeral tickets, an isolated gateway, and encrypted recordings;
 - governed RDP launch using a single-use ticket, dedicated origin, and Apache Guacamole 1.6.0;
 - a signed, chained, verifiable, and exportable audit log;
@@ -28,19 +30,15 @@ Guacamole for HTML5 RDP brokering.
 ## Architecture
 
 ```text
-Browser
-    |
-    v
-Caddy proxy  ---- /ws/sessions/* ----> Isolated SSH gateway ----> SSH target
-    |
-    +----------- Django application ----> PostgreSQL
-                         |                 Redis
-                         +---------------> Celery
+Browser -- Caddy -- Django + TOTP -- policy / approval engine
+                         |       \
+                         |        +-- signed audit -- Celery -- external SIEM
+                         +-- PostgreSQL (ciphertext only)
+                         +-- isolated keyring (dedicated master-key volume)
+                         +-- authenticated Redis
 
-Gateway ----- encrypted recordings ----> dedicated volume
-Application ----- signed events --------> audit log
-
-Browser ---- dedicated RDP origin ----> RDP broker ----> Guacamole ----> guacd ----> RDP target
+One-time encrypted envelope -- SSH gateway -- injected password/key -- SSH target
+One-time encrypted envelope -- RDP broker -- Guacamole -- guacd -- RDP target
 ```
 
 The gateway has neither direct PostgreSQL access nor an application `.env` file.
@@ -63,8 +61,9 @@ powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
 ```
 
 The scripts refuse to overwrite an existing `.env`, generate distinct secrets
-for Django, PostgreSQL, the vault, audit, gateway, recordings, operations, and
-Guacamole JSON authentication, then build the stack.
+for Django, PostgreSQL, Redis, gateway, recordings, operations, and Guacamole JSON
+authentication, then build the stack. Vault encryption and audit-signing keys are
+derived inside the isolated keyring and never written to `.env`.
 
 Create the first super administrator:
 
@@ -111,6 +110,9 @@ is satisfied. Auditors may inspect configuration and traces without obtaining se
 See [docs/permissions.md](docs/permissions.md) for capability details and
 [docs/v1-scope.md](docs/v1-scope.md) for release criteria. Architecture and RDP
 brokering limitations are documented in [docs/rdp.md](docs/rdp.md).
+
+The complete fresh-install, reverse-proxy, upgrade, and rollback preparation
+workflow is documented in [docs/installation.md](docs/installation.md).
 
 ## Documentation and contribution
 

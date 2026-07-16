@@ -1,4 +1,5 @@
 import pytest
+from django.test import override_settings
 from django.urls import reverse
 
 from cbpam.accounts.models import User
@@ -109,3 +110,32 @@ def test_recovery_codes_are_displayed_once_and_can_be_regenerated(client):
     refreshed = client.get(regenerated.url)
     assert refreshed.status_code == 200
     assert b"Nouveaux codes" in refreshed.content
+
+
+@override_settings(CBPAM_TEST_BYPASS_GLOBAL_MFA=False)
+@pytest.mark.django_db
+def test_global_mfa_policy_forces_safe_enrollment_before_application_access(client):
+    user = User.objects.create_user(
+        username="mandatory-mfa",
+        email="mandatory-mfa@example.test",
+        password="correct-horse-battery-staple",
+    )
+    client.force_login(user)
+
+    blocked = client.get(reverse("dashboard"))
+    assert blocked.status_code == 302
+    assert blocked.url == reverse("mfa_enrollment_required")
+
+    enrollment = client.get(reverse("mfa_enrollment_required"))
+    assert enrollment.status_code == 200
+    assert b"MFA obligatoire" in enrollment.content
+    assert "no-store" in enrollment.headers["Cache-Control"]
+    device = user.mfa_devices.get(kind=MFADevice.Kind.TOTP, confirmed=False)
+
+    confirmation = client.post(
+        reverse("mfa_confirm", args=[device.pk]),
+        {"token": totp_code(device_secret(device))},
+    )
+    assert confirmation.status_code == 302
+    assert confirmation.url == reverse("mfa_recovery_codes")
+    assert client.get(reverse("dashboard")).status_code == 200

@@ -58,6 +58,7 @@ def test_internal_api_client_signs_authorization_and_decrypts_envelope(monkeypat
     def fake_urlopen(request, timeout):
         captured["url"] = request.full_url
         captured["signature"] = request.get_header("X-pam-signature")
+        captured["host"] = request.get_header("Host")
         captured["timeout"] = timeout
         return Response()
 
@@ -72,6 +73,7 @@ def test_internal_api_client_signs_authorization_and_decrypts_envelope(monkeypat
     assert result["protocol"] == "ssh"
     assert captured["url"].endswith("/api/internal/gateway/authorize/")
     assert len(captured["signature"]) == 64
+    assert captured["host"] == "localhost"
     assert captured["timeout"] == config.connect_timeout
 
 

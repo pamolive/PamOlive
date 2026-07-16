@@ -17,12 +17,12 @@ A release may be declared a “V1 candidate” only when all the following crite
    active authorizations.
 3. Local, LDAP/Active Directory, and OpenID Connect identities are modeled, testable,
    and synchronizable without storing directory passwords in plain text.
-4. Equipment, applications, domains, target groups, and privileged accounts are
-   represented separately.
-5. Secrets are encrypted at rest, versioned, revealed only after authorization, and
-   every access is audited.
+4. SSH and RDP equipment, domains, target groups, and privileged accounts are
+   represented separately. Application targets remain outside the first stable scope.
+5. Secrets are encrypted at rest, versioned, revealed only after authorization and
+   a mandatory business justification, and every access is audited.
 6. Policies explicitly link user groups, target groups, accounts, protocols, time
-   windows, MFA, and approval workflows.
+   windows, global and action-level MFA, and approval workflows.
 7. An approver can never approve their own request. Decisions, reasons, and durations
    are immutable in audit history.
 8. SSH brokering is isolated from the web process, verifies time-limited authorization,
@@ -41,7 +41,7 @@ A release may be declared a “V1 candidate” only when all the following crite
 
 - Identities: local accounts, external identities, MFA, preferences, and lifecycle.
 - RBAC: permission profiles, groups, temporary delegations, and restrictions.
-- Inventory: equipment, applications, domains, target groups, and target accounts.
+- Inventory: SSH/RDP equipment, domains, target groups, and target accounts.
 - Vaults: personal vault, target vault, TOTP, SSH keys, and rotation metadata.
 - Authorizations: access rules, protocols, actions, MFA, schedules, and approvals.
 - Approvals: requests, quorum, decisions, expiration, and history.

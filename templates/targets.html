@@ -30,6 +30,8 @@
             {% for credential in entry.credentials %}
             <form method="post" action="{% url 'start_session' credential.pk %}" target="_blank">
               {% csrf_token %}
+              <label class="sr-only" for="session-reason-{{ credential.pk }}">{{ ui.business_justification }}</label>
+              <input id="session-reason-{{ credential.pk }}" class="justification-input" name="justification" minlength="10" maxlength="1000" required autocomplete="off" placeholder="{{ ui.session_reason_placeholder }}">
               <button class="inline-session-button" type="submit">{{ ui.open_session }} · {{ credential.username }}</button>
             </form>
             {% empty %}<small>{{ ui.no_account }}</small>{% endfor %}

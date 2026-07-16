@@ -26,6 +26,10 @@ class InternalAPIClient:
             method="POST",
             headers={
                 "Content-Type": "application/json",
+                # The internal Docker DNS name is intentionally not exposed through
+                # Django's public ALLOWED_HOSTS list. Present a local Host header on
+                # this HMAC-authenticated, CSRF-exempt service-to-service channel.
+                "Host": "localhost",
                 "X-PAM-Timestamp": timestamp,
                 "X-PAM-Signature": request_signature(
                     self.config.shared_key,
@@ -37,7 +41,12 @@ class InternalAPIClient:
         try:
             with urllib.request.urlopen(request, timeout=self.config.connect_timeout) as response:
                 return json.loads(response.read())
-        except (urllib.error.URLError, json.JSONDecodeError, TimeoutError) as error:
+        except (
+            urllib.error.HTTPError,
+            urllib.error.URLError,
+            json.JSONDecodeError,
+            TimeoutError,
+        ) as error:
             raise GatewayProtocolError("L’API interne PAM-olive est indisponible.") from error
 
     async def authorize(self, *, session_id, ticket, source_ip):

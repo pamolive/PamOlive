@@ -5,9 +5,7 @@ import json
 import struct
 import time
 
-from cryptography.fernet import Fernet, InvalidToken
-from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured
+from cbpam.common.keyring import KeyringError, get_keyring_client
 
 
 class VaultError(Exception):
@@ -16,49 +14,23 @@ class VaultError(Exception):
 
 class VaultCipher:
     def __init__(self, key=None, *, key_id=None):
-        configured_keys = dict(getattr(settings, "CBPAM_VAULT_KEYS", {}) or {})
-        legacy_key = key or settings.CBPAM_VAULT_KEY
-        if legacy_key:
-            configured_keys.setdefault("legacy", legacy_key)
-        if not configured_keys:
-            raise ImproperlyConfigured("CBPAM_VAULT_KEY is required for vault operations")
-        self.active_key_id = key_id or getattr(
-            settings,
-            "CBPAM_VAULT_ACTIVE_KEY_ID",
-            "legacy",
-        )
-        if self.active_key_id not in configured_keys:
-            raise ImproperlyConfigured(
-                f"Vault key identifier {self.active_key_id!r} is not configured"
-            )
-        try:
-            self._fernets = {
-                identifier: Fernet(value.encode() if isinstance(value, str) else value)
-                for identifier, value in configured_keys.items()
-            }
-        except (TypeError, ValueError) as exc:
-            raise ImproperlyConfigured("A configured vault key is not a valid Fernet key") from exc
+        if key is not None or key_id is not None:
+            raise TypeError("Encryption keys are managed exclusively by the keyring service")
+        self.active_key_id = "keyring-v1"
+        self._client = get_keyring_client()
 
     def encrypt(self, secret: str) -> bytes:
-        return self._fernets[self.active_key_id].encrypt(secret.encode())
+        return self._client.encrypt(secret).encode()
 
     def decrypt(self, token: bytes, *, key_id=None) -> str:
-        if key_id:
-            fernet = self._fernets.get(key_id)
-            if not fernet:
-                raise VaultError(f"Vault key identifier {key_id!r} is unavailable")
-            candidates = (fernet,)
-        else:
-            active = self._fernets[self.active_key_id]
-            candidates = (active,) + tuple(
-                fernet for fernet in self._fernets.values() if fernet is not active
+        if key_id and key_id != self.active_key_id:
+            raise VaultError(
+                f"Secret uses legacy key {key_id!r}; run migrate_secrets_to_keyring"
             )
-        for fernet in candidates:
-            try:
-                return fernet.decrypt(bytes(token)).decode()
-            except InvalidToken:
-                continue
-        raise VaultError("Credential could not be decrypted")
+        try:
+            return self._client.decrypt(bytes(token).decode())
+        except (KeyringError, UnicodeDecodeError) as exc:
+            raise VaultError("Credential could not be decrypted") from exc
 
     def encrypt_payload(self, payload: dict) -> bytes:
         return self.encrypt(json.dumps(payload, ensure_ascii=False, separators=(",", ":")))

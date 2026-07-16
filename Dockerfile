@@ -9,8 +9,7 @@ COPY manage.py ./
 RUN pip install --upgrade pip && pip install .
 COPY templates ./templates
 COPY static ./static
-RUN python manage.py collectstatic --noinput --settings=config.settings.local
+RUN python manage.py collectstatic --noinput --settings=config.settings.base
 USER cbpam
 EXPOSE 8000
 CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
-

@@ -1,11 +1,11 @@
 import hashlib
-import hmac
 import json
 from dataclasses import dataclass
 
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+
+from cbpam.common.keyring import get_keyring_client
 
 from .models import AuditChainState, AuditEvent
 
@@ -68,8 +68,7 @@ def _payload_hash(payload):
 
 
 def _signature(event_hash):
-    key = settings.CBPAM_AUDIT_SIGNING_KEY.encode()
-    return hmac.new(key, event_hash.encode(), hashlib.sha256).hexdigest()
+    return get_keyring_client().sign(event_hash)
 
 
 @transaction.atomic
@@ -106,6 +105,12 @@ def record_event(*, actor, action: str, resource, metadata=None, source_ip=None)
     state.last_sequence = sequence
     state.last_hash = event_hash
     state.save(update_fields=("last_sequence", "last_hash", "updated_at"))
+    from .models import SIEMIntegration
+
+    if SIEMIntegration.objects.filter(enabled=True).exists():
+        from .tasks import forward_audit_event
+
+        transaction.on_commit(lambda: forward_audit_event.delay(str(event.pk)), robust=True)
     return event
 
 
@@ -137,11 +142,11 @@ def verify_audit_chain():
                 hash_version=event.hash_version,
             )
             expected_hash = _payload_hash(payload)
-            if not hmac.compare_digest(event.event_hash, expected_hash):
+            if event.event_hash != expected_hash:
                 issues.append(f"Empreinte invalide à l’événement {event.id}.")
-            if not event.signature or not hmac.compare_digest(
+            if not event.signature or not get_keyring_client().verify(
+                event.event_hash,
                 event.signature,
-                _signature(event.event_hash),
             ):
                 issues.append(f"Signature invalide à l’événement {event.id}.")
         else:

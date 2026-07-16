@@ -11,7 +11,7 @@ class Connector(UUIDTimeStampedModel):
     kind = models.CharField(max_length=100)
     enabled = models.BooleanField(default=False)
     encrypted_configuration = models.BinaryField(blank=True)
-    encryption_key_id = models.CharField(max_length=64, default="legacy")
+    encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
 
 
 class IdentitySource(UUIDTimeStampedModel):
@@ -32,7 +32,7 @@ class IdentitySource(UUIDTimeStampedModel):
     enabled = models.BooleanField(default=False)
     verify_tls = models.BooleanField(default=True)
     encrypted_configuration = models.BinaryField()
-    encryption_key_id = models.CharField(max_length=64, default="legacy")
+    encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
     sync_enabled = models.BooleanField(default=False)
     sync_interval_minutes = models.PositiveIntegerField(
         default=60,

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}MFA obligatoire · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero">
+  <div>
+    <span class="eyebrow"><i></i> Sécurité obligatoire</span>
+    <h1>Protégez votre compte.</h1>
+    <p>La politique de la plateforme impose une authentification multifacteur avant tout accès à PAM-olive.</p>
+  </div>
+</header>
+<div class="mfa-setup-card">
+  <div class="qr-shell">{{ qr_svg|safe }}</div>
+  <div class="mfa-setup-copy">
+    <span class="panel-kicker">Enrôlement TOTP</span>
+    <h2>Scannez, puis confirmez.</h2>
+    <p>Utilisez une application TOTP compatible. La clé manuelle reste affichée uniquement pendant cet enrôlement.</p>
+    <code>{{ secret }}</code>
+    <ol>
+      <li>Scannez le QR code ou saisissez la clé manuelle.</li>
+      <li>Attendez l’apparition d’un code à six chiffres.</li>
+      <li>Confirmez le code ci-dessous.</li>
+    </ol>
+    <form method="post" action="{% url 'mfa_confirm' device.pk %}" class="console-form">
+      {% csrf_token %}
+      {% for field in form %}
+      <div class="console-field {% if field.errors %}has-error{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+      </div>
+      {% endfor %}
+      <button class="primary-button" type="submit">Activer la MFA et continuer</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

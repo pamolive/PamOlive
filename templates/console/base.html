@@ -78,6 +78,17 @@
           <a href="{% url 'console:audit' %}" class="{% if page == 'audit' %}is-active{% endif %}"><span>{{ ui.audit_log }}</span></a>
         </div>
       </details>
+
+      <details class="console-nav-group" {% if page == 'security_policy' or page == 'siem_integrations' or page == 'siem_integration_edit' %}open{% endif %}>
+        <summary>
+          <span class="nav-summary-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.1 8.3 8 10 4.9-1.7 8-5 8-10V6l-8-3Z"/><path d="M9 12h6M12 9v6"/></svg></span>
+          <span>{{ ui.system }}</span><span class="nav-chevron">⌄</span>
+        </summary>
+        <div class="console-nav-children">
+          <a href="{% url 'console:security_policy' %}" class="{% if page == 'security_policy' %}is-active{% endif %}"><span>{{ ui.session_policy }}</span></a>
+          <a href="{% url 'console:siem_integrations' %}" class="{% if page == 'siem_integrations' or page == 'siem_integration_edit' %}is-active{% endif %}"><span>SIEM</span></a>
+        </div>
+      </details>
     </nav>
 
     {% if user.is_superuser %}

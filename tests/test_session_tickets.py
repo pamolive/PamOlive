@@ -77,9 +77,13 @@ def session_fixture(*, protocol=Target.Protocol.SSH, requires_approval=False):
 def test_session_ticket_is_hashed_single_use_and_audited():
     user, credential, policy = session_fixture()
 
+    with pytest.raises(ValidationError, match="business justification"):
+        issue_session_ticket(user=user, credential=credential, justification="")
+
     session, ticket, token = issue_session_ticket(
         user=user,
         credential=credential,
+        justification="Routine operational session test",
         lifetime_seconds=30,
         source_ip="127.0.0.1",
     )
@@ -107,10 +111,16 @@ def test_session_ticket_rejects_unsupported_protocol_foreign_user_and_changed_ip
     other = User.objects.create_user(username="other-session-user")
 
     with pytest.raises(ValidationError, match="15 et 120"):
-        issue_session_ticket(user=user, credential=credential, lifetime_seconds=5)
+        issue_session_ticket(
+            user=user,
+            credential=credential,
+            justification="Routine operational session test",
+            lifetime_seconds=5,
+        )
     session, ticket, token = issue_session_ticket(
         user=user,
         credential=credential,
+        justification="Routine operational session test",
         source_ip="192.0.2.10",
     )
     with pytest.raises(PermissionDenied, match="autre utilisateur"):
@@ -128,11 +138,19 @@ def test_session_ticket_rejects_unsupported_protocol_foreign_user_and_changed_ip
     credential.target.ssh_host_key_policy = Target.SSHHostKeyPolicy.STRICT
     credential.target.save(update_fields=("ssh_host_key_policy", "updated_at"))
     with pytest.raises(PermissionDenied, match="Aucune clé d’hôte SSH approuvée"):
-        issue_session_ticket(user=user, credential=credential)
+        issue_session_ticket(
+            user=user,
+            credential=credential,
+            justification="Routine operational session test",
+        )
 
     _web_user, web_credential, _web_policy = session_fixture(protocol=Target.Protocol.WEB)
     with pytest.raises(PermissionDenied, match="sessions interactives"):
-        issue_session_ticket(user=_web_user, credential=web_credential)
+        issue_session_ticket(
+            user=_web_user,
+            credential=web_credential,
+            justification="Routine operational session test",
+        )
 
 
 @pytest.mark.django_db
@@ -148,8 +166,16 @@ def test_approval_can_authorize_multiple_sessions_during_its_validity_window():
         decided_at=timezone.now(),
     )
 
-    first, _first_ticket, _first_token = issue_session_ticket(user=user, credential=credential)
-    second, _second_ticket, _second_token = issue_session_ticket(user=user, credential=credential)
+    first, _first_ticket, _first_token = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine operational session test",
+    )
+    second, _second_ticket, _second_token = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine operational session test",
+    )
 
     assert first.access_request == access_request
     assert second.access_request == access_request
@@ -159,7 +185,11 @@ def test_approval_can_authorize_multiple_sessions_during_its_validity_window():
 @pytest.mark.django_db
 def test_expired_session_ticket_is_rejected():
     user, credential, _policy = session_fixture()
-    session, ticket, token = issue_session_ticket(user=user, credential=credential)
+    session, ticket, token = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine operational session test",
+    )
     SessionTicket.objects.filter(pk=ticket.pk).update(
         expires_at=timezone.now() - timedelta(seconds=1)
     )
@@ -174,12 +204,18 @@ def test_start_session_page_is_policy_controlled_and_never_cached(client):
     outsider = User.objects.create_user(username="session-outsider")
 
     client.force_login(outsider)
-    denied = client.post(reverse("start_session", args=[credential.pk]))
+    denied = client.post(
+        reverse("start_session", args=[credential.pk]),
+        {"justification": "Routine operational session test"},
+    )
     assert denied.status_code == 403
 
     client.force_login(user)
     targets = client.get(reverse("targets"))
-    response = client.post(reverse("start_session", args=[credential.pk]))
+    response = client.post(
+        reverse("start_session", args=[credential.pk]),
+        {"justification": "Routine operational session test"},
+    )
 
     assert "Ouvrir · operator".encode() in targets.content
     assert response.status_code == 200
@@ -202,7 +238,11 @@ def test_administrator_terminates_active_session_and_auditor_cannot(monkeypatch,
     )
     UserGroup.objects.get(name="Administrateurs PAM-olive").users.add(administrator)
     UserGroup.objects.get(name="Auditeurs PAM-olive").users.add(auditor)
-    session, _ticket, token = issue_session_ticket(user=user, credential=credential)
+    session, _ticket, token = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine operational session test",
+    )
     consume_session_ticket(session_id=session.pk, token=token, user=user)
     notified = []
     monkeypatch.setattr(
@@ -229,7 +269,11 @@ def test_administrator_terminates_active_session_and_auditor_cannot(monkeypatch,
 def test_termination_before_start_revokes_ticket_without_contacting_gateway():
     user, credential, _policy = session_fixture()
     administrator = User.objects.create_user(username="prestart-session-admin")
-    session, ticket, token = issue_session_ticket(user=user, credential=credential)
+    session, ticket, token = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine operational session test",
+    )
 
     closed, notify_gateway = request_session_termination(session, actor=administrator)
     ticket.refresh_from_db()
@@ -247,6 +291,7 @@ def test_websocket_consumes_ticket_then_fails_closed_without_gateway():
     session, _ticket, token = issue_session_ticket(
         user=user,
         credential=credential,
+        justification="Routine operational session test",
         source_ip="127.0.0.1",
     )
 

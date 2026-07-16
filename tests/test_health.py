@@ -30,6 +30,9 @@ def test_login_form_is_styled_and_accepts_credentials(client):
     assert login_page.status_code == 200
     assert b"PAM-olive" in login_page.content
     assert login_page.content.count(b'class="form-input') == 3
+    assert b'data-theme-authenticated="false"' in login_page.content
+    assert b'data-theme-select' in login_page.content
+    assert b'<option value="light">Clair</option>' in login_page.content
 
     response = client.post(
         reverse("login"),

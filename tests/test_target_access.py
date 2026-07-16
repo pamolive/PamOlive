@@ -43,15 +43,23 @@ def test_target_password_and_totp_require_policy_actions(client):
     )
     client.force_login(user)
 
-    assert client.post(reverse("reveal_target_credential", args=[credential.pk])).status_code == 403
+    assert client.post(
+        reverse("reveal_target_credential", args=[credential.pk]),
+        {"justification": "Investigate production access issue"},
+    ).status_code == 403
 
     grant_target_actions(
         user,
         target,
         [AccessPolicy.Action.VIEW_SECRET, AccessPolicy.Action.REVEAL_TOTP],
     )
-    response = client.post(reverse("reveal_target_credential", args=[credential.pk]))
+    missing_reason = client.post(reverse("reveal_target_credential", args=[credential.pk]))
+    response = client.post(
+        reverse("reveal_target_credential", args=[credential.pk]),
+        {"justification": "Investigate production access issue"},
+    )
 
+    assert missing_reason.status_code == 400
     assert response.status_code == 200
     assert b"target-password" in response.content
     assert b"Code TOTP actuel" in response.content
@@ -111,10 +119,48 @@ def test_session_opens_new_tab_and_missing_host_key_has_clear_message(client):
     target_page = client.get(reverse("targets"))
     assert b'target="_blank"' in target_page.content
 
-    response = client.post(reverse("start_session", args=[credential.pk]))
+    missing_reason = client.post(reverse("start_session", args=[credential.pk]))
+    response = client.post(
+        reverse("start_session", args=[credential.pk]),
+        {"justification": "Investigate production access issue"},
+    )
+    assert missing_reason.status_code == 400
     assert response.status_code == 200
     assert b"Session non ouverte" in response.content
     assert b"cl\xc3\xa9 d\xe2\x80\x99h\xc3\xb4te SSH" in response.content
+
+
+@pytest.mark.django_db
+def test_superadministrator_has_no_justification_bypass(client):
+    superadministrator = User.objects.create_superuser(
+        username="reason-superadmin",
+        email="reason-superadmin@example.test",
+        password="safe-test-password",
+    )
+    target = Target.objects.create(
+        name="Justified SSH",
+        hostname="192.0.2.50",
+        port=22,
+        protocol=Target.Protocol.SSH,
+    )
+    credential = Credential.objects.create(
+        name="Privileged local account",
+        target=target,
+        username="operator",
+        kind=Credential.Kind.PASSWORD,
+        encrypted_secret=VaultCipher().encrypt("secret"),
+    )
+    grant_target_actions(
+        superadministrator,
+        target,
+        [AccessPolicy.Action.VIEW_SECRET, AccessPolicy.Action.START_SESSION],
+    )
+    client.force_login(superadministrator)
+
+    assert client.post(
+        reverse("reveal_target_credential", args=[credential.pk])
+    ).status_code == 400
+    assert client.post(reverse("start_session", args=[credential.pk])).status_code == 400
 
 
 @pytest.mark.django_db

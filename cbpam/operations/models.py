@@ -42,7 +42,7 @@ class RotationJob(UUIDTimeStampedModel):
     previous_key_version = models.PositiveIntegerField()
     new_key_version = models.PositiveIntegerField(null=True, blank=True)
     encrypted_candidate_secret = models.BinaryField(blank=True)
-    candidate_encryption_key_id = models.CharField(max_length=64, default="legacy")
+    candidate_encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
     error_code = models.CharField(max_length=80, blank=True)
     error_message = models.CharField(max_length=250, blank=True)
 

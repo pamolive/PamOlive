@@ -19,9 +19,8 @@ function New-RandomHex([int]$Length) {
 }
 
 $djangoKey = New-RandomBase64 48
-$vaultKey = New-RandomBase64 32 $true
 $postgresPassword = New-RandomBase64 48 $true
-$auditKey = New-RandomBase64 48 $true
+$redisPassword = New-RandomHex 32
 $gatewayKey = New-RandomBase64 48 $true
 $recordingKey = New-RandomBase64 48 $true
 $operationsToken = New-RandomBase64 48 $true
@@ -29,9 +28,9 @@ $guacamoleJsonKey = New-RandomHex 16
 $content = Get-Content -LiteralPath ".env.example" -Raw
 $content = $content.Replace("change-me-with-at-least-50-random-characters", $djangoKey)
 $content = $content.Replace("generate-a-long-random-database-password", $postgresPassword)
-$content = $content.Replace("CBPAM_VAULT_KEY=", "CBPAM_VAULT_KEY=$vaultKey")
+$content = $content.Replace("replace-with-a-long-random-url-safe-password", $redisPassword)
+$content = $content.Replace("replace-with-the-same-password", $redisPassword)
 $placeholder = "generate-a-distinct-random-value-of-at-least-32-characters"
-$content = $content.Replace("CBPAM_AUDIT_SIGNING_KEY=$placeholder", "CBPAM_AUDIT_SIGNING_KEY=$auditKey")
 $content = $content.Replace("CBPAM_GATEWAY_SHARED_KEY=$placeholder", "CBPAM_GATEWAY_SHARED_KEY=$gatewayKey")
 $content = $content.Replace("CBPAM_RECORDING_KEY=$placeholder", "CBPAM_RECORDING_KEY=$recordingKey")
 $content = $content.Replace("CBPAM_OPERATIONS_TOKEN=$placeholder", "CBPAM_OPERATIONS_TOKEN=$operationsToken")

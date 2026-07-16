@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from cbpam.audit.services import record_event
+from cbpam.common.justification import normalize_justification
 from cbpam.policies.models import AccessPolicy
 from cbpam.vault.leases import authorizing_policy_for
 
@@ -19,7 +20,10 @@ def _token_hash(token):
 
 
 @transaction.atomic
-def issue_session_ticket(*, user, credential, lifetime_seconds=60, source_ip=None):
+def issue_session_ticket(
+    *, user, credential, justification, lifetime_seconds=60, source_ip=None
+):
+    justification = normalize_justification(justification)
     if credential.target.protocol not in {
         credential.target.Protocol.SSH,
         credential.target.Protocol.RDP,
@@ -69,6 +73,7 @@ def issue_session_ticket(*, user, credential, lifetime_seconds=60, source_ip=Non
         access_request=access_request,
         expires_at=now + timedelta(minutes=duration),
         client_ip=source_ip,
+        justification=justification,
     )
     raw_token = secrets.token_urlsafe(32)
     ticket = SessionTicket.objects.create(
@@ -85,6 +90,7 @@ def issue_session_ticket(*, user, credential, lifetime_seconds=60, source_ip=Non
             "credential_id": str(credential.pk),
             "policy_id": str(policy.pk),
             "protocol": credential.target.protocol,
+            "justification": justification,
         },
         source_ip=source_ip,
     )

@@ -5,6 +5,7 @@ theme:
 nav:
   - Home: index.md
   - Architecture: architecture.md
+  - Installation: installation.md
   - Security: security.md
   - Development: development.md
   - Operations: operations.md
@@ -12,3 +13,4 @@ nav:
   - V1 scope: v1-scope.md
   - Permissions: permissions.md
   - V1 report: v1-report.md
+  - Sprint 1 keyring report: reports/2026-07-16-sprint-1-keyring.md

@@ -5,7 +5,8 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.utils import timezone
 
-from cbpam.accounts.models import User
+from cbpam.accounts.models import PlatformSecurityPolicy, User
+from cbpam.audit.models import SIEMIntegration
 from cbpam.connectors.models import DirectoryGroupMapping, IdentitySource
 from cbpam.connectors.services import (
     get_identity_source_configuration,
@@ -31,6 +32,66 @@ class ConsoleFormMixin:
                 widget.attrs["class"] = "toggle-input"
             else:
                 widget.attrs["class"] = "console-input"
+
+
+class PlatformSecurityPolicyForm(ConsoleFormMixin, forms.ModelForm):
+    class Meta:
+        model = PlatformSecurityPolicy
+        fields = (
+            "idle_timeout_minutes",
+            "absolute_session_minutes",
+            "require_mfa_for_all_users",
+        )
+        labels = {
+            "idle_timeout_minutes": "Déconnexion après inactivité (minutes)",
+            "absolute_session_minutes": "Durée maximale d’une session web (minutes)",
+            "require_mfa_for_all_users": "MFA obligatoire pour tous les utilisateurs",
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        idle = cleaned.get("idle_timeout_minutes")
+        absolute = cleaned.get("absolute_session_minutes")
+        if idle and absolute and absolute < idle:
+            self.add_error(
+                "absolute_session_minutes",
+                "La durée maximale doit être supérieure au délai d’inactivité.",
+            )
+        return cleaned
+
+
+class SIEMIntegrationForm(ConsoleFormMixin, forms.ModelForm):
+    auth_token = forms.CharField(
+        label="Bearer token (optional)",
+        required=False,
+        widget=forms.PasswordInput(render_value=False),
+        help_text="Stored encrypted. Leave empty to preserve the current token.",
+    )
+
+    class Meta:
+        model = SIEMIntegration
+        fields = ("name", "kind", "endpoint", "host", "port", "verify_tls", "enabled")
+        labels = {
+            "name": "Integration name",
+            "kind": "Transport",
+            "endpoint": "HTTPS collector URL",
+            "host": "Syslog host",
+            "port": "Syslog TLS port",
+            "verify_tls": "Verify the TLS certificate",
+            "enabled": "Forward new audit events",
+        }
+
+    def save(self, commit=True):
+        integration = super().save(commit=False)
+        token = self.cleaned_data.get("auth_token")
+        if token:
+            cipher = VaultCipher()
+            integration.encrypted_auth_token = cipher.encrypt(token)
+            integration.auth_token_encryption_key_id = cipher.active_key_id
+        if commit:
+            integration.full_clean()
+            integration.save()
+        return integration
 
 
 class UserCreateForm(ConsoleFormMixin, UserCreationForm):

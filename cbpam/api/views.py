@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.cache import patch_cache_control
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
@@ -18,7 +19,8 @@ from cbpam.accounts.forms import (
     PreferencesForm,
     ProfileForm,
 )
-from cbpam.accounts.models import User
+from cbpam.accounts.models import PlatformSecurityPolicy, User
+from cbpam.api.forms import PrivilegedActionJustificationForm
 from cbpam.approvals.forms import AccessRequestForm
 from cbpam.approvals.models import AccessRequest
 from cbpam.audit.services import record_event
@@ -27,6 +29,7 @@ from cbpam.mfa.models import MFADevice
 from cbpam.mfa.services import (
     begin_totp_enrollment,
     confirm_totp_device,
+    device_secret,
     qr_svg,
     replace_recovery_codes,
     reset_user_mfa,
@@ -223,9 +226,19 @@ def reveal_target_credential(request, pk):
     actions = actions_for_target(request.user, credential.target, source_ip=source_ip)
     if AccessPolicy.Action.VIEW_SECRET not in actions:
         raise PermissionDenied
+    justification_form = PrivilegedActionJustificationForm(request.POST)
+    if not justification_form.is_valid():
+        return render(
+            request,
+            "vault/reveal_denied.html",
+            {"message": "A valid business justification is required before revealing this secret."},
+            status=400,
+        )
+    justification = justification_form.cleaned_data["justification"]
     _lease, token = issue_secret_lease(
         user=request.user,
         credential=credential,
+        justification=justification,
         source_ip=source_ip,
     )
     _consumed_lease, secret = consume_secret_lease(
@@ -244,6 +257,9 @@ def reveal_target_credential(request, pk):
                 key_id=credential.totp_encryption_key_id,
             )
         )
+        request.session[f"target_secret_grant:{credential.pk}"] = int(
+            timezone.now().timestamp()
+        ) + 120
     return render(
         request,
         "vault/reveal.html",
@@ -288,11 +304,16 @@ def personal_item_totp(request, pk):
 @login_required
 def target_credential_totp(request, pk):
     credential = get_object_or_404(Credential.objects.select_related("target"), pk=pk)
-    if not credential.encrypted_totp_secret or not credential_allows_action(
-        request.user,
-        credential,
-        AccessPolicy.Action.REVEAL_TOTP,
-        source_ip=request_client_ip(request),
+    grant_expires_at = int(request.session.get(f"target_secret_grant:{credential.pk}", 0))
+    if (
+        grant_expires_at < int(timezone.now().timestamp())
+        or not credential.encrypted_totp_secret
+        or not credential_allows_action(
+            request.user,
+            credential,
+            AccessPolicy.Action.REVEAL_TOTP,
+            source_ip=request_client_ip(request),
+        )
     ):
         raise PermissionDenied
     secret = VaultCipher().decrypt(
@@ -342,11 +363,38 @@ def targets_page(request):
 @login_required
 def start_session(request, pk):
     credential = get_object_or_404(Credential.objects.select_related("target"), pk=pk)
+    source_ip = request_client_ip(request)
+    if not credential_allows_action(
+        request.user,
+        credential,
+        AccessPolicy.Action.START_SESSION,
+        source_ip=source_ip,
+    ):
+        raise PermissionDenied
+    justification_form = PrivilegedActionJustificationForm(request.POST)
+    if not justification_form.is_valid():
+        response = render(
+            request,
+            "sessions/start_denied.html",
+            {
+                "target": credential.target,
+                "reason": (
+                    "A valid business justification is required for every "
+                    "privileged session."
+                ),
+            },
+            status=400,
+        )
+        patch_cache_control(
+            response, no_cache=True, no_store=True, must_revalidate=True, private=True
+        )
+        return response
     try:
         session, _ticket, raw_ticket = issue_session_ticket(
             user=request.user,
             credential=credential,
-            source_ip=request_client_ip(request),
+            justification=justification_form.cleaned_data["justification"],
+            source_ip=source_ip,
         )
     except PermissionDenied as error:
         if "clé d’hôte SSH approuvée" not in str(error):
@@ -459,11 +507,19 @@ def update_ui_preferences(request):
         resource=request.user,
         metadata={"fields": update_fields},
     )
+    response_data = {
+        "theme": request.user.preferred_theme,
+        "language": request.user.preferred_language,
+    }
+    next_path = request.POST.get("next", "")
+    if next_path and url_has_allowed_host_and_scheme(
+        next_path,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return redirect(next_path)
     return JsonResponse(
-        {
-            "theme": request.user.preferred_theme,
-            "language": request.user.preferred_language,
-        }
+        response_data
     )
 
 
@@ -477,6 +533,45 @@ def mfa_setup(request):
         "mfa/setup.html",
         {"device": device, "secret": secret, "qr_svg": qr_svg(uri), "form": MFAConfirmForm()},
     )
+
+
+@never_cache
+@login_required
+def mfa_enrollment_required(request):
+    confirmed_device = request.user.mfa_devices.filter(
+        kind=MFADevice.Kind.TOTP,
+        confirmed=True,
+    ).first()
+    if confirmed_device:
+        return redirect("dashboard")
+
+    device = request.user.mfa_devices.filter(
+        kind=MFADevice.Kind.TOTP,
+        confirmed=False,
+    ).first()
+    if device is None:
+        device, secret = begin_totp_enrollment(request.user)
+    else:
+        secret = device_secret(device)
+    uri = totp_uri(request.user, secret)
+    response = render(
+        request,
+        "mfa/enrollment_required.html",
+        {
+            "device": device,
+            "secret": secret,
+            "qr_svg": qr_svg(uri),
+            "form": MFAConfirmForm(),
+        },
+    )
+    patch_cache_control(
+        response,
+        no_cache=True,
+        no_store=True,
+        must_revalidate=True,
+        private=True,
+    )
+    return response
 
 
 @require_POST
@@ -493,6 +588,9 @@ def mfa_confirm(request, pk):
         request.session["mfa_recovery_regenerated"] = False
         return redirect("mfa_recovery_codes")
     messages.error(request, "Le code TOTP est incorrect. Recommencez l’activation.")
+    policy, _created = PlatformSecurityPolicy.objects.get_or_create(pk=1)
+    if policy.require_mfa_for_all_users:
+        return redirect("mfa_enrollment_required")
     return redirect("account")
 
 
@@ -524,6 +622,9 @@ def mfa_reset(request):
     reset_user_mfa(request.user)
     record_event(actor=request.user, action="account.mfa_reset", resource=device)
     messages.success(request, "La MFA a été désactivée. Vous pouvez l’activer à nouveau.")
+    policy, _created = PlatformSecurityPolicy.objects.get_or_create(pk=1)
+    if policy.require_mfa_for_all_users:
+        return redirect("mfa_enrollment_required")
     return redirect("account")
 
 

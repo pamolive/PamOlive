@@ -1,0 +1,23 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header">
+  <div><span class="eyebrow"><i></i> {{ ui.system }}</span><h1>{{ ui.session_policy }}</h1><p>{{ ui.session_policy_intro }}</p></div>
+  <span class="admin-badge"><span></span>{% if can_manage %}{{ ui.enforced }}{% else %}{{ ui.read_only }}{% endif %}</span>
+</header>
+<div class="security-policy-layout">
+  <section class="resource-form-card">
+    <div class="resource-card-title"><span>{{ ui.browser_sessions }}</span><strong>{{ ui.inactivity_and_absolute }}</strong></div>
+    <form method="post" class="console-form">{% csrf_token %}
+      {% for field in form %}<div class="console-field {% if field.errors %}has-error{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
+      {% if can_manage %}<button class="primary-button" type="submit">{{ ui.save_policy }}</button>{% endif %}
+    </form>
+  </section>
+  <section class="panel policy-explanation-panel">
+    <span class="panel-kicker">{{ ui.enforcement }}</span>
+    <h2>{{ ui.server_side_control }}</h2>
+    <p>{{ ui.session_policy_detail }}</p>
+    <div class="policy-fact"><strong>{{ policy.idle_timeout_minutes }} min</strong><small>{{ ui.idle_limit }}</small></div>
+    <div class="policy-fact"><strong>{{ policy.absolute_session_minutes }} min</strong><small>{{ ui.absolute_limit }}</small></div>
+  </section>
+</div>
+{% endblock %}

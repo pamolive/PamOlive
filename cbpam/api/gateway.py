@@ -58,6 +58,7 @@ def gateway_authorize(request):
         lease, secret_token = issue_secret_lease(
             user=session.user,
             credential=credential,
+            justification=session.justification,
             purpose=SecretLease.Purpose.SESSION,
             lifetime_seconds=30,
             source_ip=source_ip,

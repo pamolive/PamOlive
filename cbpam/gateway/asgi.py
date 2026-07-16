@@ -1,6 +1,7 @@
 import asyncio
 import ipaddress
 import json
+import logging
 import re
 
 import asyncssh
@@ -14,6 +15,7 @@ from .ssh import bridge_ssh
 SESSION_PATH = re.compile(
     r"^/ws/sessions/(?P<session_id>[0-9a-fA-F-]{36})/terminal/?$"
 )
+logger = logging.getLogger(__name__)
 
 
 async def _send_json(send, payload):
@@ -57,6 +59,7 @@ class GatewayApplication:
             return
         await receive()
         await send({"type": "websocket.accept"})
+        await _send_json(send, {"type": "status", "state": "authorization_required"})
         session_id = match.group("session_id")
         cancellation = asyncio.Event()
         self.cancellations[session_id] = cancellation
@@ -104,12 +107,32 @@ class GatewayApplication:
             outcome = "closed"
         except (GatewayProtocolError, TimeoutError, json.JSONDecodeError) as error:
             reason = error.__class__.__name__
+            logger.warning(
+                "Gateway session %s failed during authorization or setup: %s",
+                session_id,
+                reason,
+            )
             await _send_json(
                 send,
                 {"type": "error", "message": "La session privilégiée n’a pas pu être ouverte."},
             )
-        except (OSError, asyncssh.Error):
+        except asyncssh.PermissionDenied:
+            reason = "ssh_authentication_failed"
+            logger.warning("Gateway session %s: SSH authentication was rejected", session_id)
+            await _send_json(
+                send,
+                {
+                    "type": "error",
+                    "message": "La cible SSH a refusé l’identifiant ou le mot de passe.",
+                },
+            )
+        except (OSError, asyncssh.Error) as error:
             reason = "ssh_connection_failed"
+            logger.warning(
+                "Gateway session %s failed to establish SSH transport: %s",
+                session_id,
+                error.__class__.__name__,
+            )
             await _send_json(
                 send,
                 {"type": "error", "message": "La cible SSH a refusé la connexion sécurisée."},
@@ -133,7 +156,9 @@ class GatewayApplication:
                 await send(
                     {
                         "type": "websocket.close",
-                        "code": 1000 if outcome == "closed" else 1011,
+                        # Daphne/Autobahn only accepts application close codes in
+                        # the 3000-4999 range. 4500 denotes a broker-side failure.
+                        "code": 1000 if outcome == "closed" else 4500,
                     }
                 )
 

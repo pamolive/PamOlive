@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from cbpam.approvals.models import AccessRequest
 from cbpam.audit.services import record_event
+from cbpam.common.justification import normalize_justification
 from cbpam.mfa.models import MFADevice
 from cbpam.policies.models import AccessPolicy
 from cbpam.policies.services import policies_allowing, policy_allows_credential
@@ -66,10 +67,12 @@ def issue_secret_lease(
     *,
     user,
     credential,
+    justification,
     purpose=SecretLease.Purpose.REVEAL,
     lifetime_seconds=60,
     source_ip=None,
 ):
+    justification = normalize_justification(justification)
     if not credential.checkout_enabled or not credential.target.enabled:
         raise PermissionDenied("Cet identifiant n’est pas disponible à la consultation.")
     if lifetime_seconds < 15 or lifetime_seconds > 300:
@@ -95,12 +98,17 @@ def issue_secret_lease(
         token_hash=_token_hash(token),
         expires_at=timezone.now() + timedelta(seconds=lifetime_seconds),
         source_ip=source_ip,
+        justification=justification,
     )
     record_event(
         actor=user,
         action="credential.secret_lease.issued",
         resource=lease,
-        metadata={"credential_id": str(credential.pk), "purpose": purpose},
+        metadata={
+            "credential_id": str(credential.pk),
+            "purpose": purpose,
+            "justification": justification,
+        },
         source_ip=source_ip,
     )
     return lease, token
@@ -135,6 +143,7 @@ def consume_secret_lease(*, token, expected_user=None, expected_purpose=None):
         metadata={
             "credential_id": str(credential.pk),
             "purpose": lease.purpose,
+            "justification": lease.justification,
         },
         source_ip=lease.source_ip,
     )

@@ -63,9 +63,9 @@ class Credential(UUIDTimeStampedModel):
     )
     kind = models.CharField(max_length=20, choices=Kind.choices)
     encrypted_secret = models.BinaryField()
-    secret_encryption_key_id = models.CharField(max_length=64, default="legacy")
+    secret_encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
     encrypted_totp_secret = models.BinaryField(null=True, blank=True)
-    totp_encryption_key_id = models.CharField(max_length=64, default="legacy")
+    totp_encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
     key_version = models.PositiveIntegerField(default=1)
     checkout_enabled = models.BooleanField(default=True)
     rotation_enabled = models.BooleanField(default=False)
@@ -133,7 +133,7 @@ class PersonalVaultItem(UUIDTimeStampedModel):
     name = models.CharField(max_length=180)
     item_type = models.CharField(max_length=20, choices=ItemType.choices)
     encrypted_payload = models.BinaryField()
-    encryption_key_id = models.CharField(max_length=64, default="legacy")
+    encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
     favorite = models.BooleanField(default=False)
 
     class Meta:
@@ -175,6 +175,7 @@ class SecretLease(UUIDTimeStampedModel):
     consumed_at = models.DateTimeField(null=True, blank=True)
     revoked_at = models.DateTimeField(null=True, blank=True)
     source_ip = models.GenericIPAddressField(null=True, blank=True)
+    justification = models.CharField(max_length=1000)
 
     def __str__(self):
         return f"{self.credential} · {self.get_purpose_display()}"

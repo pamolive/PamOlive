@@ -1,14 +1,14 @@
 {% load static %}
 <!doctype html>
-<html lang="{{ ui_language }}" data-theme-preference="{% if user.is_authenticated %}{{ user.preferred_theme }}{% else %}dark{% endif %}">
+<html lang="{{ ui_language }}" data-theme-preference="{% if user.is_authenticated %}{{ user.preferred_theme }}{% else %}system{% endif %}" data-theme-authenticated="{{ user.is_authenticated|yesno:'true,false' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="csrf-token" content="{{ csrf_token }}">
   <meta name="theme-color" content="#0b110e">
   <title>{% block title %}PAM-olive{% endblock %}</title>
+  <script src="{% static 'js/theme-init.js' %}"></script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
-  <script>document.documentElement.dataset.theme=(document.documentElement.dataset.themePreference==='system'?(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'):document.documentElement.dataset.themePreference);</script>
   <script src="{% static 'vendor/htmx/htmx-2.0.10.min.js' %}" defer></script>
 </head>
 <body class="{% block body_class %}app-body{% endblock %}">
@@ -27,8 +27,8 @@
         {% if user.can_access_console %}<a href="{% url 'console:dashboard' %}" class="topnav-link {% if request.resolver_match.namespace == 'console' %}is-active{% endif %}">{{ ui.administration }}</a>{% endif %}
       </nav>
       <div class="account-menu">
-        <label class="language-quick-select" title="{{ ui.language }}"><span class="sr-only">{{ ui.language }}</span><select data-language-select aria-label="{{ ui.language }}"><option value="fr" {% if user.preferred_language == 'fr' %}selected{% endif %}>FR</option><option value="en" {% if user.preferred_language == 'en' %}selected{% endif %}>EN</option><option value="es" {% if user.preferred_language == 'es' %}selected{% endif %}>ES</option></select></label>
-        <button class="icon-button theme-toggle" type="button" data-theme-toggle aria-label="{{ ui.theme }}" title="{{ ui.theme }}"><svg viewBox="0 0 24 24"><path d="M12 3v2m0 14v2M3 12h2m14 0h2m-3.6-6.4-1.4 1.4M8 16l-1.4 1.4m10.8 0L16 16M8 8 6.6 6.6"/><circle cx="12" cy="12" r="4"/></svg></button>
+        <form method="post" action="{% url 'update_ui_preferences' %}" class="preference-form" data-preference-form>{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><label class="preference-select" title="{{ ui.language }}"><span class="sr-only">{{ ui.language }}</span><select name="preferred_language" data-language-select aria-label="{{ ui.language }}"><option value="fr" {% if user.preferred_language == 'fr' %}selected{% endif %}>FR</option><option value="en" {% if user.preferred_language == 'en' %}selected{% endif %}>EN</option><option value="es" {% if user.preferred_language == 'es' %}selected{% endif %}>ES</option></select></label></form>
+        <form method="post" action="{% url 'update_ui_preferences' %}" class="preference-form" data-preference-form>{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><label class="preference-select theme-select" title="{{ ui.theme }}"><span class="sr-only">{{ ui.theme }}</span><select name="preferred_theme" data-theme-select aria-label="{{ ui.theme }}"><option value="system" {% if user.preferred_theme == 'system' %}selected{% endif %}>{{ ui.theme_system }}</option><option value="light" {% if user.preferred_theme == 'light' %}selected{% endif %}>{{ ui.theme_light }}</option><option value="dark" {% if user.preferred_theme == 'dark' %}selected{% endif %}>{{ ui.theme_dark }}</option></select></label></form>
         <a href="{% url 'account' %}" class="account-link" title="Paramètres du compte">
           <span class="avatar">{{ user.username|first|upper }}</span>
           <span class="account-copy"><strong>{{ user.display_name|default:user.username }}</strong><small>{{ ui.my_account }}</small></span>

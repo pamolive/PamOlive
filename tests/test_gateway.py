@@ -122,6 +122,7 @@ def test_internal_gateway_exchanges_ticket_once_and_records_close(client):
     session, _ticket, raw_ticket = issue_session_ticket(
         user=user,
         credential=credential,
+        justification="Routine SSH gateway access test",
         source_ip="127.0.0.1",
     )
     authorize_url = reverse("gateway_authorize")
@@ -166,7 +167,11 @@ def test_internal_gateway_exchanges_ticket_once_and_records_close(client):
 def test_ssh_password_session_trusts_host_key_on_first_use(client):
     user, credential = gateway_session_fixture()
     TargetHostKey.objects.filter(target=credential.target).delete()
-    session, _ticket, raw_ticket = issue_session_ticket(user=user, credential=credential)
+    session, _ticket, raw_ticket = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine SSH gateway access test",
+    )
 
     authorized = post_signed(
         client,
@@ -202,13 +207,21 @@ def test_strict_ssh_target_still_requires_an_approved_host_key():
     credential.target.save(update_fields=("ssh_host_key_policy", "updated_at"))
 
     with pytest.raises(PermissionDenied, match="Aucune clé d’hôte SSH approuvée"):
-        issue_session_ticket(user=user, credential=credential)
+        issue_session_ticket(
+            user=user,
+            credential=credential,
+            justification="Routine SSH gateway access test",
+        )
 
 
 @pytest.mark.django_db
 def test_internal_gateway_rejects_stale_signature_and_unsafe_recording_name(client):
     user, credential = gateway_session_fixture()
-    session, _ticket, raw_ticket = issue_session_ticket(user=user, credential=credential)
+    session, _ticket, raw_ticket = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Routine SSH gateway access test",
+    )
     stale = int(time.time()) - 60
 
     assert (
@@ -314,6 +327,7 @@ def test_gateway_asgi_authorizes_bridges_and_reports(tmp_path):
         )
         connected, _subprotocol = await communicator.connect()
         assert connected
+        assert (await communicator.receive_json_from())["state"] == "authorization_required"
         await communicator.send_json_to({"type": "authorize", "ticket": "one-time-ticket"})
         assert (await communicator.receive_json_from())["state"] == "authorized"
         assert (await communicator.receive_json_from())["state"] == "connected"
@@ -427,6 +441,7 @@ def test_gateway_does_not_report_close_before_ticket_authorization(tmp_path):
         )
         connected, _subprotocol = await communicator.connect()
         assert connected
+        assert (await communicator.receive_json_from())["state"] == "authorization_required"
         await communicator.send_json_to({"type": "authorize", "ticket": "invalid"})
         assert (await communicator.receive_json_from())["type"] == "error"
         assert (await communicator.receive_output())["type"] == "websocket.close"

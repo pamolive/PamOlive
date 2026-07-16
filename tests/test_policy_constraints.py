@@ -75,15 +75,21 @@ def test_policy_restricts_specific_credentials_and_protocols():
     user, _target, allowed, denied, policy, _users, _targets = constrained_policy_fixture()
     policy.credentials.add(allowed)
 
-    lease, _token = issue_secret_lease(user=user, credential=allowed)
+    lease, _token = issue_secret_lease(
+        user=user, credential=allowed, justification="Investigate production alert"
+    )
     assert lease.policy == policy
     with pytest.raises(PermissionDenied, match="Aucune autorisation active"):
-        issue_secret_lease(user=user, credential=denied)
+        issue_secret_lease(
+            user=user, credential=denied, justification="Investigate production alert"
+        )
 
     policy.protocols = [Target.Protocol.RDP]
     policy.save(update_fields=("protocols", "updated_at"))
     with pytest.raises(PermissionDenied, match="Aucune autorisation active"):
-        issue_secret_lease(user=user, credential=allowed)
+        issue_secret_lease(
+            user=user, credential=allowed, justification="Investigate production alert"
+        )
 
 
 @pytest.mark.django_db
@@ -93,10 +99,16 @@ def test_policy_enforces_source_cidr():
     policy.save(update_fields=("source_cidrs", "updated_at"))
 
     with pytest.raises(PermissionDenied, match="Aucune autorisation active"):
-        issue_secret_lease(user=user, credential=allowed, source_ip="192.0.2.10")
+        issue_secret_lease(
+            user=user,
+            credential=allowed,
+            justification="Investigate production alert",
+            source_ip="192.0.2.10",
+        )
     lease, _token = issue_secret_lease(
         user=user,
         credential=allowed,
+        justification="Investigate production alert",
         source_ip="10.20.30.40",
     )
     assert lease.policy == policy
@@ -142,17 +154,22 @@ def test_policy_uses_reusable_time_frames_instead_of_legacy_schedule():
 @pytest.mark.django_db
 def test_policy_limits_concurrent_sessions():
     user, _target, allowed, _denied, policy, _users, _targets = constrained_policy_fixture()
-    session, _ticket, token = issue_session_ticket(user=user, credential=allowed)
+    session, _ticket, token = issue_session_ticket(
+        user=user, credential=allowed, justification="Investigate production alert"
+    )
     consume_session_ticket(session_id=session.pk, token=token, user=user)
 
     with pytest.raises(PermissionDenied, match="sessions simultanées"):
-        issue_session_ticket(user=user, credential=allowed)
+        issue_session_ticket(
+            user=user, credential=allowed, justification="Investigate production alert"
+        )
 
     policy.max_concurrent_sessions = 2
     policy.save(update_fields=("max_concurrent_sessions", "updated_at"))
     second, _second_ticket, _second_token = issue_session_ticket(
         user=user,
         credential=allowed,
+        justification="Investigate production alert",
     )
     assert second.policy == policy
 

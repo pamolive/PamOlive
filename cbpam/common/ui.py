@@ -7,6 +7,9 @@ TRANSLATIONS = {
         "my_account": "Mon compte",
         "logout": "Se déconnecter",
         "theme": "Changer de thème",
+        "theme_system": "Auto",
+        "theme_light": "Clair",
+        "theme_dark": "Sombre",
         "language": "Langue",
         "personal_space": "Espace personnel",
         "hello": "Bonjour",
@@ -38,6 +41,10 @@ TRANSLATIONS = {
         "empty_vault": "Votre coffre est vide",
         "empty_vault_help": "Ajoutez un mot de passe, un TOTP, une carte ou une note sécurisée.",
         "reveal_audit": "Afficher et auditer",
+        "business_justification": "Justification métier",
+        "session_reason_placeholder": "Pourquoi cette session est-elle nécessaire ?",
+        "reveal_reason_placeholder": "Pourquoi devez-vous consulter ce secret ?",
+        "access_denied": "Accès refusé",
         "edit": "Modifier",
         "authorized_credentials": "Identifiants autorisés",
         "authorized_credentials_help": "Leur visibilité dépend de vos groupes et politiques.",
@@ -74,6 +81,23 @@ TRANSLATIONS = {
         "sessions": "Sessions",
         "audit_log": "Journal d’audit",
         "technical_admin": "Administration technique",
+        "system": "Système",
+        "session_policy": "Politique de session",
+        "session_policy_intro": (
+            "Déconnectez automatiquement les sessions web inactives ou trop anciennes."
+        ),
+        "enforced": "Appliquée côté serveur",
+        "browser_sessions": "Sessions navigateur",
+        "inactivity_and_absolute": "Inactivité et durée absolue",
+        "save_policy": "Enregistrer la politique",
+        "enforcement": "Application",
+        "server_side_control": "Contrôle indépendant du navigateur",
+        "session_policy_detail": (
+            "Le délai est contrôlé sur chaque requête authentifiée. Fermer JavaScript ou "
+            "modifier l’horloge du navigateur ne désactive pas la règle."
+        ),
+        "idle_limit": "Délai maximal sans activité",
+        "absolute_limit": "Nouvelle authentification obligatoire",
         "control_title": "Pilotez PAM-olive.",
         "control_intro": (
             "Identités, mots de passe, cibles, approbations et traçabilité depuis une "
@@ -176,6 +200,9 @@ TRANSLATIONS = {
         "my_account": "My account",
         "logout": "Sign out",
         "theme": "Switch theme",
+        "theme_system": "Auto",
+        "theme_light": "Light",
+        "theme_dark": "Dark",
         "language": "Language",
         "personal_space": "Personal workspace",
         "hello": "Hello",
@@ -205,6 +232,10 @@ TRANSLATIONS = {
         "empty_vault": "Your vault is empty",
         "empty_vault_help": "Add a password, TOTP, payment card, or secure note.",
         "reveal_audit": "Reveal and audit",
+        "business_justification": "Business justification",
+        "session_reason_placeholder": "Why is this session necessary?",
+        "reveal_reason_placeholder": "Why do you need to reveal this secret?",
+        "access_denied": "Access denied",
         "edit": "Edit",
         "authorized_credentials": "Authorized credentials",
         "authorized_credentials_help": "Visibility depends on your groups and policies.",
@@ -239,6 +270,21 @@ TRANSLATIONS = {
         "sessions": "Sessions",
         "audit_log": "Audit log",
         "technical_admin": "Technical administration",
+        "system": "System",
+        "session_policy": "Session policy",
+        "session_policy_intro": "Automatically disconnect inactive or overly old web sessions.",
+        "enforced": "Server-side enforced",
+        "browser_sessions": "Browser sessions",
+        "inactivity_and_absolute": "Idle and absolute duration",
+        "save_policy": "Save policy",
+        "enforcement": "Enforcement",
+        "server_side_control": "Browser-independent control",
+        "session_policy_detail": (
+            "The timeout is checked on every authenticated request. Disabling JavaScript or "
+            "changing the browser clock cannot bypass it."
+        ),
+        "idle_limit": "Maximum idle period",
+        "absolute_limit": "New authentication required",
         "control_title": "Control PAM-olive.",
         "control_intro": (
             "Manage identities, passwords, targets, approvals, and traceability from one "
@@ -332,6 +378,9 @@ TRANSLATIONS = {
         "my_account": "Mi cuenta",
         "logout": "Cerrar sesión",
         "theme": "Cambiar tema",
+        "theme_system": "Auto",
+        "theme_light": "Claro",
+        "theme_dark": "Oscuro",
         "language": "Idioma",
         "personal_space": "Espacio personal",
         "hello": "Hola",
@@ -361,6 +410,10 @@ TRANSLATIONS = {
         "empty_vault": "Tu bóveda está vacía",
         "empty_vault_help": "Añade una contraseña, TOTP, tarjeta o nota segura.",
         "reveal_audit": "Mostrar y auditar",
+        "business_justification": "Justificación empresarial",
+        "session_reason_placeholder": "¿Por qué es necesaria esta sesión?",
+        "reveal_reason_placeholder": "¿Por qué necesita consultar este secreto?",
+        "access_denied": "Acceso denegado",
         "edit": "Editar",
         "authorized_credentials": "Credenciales autorizadas",
         "authorized_credentials_help": "La visibilidad depende de tus grupos y políticas.",
@@ -395,6 +448,23 @@ TRANSLATIONS = {
         "sessions": "Sesiones",
         "audit_log": "Registro de auditoría",
         "technical_admin": "Administración técnica",
+        "system": "Sistema",
+        "session_policy": "Política de sesión",
+        "session_policy_intro": (
+            "Desconecta automáticamente las sesiones web inactivas o demasiado antiguas."
+        ),
+        "enforced": "Aplicada en el servidor",
+        "browser_sessions": "Sesiones del navegador",
+        "inactivity_and_absolute": "Inactividad y duración absoluta",
+        "save_policy": "Guardar política",
+        "enforcement": "Aplicación",
+        "server_side_control": "Control independiente del navegador",
+        "session_policy_detail": (
+            "El tiempo se verifica en cada solicitud autenticada. Desactivar JavaScript o "
+            "cambiar el reloj del navegador no permite evitarlo."
+        ),
+        "idle_limit": "Periodo máximo de inactividad",
+        "absolute_limit": "Nueva autenticación obligatoria",
         "control_title": "Controla PAM-olive.",
         "control_intro": (
             "Gestiona identidades, contraseñas, destinos, aprobaciones y trazabilidad desde "

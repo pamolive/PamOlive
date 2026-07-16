@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from django.db import transaction
 
-from cbpam.audit.models import AuditChainState
+from cbpam.audit.models import AuditChainState, SIEMIntegration
 from cbpam.audit.services import record_event
 from cbpam.connectors.models import Connector, IdentitySource
 from cbpam.mfa.models import MFADevice
@@ -36,6 +36,10 @@ ENCRYPTED_MODEL_FIELDS = (
     (
         RotationJob,
         (("encrypted_candidate_secret", "candidate_encryption_key_id"),),
+    ),
+    (
+        SIEMIntegration,
+        (("encrypted_auth_token", "auth_token_encryption_key_id"),),
     ),
 )
 

@@ -46,7 +46,9 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "cbpam.accounts.session_security.SessionSecurityMiddleware",
     "cbpam.accounts.middleware.UserLanguageMiddleware",
+    "cbpam.accounts.mfa_enforcement.MFAEnrollmentMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -108,10 +110,9 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_TRACK_STARTED = True
-CBPAM_VAULT_KEY = env("CBPAM_VAULT_KEY", default="")
-CBPAM_VAULT_KEYS = env.json("CBPAM_VAULT_KEYS", default={})
-CBPAM_VAULT_ACTIVE_KEY_ID = env("CBPAM_VAULT_ACTIVE_KEY_ID", default="legacy")
-CBPAM_AUDIT_SIGNING_KEY = env("CBPAM_AUDIT_SIGNING_KEY", default=SECRET_KEY)
+CBPAM_KEYRING_BACKEND = env("CBPAM_KEYRING_BACKEND", default="http")
+CBPAM_KEYRING_URL = env("CBPAM_KEYRING_URL", default="http://keyring:8000")
+CBPAM_KEYRING_TIMEOUT_SECONDS = env.float("CBPAM_KEYRING_TIMEOUT_SECONDS", default=3.0)
 CBPAM_GATEWAY_SHARED_KEY = env(
     "CBPAM_GATEWAY_SHARED_KEY",
     default="unsafe-local-gateway-key-change-before-production",

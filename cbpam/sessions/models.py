@@ -45,6 +45,7 @@ class PrivilegedSession(UUIDTimeStampedModel):
     ended_at = models.DateTimeField(null=True, blank=True)
     last_activity_at = models.DateTimeField(null=True, blank=True)
     client_ip = models.GenericIPAddressField(null=True, blank=True)
+    justification = models.CharField(max_length=1000)
     recording_reference = models.CharField(max_length=500, blank=True)
     termination_reason = models.CharField(max_length=255, blank=True)
     termination_requested_at = models.DateTimeField(null=True, blank=True)
