@@ -8,14 +8,25 @@ from pathlib import Path
 from .crypto import fernet_from_key
 
 
+class RecordingStorageError(RuntimeError):
+    """Raised when the encrypted recording volume cannot be prepared safely."""
+
+
 class EncryptedSessionRecorder:
     def __init__(self, *, directory, session_id, encryption_key):
         self.directory = Path(directory)
-        self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.reference = f"{session_id}.pamrec"
         self.path = self.directory / self.reference
-        self._file = self.path.open("xb")
-        os.chmod(self.path, 0o600)
+        try:
+            self.directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            self._file = self.path.open("xb")
+            os.chmod(self.path, 0o600)
+        except FileExistsError:
+            raise
+        except OSError as error:
+            raise RecordingStorageError(
+                "Encrypted session recording storage is unavailable"
+            ) from error
         self._cipher = fernet_from_key(encryption_key)
         self._digest = hashlib.sha256()
         self.bytes_in = 0

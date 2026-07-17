@@ -9,7 +9,7 @@ import asyncssh
 from .client import InternalAPIClient
 from .config import GatewayConfig
 from .crypto import GatewayProtocolError, verify_request_signature
-from .recording import EncryptedSessionRecorder
+from .recording import EncryptedSessionRecorder, RecordingStorageError
 from .ssh import bridge_ssh
 
 SESSION_PATH = re.compile(
@@ -105,6 +105,22 @@ class GatewayApplication:
                 **bridge_options,
             )
             outcome = "closed"
+        except RecordingStorageError:
+            reason = "recording_storage_unavailable"
+            logger.error(
+                "Gateway session %s cannot access encrypted recording storage",
+                session_id,
+            )
+            await _send_json(
+                send,
+                {
+                    "type": "error",
+                    "message": (
+                        "Le stockage sécurisé des enregistrements est indisponible. "
+                        "Contactez un administrateur PAM-olive."
+                    ),
+                },
+            )
         except (GatewayProtocolError, TimeoutError, json.JSONDecodeError) as error:
             reason = error.__class__.__name__
             logger.warning(

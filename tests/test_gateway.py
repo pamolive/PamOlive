@@ -23,7 +23,7 @@ from pamolive.gateway.crypto import (
     request_signature,
     verify_request_signature,
 )
-from pamolive.gateway.recording import EncryptedSessionRecorder
+from pamolive.gateway.recording import EncryptedSessionRecorder, RecordingStorageError
 from pamolive.gateway.ssh import _forward_input, _forward_output, bridge_ssh
 from pamolive.policies.models import AccessPolicy
 from pamolive.rbac.models import UserGroup
@@ -337,6 +337,61 @@ def test_gateway_asgi_authorizes_bridges_and_reports(tmp_path):
     async_to_sync(scenario)()
     assert api.reports[0]["outcome"] == "closed"
     assert api.reports[0]["reason"] == "remote_exit"
+
+
+def test_gateway_reports_recording_storage_failure_without_opening_ssh(tmp_path):
+    session_id = "00000000-0000-0000-0000-000000000005"
+
+    class FakeAPI:
+        def __init__(self):
+            self.reports = []
+
+        async def authorize(self, **kwargs):
+            return {"session_id": session_id, "protocol": "ssh"}
+
+        async def report_close(self, payload):
+            self.reports.append(payload)
+            return True
+
+    class FailingRecorder:
+        def __init__(self, **kwargs):
+            raise RecordingStorageError("not writable")
+
+    async def unexpected_bridge(*args, **kwargs):
+        pytest.fail("SSH must not start without encrypted recording storage")
+
+    api = FakeAPI()
+    config = GatewayConfig(
+        internal_base_url="http://internal.invalid",
+        shared_key="s" * 40,
+        recording_key="r" * 40,
+        recording_dir=str(tmp_path),
+    )
+    application = GatewayApplication(
+        config=config,
+        api_client=api,
+        bridge=unexpected_bridge,
+        recorder_class=FailingRecorder,
+    )
+
+    async def scenario():
+        communicator = WebsocketCommunicator(
+            application,
+            f"/ws/sessions/{session_id}/terminal/",
+        )
+        connected, _subprotocol = await communicator.connect()
+        assert connected
+        assert (await communicator.receive_json_from())["state"] == "authorization_required"
+        await communicator.send_json_to({"type": "authorize", "ticket": "one-time-ticket"})
+        error = await communicator.receive_json_from()
+        assert error["type"] == "error"
+        assert "enregistrements" in error["message"]
+        assert (await communicator.receive_output())["type"] == "websocket.close"
+        await communicator.wait()
+
+    async_to_sync(scenario)()
+    assert api.reports[0]["outcome"] == "failed"
+    assert api.reports[0]["reason"] == "recording_storage_unavailable"
 
 
 def test_gateway_control_endpoint_requires_hmac_and_signals_active_session(tmp_path):

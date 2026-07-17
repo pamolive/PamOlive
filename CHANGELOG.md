@@ -56,6 +56,10 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Fixed
 
+- SSH sessions no longer fail before authentication when a persistent recording
+  volume was created by an older gateway UID. A network-isolated initializer repairs
+  ownership without deleting recordings, and storage failures now have a dedicated
+  operator-facing error instead of being reported as SSH transport failures.
 - PostgreSQL credential rotation no longer locks the nullable side of an outer join.
 - Syslog TLS delivery now explicitly requires TLS 1.2 or newer.
 - Anonymous visitors can choose Auto, Light, or Dark directly on the login page;

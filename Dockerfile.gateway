@@ -4,7 +4,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN addgroup -S pamolive && adduser -S -G pamolive -h /home/pamolive pamolive
+ARG PAMOLIVE_RUNTIME_UID=10001
+ARG PAMOLIVE_RUNTIME_GID=10001
+RUN addgroup -S -g "${PAMOLIVE_RUNTIME_GID}" pamolive \
+    && adduser -S -D -H -u "${PAMOLIVE_RUNTIME_UID}" -G pamolive pamolive
 WORKDIR /app
 RUN mkdir /recordings && chown pamolive:pamolive /recordings
 

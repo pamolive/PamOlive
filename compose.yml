@@ -86,6 +86,24 @@ services:
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
+  recordings-init:
+    image: python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df
+    user: "0:0"
+    environment:
+      PAMOLIVE_RECORDING_DIR: /recordings
+      PAMOLIVE_RECORDING_UID: "10001"
+      PAMOLIVE_RECORDING_GID: "10001"
+    command: ["/bin/sh", "/usr/local/bin/init-recordings.sh"]
+    network_mode: none
+    volumes:
+      - recordings_data:/recordings
+      - ./scripts/init-recordings.sh:/usr/local/bin/init-recordings.sh:ro
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+
   gateway:
     build:
       context: .
@@ -96,7 +114,9 @@ services:
       PAMOLIVE_RECORDING_KEY: ${PAMOLIVE_RECORDING_KEY:?PAMOLIVE_RECORDING_KEY must be configured}
       PAMOLIVE_RECORDING_DIR: /recordings
     expose: ["8001"]
-    depends_on: [web]
+    depends_on:
+      recordings-init: {condition: service_completed_successfully}
+      web: {condition: service_healthy}
     healthcheck:
       test:
         [
