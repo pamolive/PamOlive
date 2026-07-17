@@ -38,4 +38,19 @@ before SSH authentication and was incorrectly classified as a transport failure.
 
 ## Deployment evidence
 
-To be completed after the NAS rollout.
+- Pre-deployment backup:
+  `/volume1/docker/pam-olive-backups/20260717-ssh-recording-fix-predeploy`.
+- Active source release:
+  `/volume1/docker/pam-olive-release-20260717-v7`.
+- Only the PAM-olive SSH gateway and RDP broker containers were recreated.
+- The initializer completed successfully with no network and without deleting any
+  recording.
+- Gateway identity: `10001:10001`.
+- Recording-volume owner and mode: `10001:10001`, `0700`.
+- Preserved encrypted recording files: 217.
+- Restore verification: 184 audit events, 5 encrypted fields, active key
+  `keyring-v1`, 0 pending migrations.
+- The configured NAS credential already used the case-sensitive username `Cyriel`;
+  no credential data required modification.
+- Public readiness endpoint returned HTTP 200 with database and cache healthy.
+- Both the SSH gateway and RDP broker passed their container health checks.
