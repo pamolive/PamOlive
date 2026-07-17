@@ -3,19 +3,19 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.operations.models import RotationJob
-from cbpam.operations.services import (
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.operations.models import RotationJob
+from pamolive.operations.services import (
     clear_rotation_backends,
     execute_rotation,
     queue_rotation,
     register_rotation_backend,
     schedule_due_rotations,
 )
-from cbpam.targets.models import Target
-from cbpam.vault.models import Credential
-from cbpam.vault.services import VaultCipher
+from pamolive.targets.models import Target
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher
 
 
 class SuccessfulBackend:

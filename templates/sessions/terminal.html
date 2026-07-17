@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 {% block title %}Session {{ privileged_session.target.name }} · PAM-olive{% endblock %}
+{% block extra_head %}<link rel="stylesheet" href="{% static 'vendor/xterm/xterm-6.0.0.css' %}">{% endblock %}
 {% block content %}
 <header class="section-hero terminal-hero">
   <div>
@@ -15,16 +16,25 @@
   class="terminal-shell"
   data-session-id="{{ privileged_session.pk }}"
   data-session-ticket="{{ session_ticket }}"
-  tabindex="0"
   aria-live="polite"
 >
   <div class="terminal-toolbar">
     <span><i id="terminal-status-dot"></i><strong id="terminal-status">Autorisation en cours…</strong></span>
     <code>{{ privileged_session.pk }}</code>
   </div>
-  <pre id="terminal-output" class="terminal-output">pam-olive · Vérification du ticket éphémère…
-</pre>
+  <div class="terminal-command-panel">
+    <label for="terminal-command">
+      <strong>Coller une commande</strong>
+      <small>Vérifiez le contenu avant l’envoi. La commande sera auditée dans l’enregistrement de session.</small>
+    </label>
+    <div class="terminal-command-controls">
+      <textarea id="terminal-command" rows="2" maxlength="65535" placeholder="Collez une commande ou plusieurs lignes…"></textarea>
+      <button id="terminal-command-send" class="secondary-action" type="button" disabled>Envoyer dans la session</button>
+    </div>
+  </div>
+  <div id="terminal-output" class="terminal-output" aria-label="Terminal SSH interactif"></div>
 </section>
-<p class="terminal-notice">Les identifiants techniques ne sont jamais envoyés au navigateur. La connexion distante sera établie par le broker isolé lorsqu’il sera configuré.</p>
+<p class="terminal-notice">Les identifiants techniques ne sont jamais envoyés au navigateur. Les entrées et sorties de la session sont enregistrées et chiffrées.</p>
+<script src="{% static 'vendor/xterm/xterm-6.0.0.js' %}" defer></script>
 <script src="{% static 'js/terminal.js' %}" defer></script>
 {% endblock %}

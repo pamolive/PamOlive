@@ -46,7 +46,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["cbpam", "config"]
+packages = ["pamolive", "config"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings.test"

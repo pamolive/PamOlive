@@ -1,0 +1,16 @@
+FROM tomcat@sha256:417d9eba5b60dda304f3d966ffa048aedd70a13b4f35e484a45bb53f62df6b9f AS patched_tomcat
+
+FROM guacamole/guacamole@sha256:f344085e618bb05e22b964b0208dbd06d3468275bac70206f93805245e067b40
+
+USER root
+
+# Keep Guacamole's tested 1.6.0 application and startup contract, but replace
+# its vulnerable Tomcat runtime and remove optional extensions which PAM-olive
+# never enables. JSON authentication is the only Guacamole extension required
+# by the RDP broker.
+COPY --from=patched_tomcat /usr/local/tomcat /usr/local/tomcat
+RUN find /opt/guacamole/extensions -mindepth 1 -maxdepth 1 \
+      ! -name guacamole-auth-json -exec rm -rf {} + \
+    && rm -rf /opt/guacamole/drivers/*
+
+USER guacamole

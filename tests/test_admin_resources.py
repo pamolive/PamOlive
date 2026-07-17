@@ -1,12 +1,12 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
-from cbpam.rbac.models import Role, UserGroup
-from cbpam.targets.models import Target, TargetGroup
-from cbpam.vault.models import Credential
-from cbpam.vault.services import VaultCipher
+from pamolive.accounts.models import User
+from pamolive.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
+from pamolive.rbac.models import Role, UserGroup
+from pamolive.targets.models import Target, TargetGroup
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher
 
 
 @pytest.fixture

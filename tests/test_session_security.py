@@ -3,9 +3,9 @@ import time
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import PlatformSecurityPolicy, User
-from cbpam.audit.models import AuditEvent
-from cbpam.rbac.models import UserGroup
+from pamolive.accounts.models import PlatformSecurityPolicy, User
+from pamolive.audit.models import AuditEvent
+from pamolive.rbac.models import UserGroup
 
 
 @pytest.mark.django_db

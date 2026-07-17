@@ -2,8 +2,8 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from cbpam.accounts.views import PAMOliveLoginView, oidc_callback, oidc_login
-from cbpam.api.views import (
+from pamolive.accounts.views import PAMOliveLoginView, oidc_callback, oidc_login
+from pamolive.api.views import (
     account_page,
     dashboard,
     edit_personal_item,
@@ -49,6 +49,7 @@ urlpatterns = [
     path("requests/", requests_page, name="requests"),
     path("account/", account_page, name="account"),
     path("account/preferences/ui/", update_ui_preferences, name="update_ui_preferences"),
+    path("mfa/setup/", mfa_enrollment_required, name="mfa_setup_required"),
     path("account/mfa/setup/", mfa_setup, name="mfa_setup"),
     path(
         "account/mfa/enroll/",
@@ -63,7 +64,7 @@ urlpatterns = [
         mfa_recovery_regenerate,
         name="mfa_recovery_regenerate",
     ),
-    path("admin/", include("cbpam.console.urls")),
+    path("admin/", include("pamolive.console.urls")),
     path("django-admin/", admin.site.urls),
     path(
         "accounts/login/",
@@ -73,5 +74,5 @@ urlpatterns = [
     path("accounts/oidc/<slug:slug>/login/", oidc_login, name="oidc_login"),
     path("accounts/oidc/<slug:slug>/callback/", oidc_callback, name="oidc_callback"),
     path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
-    path("api/", include("cbpam.api.urls")),
+    path("api/", include("pamolive.api.urls")),
 ]

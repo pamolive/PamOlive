@@ -5,15 +5,15 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.utils import timezone
 
-from cbpam.accounts.models import User
-from cbpam.connectors.models import IdentitySource
-from cbpam.connectors.services import (
+from pamolive.accounts.models import User
+from pamolive.connectors.models import IdentitySource
+from pamolive.connectors.services import (
     get_identity_source_configuration,
     set_identity_source_configuration,
     validate_identity_source_configuration,
 )
-from cbpam.rbac.models import Role, RoleAssignment, UserGroup
-from cbpam.rbac.services import user_has_capability
+from pamolive.rbac.models import Role, RoleAssignment, UserGroup
+from pamolive.rbac.services import user_has_capability
 
 
 def ldap_configuration(password="directory-password"):

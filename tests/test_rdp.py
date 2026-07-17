@@ -13,24 +13,24 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from django.conf import settings
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.gateway.crypto import GatewayProtocolError, decrypt_envelope, request_signature
-from cbpam.policies.models import AccessPolicy
-from cbpam.rbac.models import UserGroup
-from cbpam.rdp.asgi import RDPBrokerApplication
-from cbpam.rdp.config import RDPBrokerConfig
-from cbpam.rdp.guacamole import (
+from pamolive.accounts.models import User
+from pamolive.gateway.crypto import GatewayProtocolError, decrypt_envelope, request_signature
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import UserGroup
+from pamolive.rdp.asgi import RDPBrokerApplication
+from pamolive.rdp.config import RDPBrokerConfig
+from pamolive.rdp.guacamole import (
     GuacamoleTokenClient,
     build_handoff_page,
     build_rdp_user_data,
     encrypt_json_auth,
     guacamole_client_identifier,
 )
-from cbpam.sessions.models import PrivilegedSession
-from cbpam.sessions.services import issue_session_ticket
-from cbpam.targets.models import Domain, Target, TargetGroup
-from cbpam.vault.models import Credential
-from cbpam.vault.services import VaultCipher
+from pamolive.sessions.models import PrivilegedSession
+from pamolive.sessions.services import issue_session_ticket
+from pamolive.targets.models import Domain, Target, TargetGroup
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher
 
 
 def rdp_envelope(**overrides):
@@ -104,7 +104,7 @@ def signed_gateway_post(client, payload):
         content_type="application/json",
         HTTP_X_PAM_TIMESTAMP=timestamp,
         HTTP_X_PAM_SIGNATURE=request_signature(
-            settings.CBPAM_GATEWAY_SHARED_KEY,
+            settings.PAMOLIVE_GATEWAY_SHARED_KEY,
             timestamp,
             body,
         ),
@@ -177,20 +177,20 @@ def test_handoff_page_keeps_token_out_of_destination_url():
 
 
 def test_rdp_broker_config_validates_environment(monkeypatch):
-    monkeypatch.setenv("CBPAM_GATEWAY_SHARED_KEY", "s" * 32)
-    monkeypatch.setenv("CBPAM_GUACAMOLE_JSON_KEY", "00112233445566778899aabbccddeeff")
-    monkeypatch.setenv("CBPAM_RDP_LAUNCH_LIFETIME_SECONDS", "12")
-    monkeypatch.setenv("CBPAM_GUACAMOLE_INTERNAL_URL", "http://guacamole:8080/guacamole/")
+    monkeypatch.setenv("PAMOLIVE_GATEWAY_SHARED_KEY", "s" * 32)
+    monkeypatch.setenv("PAMOLIVE_GUACAMOLE_JSON_KEY", "00112233445566778899aabbccddeeff")
+    monkeypatch.setenv("PAMOLIVE_RDP_LAUNCH_LIFETIME_SECONDS", "12")
+    monkeypatch.setenv("PAMOLIVE_GUACAMOLE_INTERNAL_URL", "http://guacamole:8080/guacamole/")
 
     config = RDPBrokerConfig.from_env()
 
     assert config.launch_lifetime_seconds == 12
     assert config.guacamole_internal_url.endswith("/guacamole")
-    monkeypatch.setenv("CBPAM_GUACAMOLE_JSON_KEY", "invalid")
+    monkeypatch.setenv("PAMOLIVE_GUACAMOLE_JSON_KEY", "invalid")
     with pytest.raises(GatewayProtocolError, match="hexadécimaux"):
         RDPBrokerConfig.from_env()
-    monkeypatch.setenv("CBPAM_GUACAMOLE_JSON_KEY", "00112233445566778899aabbccddeeff")
-    monkeypatch.setenv("CBPAM_RDP_LAUNCH_LIFETIME_SECONDS", "31")
+    monkeypatch.setenv("PAMOLIVE_GUACAMOLE_JSON_KEY", "00112233445566778899aabbccddeeff")
+    monkeypatch.setenv("PAMOLIVE_RDP_LAUNCH_LIFETIME_SECONDS", "31")
     with pytest.raises(GatewayProtocolError, match="comprise"):
         RDPBrokerConfig.from_env()
 
@@ -217,7 +217,7 @@ def test_guacamole_token_client_validates_response(monkeypatch):
         seen.append((request, timeout))
         return FakeResponse()
 
-    monkeypatch.setattr("cbpam.rdp.guacamole.urllib.request.urlopen", fake_urlopen)
+    monkeypatch.setattr("pamolive.rdp.guacamole.urllib.request.urlopen", fake_urlopen)
     token = GuacamoleTokenClient("http://guacamole/guacamole/", timeout=3).authenticate(
         "encrypted+json="
     )
@@ -228,7 +228,7 @@ def test_guacamole_token_client_validates_response(monkeypatch):
     assert seen[0][1] == 3
 
     monkeypatch.setattr(
-        "cbpam.rdp.guacamole.urllib.request.urlopen",
+        "pamolive.rdp.guacamole.urllib.request.urlopen",
         lambda *args, **kwargs: (_ for _ in ()).throw(urllib.error.URLError("offline")),
     )
     with pytest.raises(GatewayProtocolError, match="indisponible"):
@@ -347,14 +347,14 @@ def test_internal_gateway_builds_rdp_envelope_without_ssh_host_key(client, monke
         credential=credential,
         justification="Routine RDP administration test",
     )
-    monkeypatch.setattr("cbpam.gateway.crypto.time.time", lambda: 1_783_980_000)
+    monkeypatch.setattr("pamolive.gateway.crypto.time.time", lambda: 1_783_980_000)
     response = signed_gateway_post(
         client,
         {"session_id": str(session.pk), "ticket": raw_ticket},
     )
 
     assert response.status_code == 200
-    envelope = decrypt_envelope(response.json()["envelope"], settings.CBPAM_GATEWAY_SHARED_KEY)
+    envelope = decrypt_envelope(response.json()["envelope"], settings.PAMOLIVE_GATEWAY_SHARED_KEY)
     assert envelope["protocol"] == "rdp"
     assert envelope["secret"] == "rdp-password"
     assert envelope["domain"] == "test.invalid"

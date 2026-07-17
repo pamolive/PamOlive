@@ -1,12 +1,12 @@
 import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
 
-from cbpam.accounts.models import User
-from cbpam.approvals.models import AccessRequest, ApprovalDecision
-from cbpam.approvals.services import decide_access_request
-from cbpam.policies.models import AccessPolicy
-from cbpam.rbac.models import Role, UserGroup
-from cbpam.targets.models import Target
+from pamolive.accounts.models import User
+from pamolive.approvals.models import AccessRequest, ApprovalDecision
+from pamolive.approvals.services import decide_access_request
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import Role, UserGroup
+from pamolive.targets.models import Target
 
 
 def create_request(policy, requester, target, reason="Maintenance"):

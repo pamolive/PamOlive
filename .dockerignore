@@ -18,6 +18,7 @@ backups
 build
 dist
 *.egg-info
+tmp
 *.tar
 *.tar.gz
 *.tgz

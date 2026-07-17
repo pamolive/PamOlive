@@ -4,17 +4,17 @@ import pytest
 from django.http import HttpResponseRedirect
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.connectors.adapters import (
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.connectors.adapters import (
     DirectoryConnectionError,
     LDAPDirectoryAdapter,
     adapter_for,
 )
-from cbpam.connectors.models import DirectoryGroupMapping, IdentitySource
-from cbpam.connectors.services import set_identity_source_configuration
-from cbpam.connectors.sync import synchronize_identity_source
-from cbpam.rbac.models import UserGroup
+from pamolive.connectors.models import DirectoryGroupMapping, IdentitySource
+from pamolive.connectors.services import set_identity_source_configuration
+from pamolive.connectors.sync import synchronize_identity_source
+from pamolive.rbac.models import UserGroup
 
 
 def source_with_configuration(kind=IdentitySource.Kind.LDAP):
@@ -87,9 +87,9 @@ class FakeLDAPConnection:
 def test_ldap_adapter_reads_directory_without_network(monkeypatch):
     source = source_with_configuration()
     connection = FakeLDAPConnection()
-    monkeypatch.setattr("cbpam.connectors.adapters.Server", lambda *args, **kwargs: object())
+    monkeypatch.setattr("pamolive.connectors.adapters.Server", lambda *args, **kwargs: object())
     monkeypatch.setattr(
-        "cbpam.connectors.adapters.Connection", lambda *args, **kwargs: connection
+        "pamolive.connectors.adapters.Connection", lambda *args, **kwargs: connection
     )
 
     adapter = LDAPDirectoryAdapter(source)
@@ -104,12 +104,12 @@ def test_ldap_adapter_reads_directory_without_network(monkeypatch):
 @pytest.mark.django_db
 def test_ldap_adapter_masks_connection_failure(monkeypatch):
     source = source_with_configuration()
-    monkeypatch.setattr("cbpam.connectors.adapters.Server", lambda *args, **kwargs: object())
+    monkeypatch.setattr("pamolive.connectors.adapters.Server", lambda *args, **kwargs: object())
 
     def fail(*args, **kwargs):
         raise RuntimeError("bind secret must not be exposed")
 
-    monkeypatch.setattr("cbpam.connectors.adapters.Connection", fail)
+    monkeypatch.setattr("pamolive.connectors.adapters.Connection", fail)
 
     with pytest.raises(DirectoryConnectionError, match="Connexion à l’annuaire impossible"):
         LDAPDirectoryAdapter(source).test_connection()
@@ -160,7 +160,7 @@ def test_oidc_login_and_callback_are_governed(client, monkeypatch):
             return {"userinfo": claims}
 
     monkeypatch.setattr(
-        "cbpam.accounts.views.oidc_client_for", lambda selected_source: FakeOIDCClient()
+        "pamolive.accounts.views.oidc_client_for", lambda selected_source: FakeOIDCClient()
     )
 
     login_response = client.get(reverse("oidc_login", args=(source.slug,)))

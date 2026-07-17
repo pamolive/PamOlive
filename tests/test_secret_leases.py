@@ -4,20 +4,20 @@ import pytest
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
-from cbpam.accounts.models import User
-from cbpam.approvals.models import AccessRequest
-from cbpam.audit.models import AuditEvent
-from cbpam.mfa.models import MFADevice
-from cbpam.policies.models import AccessPolicy
-from cbpam.rbac.models import UserGroup
-from cbpam.targets.models import Target, TargetGroup
-from cbpam.vault.leases import (
+from pamolive.accounts.models import User
+from pamolive.approvals.models import AccessRequest
+from pamolive.audit.models import AuditEvent
+from pamolive.mfa.models import MFADevice
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import UserGroup
+from pamolive.targets.models import Target, TargetGroup
+from pamolive.vault.leases import (
     consume_secret_lease,
     issue_secret_lease,
     revoke_secret_lease,
 )
-from cbpam.vault.models import Credential, SecretLease
-from cbpam.vault.services import VaultCipher
+from pamolive.vault.models import Credential, SecretLease
+from pamolive.vault.services import VaultCipher
 
 
 def lease_fixture(*, requires_approval=False, requires_mfa=False):

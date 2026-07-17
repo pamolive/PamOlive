@@ -47,7 +47,7 @@ The bootstrap script deliberately refuses to overwrite an existing `.env` file.
 ruff check .
 python manage.py makemigrations --check --dry-run
 python manage.py check
-pytest --cov=cbpam --cov-fail-under=90
+pytest --cov=pamolive --cov-fail-under=90
 mkdocs build --strict
 ```
 

@@ -1,13 +1,13 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.approvals.models import AccessRequest
-from cbpam.console.forms import AccessPolicyForm
-from cbpam.policies.models import AccessPolicy
-from cbpam.policies.services import policies_for_user, targets_for_policies
-from cbpam.rbac.models import UserGroup
-from cbpam.targets.models import Target, TargetGroup
+from pamolive.accounts.models import User
+from pamolive.approvals.models import AccessRequest
+from pamolive.console.forms import AccessPolicyForm
+from pamolive.policies.models import AccessPolicy
+from pamolive.policies.services import policies_for_user, targets_for_policies
+from pamolive.rbac.models import UserGroup
+from pamolive.targets.models import Target, TargetGroup
 
 
 @pytest.fixture

@@ -1,11 +1,11 @@
 import pytest
 from django.core.exceptions import PermissionDenied
 
-from cbpam.accounts.models import User
-from cbpam.approvals.models import AccessRequest
-from cbpam.approvals.services import decide_access_request
-from cbpam.policies.models import AccessPolicy
-from cbpam.targets.models import Target
+from pamolive.accounts.models import User
+from pamolive.approvals.models import AccessRequest
+from pamolive.approvals.services import decide_access_request
+from pamolive.policies.models import AccessPolicy
+from pamolive.targets.models import Target
 
 
 @pytest.mark.django_db

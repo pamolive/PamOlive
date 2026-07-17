@@ -1,12 +1,12 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditChainState
-from cbpam.audit.services import record_event
-from cbpam.rbac.models import UserGroup
-from cbpam.vault.models import PersonalVaultGroup, PersonalVaultItem
-from cbpam.vault.services import VaultCipher
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditChainState
+from pamolive.audit.services import record_event
+from pamolive.rbac.models import UserGroup
+from pamolive.vault.models import PersonalVaultGroup, PersonalVaultItem
+from pamolive.vault.services import VaultCipher
 
 
 @pytest.mark.django_db

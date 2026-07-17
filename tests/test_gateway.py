@@ -11,11 +11,11 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.gateway.asgi import GatewayApplication
-from cbpam.gateway.config import GatewayConfig
-from cbpam.gateway.crypto import (
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.gateway.asgi import GatewayApplication
+from pamolive.gateway.config import GatewayConfig
+from pamolive.gateway.crypto import (
     GatewayProtocolError,
     decrypt_envelope,
     encrypt_envelope,
@@ -23,15 +23,15 @@ from cbpam.gateway.crypto import (
     request_signature,
     verify_request_signature,
 )
-from cbpam.gateway.recording import EncryptedSessionRecorder
-from cbpam.gateway.ssh import bridge_ssh
-from cbpam.policies.models import AccessPolicy
-from cbpam.rbac.models import UserGroup
-from cbpam.sessions.models import PrivilegedSession
-from cbpam.sessions.services import issue_session_ticket
-from cbpam.targets.models import Target, TargetGroup, TargetHostKey
-from cbpam.vault.models import Credential
-from cbpam.vault.services import VaultCipher
+from pamolive.gateway.recording import EncryptedSessionRecorder
+from pamolive.gateway.ssh import _forward_input, _forward_output, bridge_ssh
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import UserGroup
+from pamolive.sessions.models import PrivilegedSession
+from pamolive.sessions.services import issue_session_ticket
+from pamolive.targets.models import Target, TargetGroup, TargetHostKey
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher
 
 
 def public_host_key():
@@ -82,7 +82,7 @@ def signed_headers(body, *, timestamp=None):
     return {
         "HTTP_X_PAM_TIMESTAMP": timestamp,
         "HTTP_X_PAM_SIGNATURE": request_signature(
-            settings.CBPAM_GATEWAY_SHARED_KEY,
+            settings.PAMOLIVE_GATEWAY_SHARED_KEY,
             timestamp,
             body,
         ),
@@ -137,7 +137,7 @@ def test_internal_gateway_exchanges_ticket_once_and_records_close(client):
     assert authorized.status_code == 200
     envelope = decrypt_envelope(
         authorized.json()["envelope"],
-        settings.CBPAM_GATEWAY_SHARED_KEY,
+        settings.PAMOLIVE_GATEWAY_SHARED_KEY,
     )
     assert envelope["secret"] == "gateway-password"
     assert envelope["username"] == "root"
@@ -180,7 +180,7 @@ def test_ssh_password_session_trusts_host_key_on_first_use(client):
     )
     envelope = decrypt_envelope(
         authorized.json()["envelope"],
-        settings.CBPAM_GATEWAY_SHARED_KEY,
+        settings.PAMOLIVE_GATEWAY_SHARED_KEY,
     )
     trusted = post_signed(
         client,
@@ -515,13 +515,75 @@ def test_ssh_bridge_passes_approved_known_hosts(monkeypatch):
             Recorder(),
         )
 
-    monkeypatch.setattr("cbpam.gateway.ssh.asyncssh.connect", fake_connect)
+    monkeypatch.setattr("pamolive.gateway.ssh.asyncssh.connect", fake_connect)
     assert async_to_sync(scenario)() == "remote_exit"
     assert captured["connect"]["known_hosts"] == (
         b"target.test.invalid ssh-ed25519 AAAA\n"
     )
     assert captured["connect"]["client_keys"] == []
     assert captured["connect"]["password"] == "password"
+
+
+def test_ssh_output_preserves_ansi_and_utf8_bytes():
+    raw_output = "\x1b[01;32mCyriel@NAS\x1b[00m: café\r\n".encode()
+    messages = []
+    recorded = []
+
+    class Reader:
+        def __init__(self):
+            self.chunks = [raw_output, b""]
+
+        async def read(self, size):
+            return self.chunks.pop(0)
+
+    class Recorder:
+        def write(self, direction, data):
+            recorded.append((direction, data))
+
+    async def send(message):
+        messages.append(message)
+
+    async_to_sync(_forward_output)(Reader(), "stdout", send, Recorder())
+
+    payload = json.loads(messages[0]["text"])
+    assert payload["type"] == "terminal.output"
+    assert base64.b64decode(payload["data"]) == raw_output
+    assert recorded == [("stdout", raw_output)]
+
+
+def test_ssh_input_preserves_pasted_utf8_command():
+    command = "printf 'café'\r"
+    incoming = [
+        {
+            "type": "websocket.receive",
+            "text": json.dumps({"type": "terminal.input", "data": command}),
+        },
+        {"type": "websocket.disconnect"},
+    ]
+    written = []
+    recorded = []
+
+    async def receive():
+        return incoming.pop(0)
+
+    class Input:
+        def write(self, data):
+            written.append(data)
+
+    class Process:
+        stdin = Input()
+
+        def change_terminal_size(self, cols, rows):
+            pass
+
+    class Recorder:
+        def write(self, direction, data):
+            recorded.append((direction, data))
+
+    assert async_to_sync(_forward_input)(receive, Process(), Recorder()) == "client_disconnect"
+    expected = command.encode()
+    assert written == [expected]
+    assert recorded == [("input", expected)]
 
 
 def test_asyncssh_accepts_approved_host_key_and_rejects_mismatch():

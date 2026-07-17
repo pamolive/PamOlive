@@ -12,26 +12,46 @@ permissions:
   contents: read
 
 jobs:
+  vulnerability-scan:
+    name: Container CVE gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Generate ephemeral CI secrets
+        run: sh install.sh
+
+      - name: Build application images
+        run: docker compose --profile test build
+
+      - name: Pull digest-pinned third-party images
+        run: docker compose --profile test pull --ignore-buildable
+
+      - name: Install Trivy 0.70.0 from a SHA-pinned action
+        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
+        with:
+          version: v0.70.0
+          cache: true
+
+      - name: Fail on critical image vulnerabilities
+        run: |
+          docker compose --profile test config --images | sort -u > /tmp/pam-olive-images.txt
+          while IFS= read -r image; do
+            echo "::group::Trivy $image"
+            trivy image --scanners vuln --severity CRITICAL --exit-code 1 "$image"
+            echo "::endgroup::"
+          done < /tmp/pam-olive-images.txt
+
   quality-and-tests:
-    name: Quality, PostgreSQL and tests
+    name: Quality and fast tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_DB: pamolive
-          POSTGRES_USER: pamolive
-          POSTGRES_PASSWORD: ci-only-postgres-password
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U pamolive -d pamolive"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     env:
-      DATABASE_URL: postgresql://pamolive:ci-only-postgres-password@localhost:5432/pamolive
+      DATABASE_URL: sqlite:////tmp/pam-olive-ci.sqlite3
       DJANGO_SECRET_KEY: ci-only-secret-key-with-more-than-fifty-characters-never-use-in-production
       DJANGO_SETTINGS_MODULE: config.settings.test
     steps:
@@ -56,7 +76,7 @@ jobs:
         run: ruff check .
 
       - name: Check shell script syntax
-        run: sh -n scripts/*.sh
+        run: sh -n install.sh scripts/*.sh
 
       - name: Check Django configuration
         run: python manage.py check
@@ -64,12 +84,12 @@ jobs:
       - name: Refuse missing migrations
         run: python manage.py makemigrations --check --dry-run
 
-      - name: Apply migrations to PostgreSQL
+      - name: Apply migrations to the fast-test database
         run: python manage.py migrate --noinput
 
       - name: Run tests with coverage gate
         run: >-
-          pytest --cov=cbpam --cov-report=term-missing
+          pytest --cov=pamolive --cov-report=term-missing
           --cov-report=xml:coverage.xml --cov-fail-under=90
 
       - name: Build documentation strictly
@@ -96,17 +116,20 @@ jobs:
 
       - name: Generate ephemeral CI secrets without starting services
         env:
-          CBPAM_BOOTSTRAP_PREPARE_ONLY: "true"
+          PAMOLIVE_BOOTSTRAP_PREPARE_ONLY: "true"
         run: sh scripts/bootstrap.sh
 
       - name: Validate Compose model
         run: docker compose config --quiet
 
       - name: Build PAM-olive images
-        run: docker compose build web gateway rdp-broker test
+        run: docker compose --profile test build
 
       - name: Start the full stack and wait for health checks
         run: docker compose up --detach --wait --wait-timeout 240
+
+      - name: Verify target-network isolation
+        run: sh scripts/check-isolation.sh
 
       - name: Smoke-test PAM and dedicated RDP origins
         run: |
@@ -121,10 +144,10 @@ jobs:
       - name: Seed encrypted restore marker
         run: |
           docker compose exec -T web python manage.py shell <<'PY'
-          from cbpam.accounts.models import User
-          from cbpam.audit.services import record_event
-          from cbpam.vault.models import PersonalVaultItem
-          from cbpam.vault.services import VaultCipher
+          from pamolive.accounts.models import User
+          from pamolive.audit.services import record_event
+          from pamolive.vault.models import PersonalVaultItem
+          from pamolive.vault.services import VaultCipher
 
           user = User.objects.create_user(username="ci-restore-marker")
           cipher = VaultCipher()
@@ -145,7 +168,7 @@ jobs:
 
       - name: Restore into a separate ephemeral database and verify
         env:
-          CBPAM_RESTORE_REHEARSAL_ACK: ephemeral-ci-only
+          PAMOLIVE_RESTORE_REHEARSAL_ACK: ephemeral-ci-only
         run: >-
           sh scripts/restore-rehearsal.sh
           "$RUNNER_TEMP/pam-olive-backup"

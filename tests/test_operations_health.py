@@ -4,7 +4,7 @@ import pytest
 from django.test import override_settings
 from django.urls import reverse
 
-from cbpam.accounts.models import User
+from pamolive.accounts.models import User
 
 
 def test_liveness_does_not_query_application_state(client):
@@ -25,7 +25,7 @@ def test_readiness_checks_database_and_cache(client):
 
 @pytest.mark.django_db
 def test_readiness_fails_closed_without_cache(client):
-    with patch("cbpam.operations.views.cache.set", side_effect=ConnectionError):
+    with patch("pamolive.operations.views.cache.set", side_effect=ConnectionError):
         response = client.get(reverse("health_ready"))
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
@@ -33,7 +33,7 @@ def test_readiness_fails_closed_without_cache(client):
 
 
 @pytest.mark.django_db
-@override_settings(CBPAM_OPERATIONS_TOKEN="operations-test-token-with-at-least-32-characters")
+@override_settings(PAMOLIVE_OPERATIONS_TOKEN="operations-test-token-with-at-least-32-characters")
 def test_metrics_require_token_and_expose_only_aggregate_names(client):
     User.objects.create_user(username="not-exposed-in-metrics")
     denied = client.get(reverse("metrics"))
@@ -50,7 +50,7 @@ def test_metrics_require_token_and_expose_only_aggregate_names(client):
 
 
 @pytest.mark.django_db
-@override_settings(CBPAM_OPERATIONS_TOKEN="operations-test-token-with-at-least-32-characters")
+@override_settings(PAMOLIVE_OPERATIONS_TOKEN="operations-test-token-with-at-least-32-characters")
 def test_audit_integrity_is_protected(client):
     assert client.get(reverse("health_integrity")).status_code == 403
     response = client.get(

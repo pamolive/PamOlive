@@ -30,7 +30,7 @@ and rollback plan have been approved.
 | `/api/health/integrity/` | operations Bearer token | complete audit-chain validation |
 | `/api/metrics/` | operations Bearer token | aggregated Prometheus metrics |
 
-The token is `CBPAM_OPERATIONS_TOKEN`. It must differ from every vault, audit,
+The token is `PAMOLIVE_OPERATIONS_TOKEN`. It must differ from every vault, audit,
 gateway, and recording key. It is never passed to the SSH gateway.
 
 Recommended minimum alerts:
@@ -47,10 +47,10 @@ Recommended minimum alerts:
 Rotation behavior is selected through a `SecretRotationPolicy`. The policy defines
 the interval, generation strategy, generated password length, target groups, and an
 internal connector key. Connector implementations are loaded through
-`CBPAM_ROTATION_BACKENDS`, for example:
+`PAMOLIVE_ROTATION_BACKENDS`, for example:
 
 ```env
-CBPAM_ROTATION_BACKENDS={"linux":"my_plugin.backends.LinuxPasswordBackend"}
+PAMOLIVE_ROTATION_BACKENDS={"linux":"my_plugin.backends.LinuxPasswordBackend"}
 ```
 
 The connector receives the credential, old secret, and generated candidate secret.
@@ -65,7 +65,7 @@ job is permitted per credential.
 ## Migration to the isolated keyring
 
 Back up PostgreSQL and `.env`, then start the keyring while keeping the legacy
-`CBPAM_VAULT_*` and `CBPAM_AUDIT_SIGNING_KEY` variables temporarily. Run the
+`PAMOLIVE_VAULT_*` and `PAMOLIVE_AUDIT_SIGNING_KEY` variables temporarily. Run the
 read-only inventory:
 
 ```sh

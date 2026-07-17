@@ -1,4 +1,4 @@
-from cbpam.vault.services import VaultCipher
+from pamolive.vault.services import VaultCipher
 
 
 def test_vault_round_trip():

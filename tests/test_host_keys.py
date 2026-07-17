@@ -4,11 +4,11 @@ import pytest
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.rbac.models import UserGroup
-from cbpam.targets.models import Target, TargetHostKey
-from cbpam.targets.services import parse_ssh_public_key
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.rbac.models import UserGroup
+from pamolive.targets.models import Target, TargetHostKey
+from pamolive.targets.services import parse_ssh_public_key
 
 
 def public_host_key(key_byte=b"\x02"):

@@ -1,9 +1,9 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.vault.forms import PersonalVaultItemForm
-from cbpam.vault.models import PersonalVaultItem
+from pamolive.accounts.models import User
+from pamolive.vault.forms import PersonalVaultItemForm
+from pamolive.vault.models import PersonalVaultItem
 
 
 @pytest.mark.django_db

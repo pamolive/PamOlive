@@ -1,9 +1,9 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.rbac.models import Role, UserGroup
-from cbpam.rbac.services import user_capabilities, user_has_capability
+from pamolive.accounts.models import User
+from pamolive.rbac.models import Role, UserGroup
+from pamolive.rbac.services import user_capabilities, user_has_capability
 
 
 @pytest.mark.django_db

@@ -1,0 +1,38 @@
+from django.conf import settings
+from django.db import models
+
+from pamolive.common.models import UUIDTimeStampedModel
+
+
+class MFADevice(UUIDTimeStampedModel):
+    class Kind(models.TextChoices):
+        TOTP = "totp", "TOTP"
+        WEBAUTHN = "webauthn", "WebAuthn"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mfa_devices"
+    )
+    name = models.CharField(max_length=100)
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    encrypted_configuration = models.BinaryField()
+    encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
+    confirmed = models.BooleanField(default=False)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+
+
+class MFARecoveryCode(UUIDTimeStampedModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="mfa_recovery_codes",
+    )
+    device = models.ForeignKey(
+        MFADevice,
+        on_delete=models.CASCADE,
+        related_name="recovery_codes",
+    )
+    code_hash = models.CharField(max_length=128)
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("created_at",)

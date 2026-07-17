@@ -4,10 +4,10 @@ import json
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.audit.services import record_event, verify_audit_chain
-from cbpam.rbac.models import Role, UserGroup
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.audit.services import record_event, verify_audit_chain
+from pamolive.rbac.models import Role, UserGroup
 
 
 @pytest.mark.django_db

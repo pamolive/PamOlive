@@ -1,10 +1,10 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.rbac.models import UserGroup
-from cbpam.targets.models import Domain, Target
-from cbpam.vault.models import Credential
+from pamolive.accounts.models import User
+from pamolive.rbac.models import UserGroup
+from pamolive.targets.models import Domain, Target
+from pamolive.vault.models import Credential
 
 
 @pytest.mark.django_db

@@ -1,15 +1,16 @@
+import ssl
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
 from django.core.exceptions import ValidationError
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import SIEMDelivery, SIEMIntegration
-from cbpam.audit.services import record_event
-from cbpam.audit.siem import deliver_event, event_payload
-from cbpam.audit.tasks import forward_audit_event
-from cbpam.vault.services import VaultCipher
+from pamolive.accounts.models import User
+from pamolive.audit.models import SIEMDelivery, SIEMIntegration
+from pamolive.audit.services import record_event
+from pamolive.audit.siem import deliver_event, event_payload
+from pamolive.audit.tasks import forward_audit_event
+from pamolive.vault.services import VaultCipher
 
 
 @pytest.mark.django_db
@@ -31,7 +32,7 @@ def test_siem_payload_redacts_sensitive_metadata():
 
 
 @pytest.mark.django_db
-@patch("cbpam.audit.siem.requests.post")
+@patch("pamolive.audit.siem.requests.post")
 def test_https_siem_delivery_uses_encrypted_bearer_token(post):
     post.return_value = Mock(raise_for_status=Mock())
     user = User.objects.create_user(username="siem-delivery-user")
@@ -66,7 +67,7 @@ def test_siem_rejects_plain_http_endpoint():
 
 
 @pytest.mark.django_db
-@patch("cbpam.audit.siem.requests.post")
+@patch("pamolive.audit.siem.requests.post")
 def test_failed_siem_delivery_is_recorded(post):
     post.side_effect = requests.RequestException("collector unavailable")
     user = User.objects.create_user(username="siem-failure-user")
@@ -89,8 +90,8 @@ def test_failed_siem_delivery_is_recorded(post):
 
 
 @pytest.mark.django_db
-@patch("cbpam.audit.siem.ssl.create_default_context")
-@patch("cbpam.audit.siem.socket.create_connection")
+@patch("pamolive.audit.siem.ssl.create_default_context")
+@patch("pamolive.audit.siem.socket.create_connection")
 def test_syslog_tls_delivery_uses_octet_counted_framing(create_connection, create_context):
     raw_socket = MagicMock()
     tls_socket = MagicMock()
@@ -109,6 +110,7 @@ def test_syslog_tls_delivery_uses_octet_counted_framing(create_connection, creat
     deliver_event(integration, event)
 
     create_connection.assert_called_once_with(("siem.example.test", 6514), timeout=10)
+    assert create_context.return_value.minimum_version == ssl.TLSVersion.TLSv1_2
     create_context.return_value.wrap_socket.assert_called_once_with(
         raw_socket, server_hostname="siem.example.test"
     )
@@ -119,7 +121,7 @@ def test_syslog_tls_delivery_uses_octet_counted_framing(create_connection, creat
 
 
 @pytest.mark.django_db
-@patch("cbpam.audit.tasks.deliver_event")
+@patch("pamolive.audit.tasks.deliver_event")
 def test_celery_task_forwards_to_each_enabled_integration(deliver):
     user = User.objects.create_user(username="task-user")
     event = record_event(actor=user, action="test.task", resource=user)

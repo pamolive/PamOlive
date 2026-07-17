@@ -2,7 +2,7 @@ import pytest
 import requests
 from django.test import override_settings
 
-from cbpam.common.keyring import KeyringClient, KeyringError
+from pamolive.common.keyring import KeyringClient, KeyringError
 
 
 class Response:
@@ -17,14 +17,15 @@ class Response:
 
 
 @override_settings(
-    CBPAM_KEYRING_URL="http://keyring:8000",
-    CBPAM_KEYRING_TIMEOUT_SECONDS=2,
+    PAMOLIVE_KEYRING_URL="http://keyring:8000",
+    PAMOLIVE_KEYRING_TIMEOUT_SECONDS=2,
+    PAMOLIVE_KEYRING_TOKEN="keyring-test-token-with-at-least-32-characters",
 )
 def test_http_keyring_client_uses_fixed_internal_url_and_timeout(monkeypatch):
     requests_seen = []
 
-    def fake_post(url, *, json, timeout):
-        requests_seen.append((url, json, timeout))
+    def fake_post(url, *, json, headers, timeout):
+        requests_seen.append((url, json, headers, timeout))
         return Response({"ciphertext": "opaque"})
 
     monkeypatch.setattr(requests, "post", fake_post)
@@ -33,6 +34,7 @@ def test_http_keyring_client_uses_fixed_internal_url_and_timeout(monkeypatch):
         (
             "http://keyring:8000/encrypt",
             {"plaintext": "secret"},
+            {"Authorization": "Bearer keyring-test-token-with-at-least-32-characters"},
             2,
         )
     ]

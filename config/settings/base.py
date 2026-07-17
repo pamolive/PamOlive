@@ -22,33 +22,33 @@ DJANGO_APPS = [
     "django.contrib.staticfiles",
 ]
 LOCAL_APPS = [
-    "cbpam.accounts",
-    "cbpam.rbac",
-    "cbpam.vault",
-    "cbpam.targets",
-    "cbpam.policies",
-    "cbpam.approvals",
-    "cbpam.sessions",
-    "cbpam.audit",
-    "cbpam.mfa",
-    "cbpam.connectors",
-    "cbpam.operations",
-    "cbpam.console",
-    "cbpam.api",
+    "pamolive.accounts",
+    "pamolive.rbac",
+    "pamolive.vault",
+    "pamolive.targets",
+    "pamolive.policies",
+    "pamolive.approvals",
+    "pamolive.sessions",
+    "pamolive.audit",
+    "pamolive.mfa",
+    "pamolive.connectors",
+    "pamolive.operations",
+    "pamolive.console",
+    "pamolive.api",
 ]
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "cbpam.common.middleware.SecurityHeadersMiddleware",
+    "pamolive.common.middleware.SecurityHeadersMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "cbpam.accounts.session_security.SessionSecurityMiddleware",
-    "cbpam.accounts.middleware.UserLanguageMiddleware",
-    "cbpam.accounts.mfa_enforcement.MFAEnrollmentMiddleware",
+    "pamolive.accounts.session_security.SessionSecurityMiddleware",
+    "pamolive.accounts.middleware.UserLanguageMiddleware",
+    "pamolive.accounts.mfa_enforcement.MFAEnrollmentMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -63,7 +63,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "cbpam.common.ui.ui_context",
+                "pamolive.common.ui.ui_context",
             ]
         },
     }
@@ -110,27 +110,28 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TASK_TRACK_STARTED = True
-CBPAM_KEYRING_BACKEND = env("CBPAM_KEYRING_BACKEND", default="http")
-CBPAM_KEYRING_URL = env("CBPAM_KEYRING_URL", default="http://keyring:8000")
-CBPAM_KEYRING_TIMEOUT_SECONDS = env.float("CBPAM_KEYRING_TIMEOUT_SECONDS", default=3.0)
-CBPAM_GATEWAY_SHARED_KEY = env(
-    "CBPAM_GATEWAY_SHARED_KEY",
+PAMOLIVE_KEYRING_BACKEND = env("PAMOLIVE_KEYRING_BACKEND", default="http")
+PAMOLIVE_KEYRING_URL = env("PAMOLIVE_KEYRING_URL", default="http://keyring:8000")
+PAMOLIVE_KEYRING_TIMEOUT_SECONDS = env.float("PAMOLIVE_KEYRING_TIMEOUT_SECONDS", default=3.0)
+PAMOLIVE_KEYRING_TOKEN = env("PAMOLIVE_KEYRING_TOKEN", default="")
+PAMOLIVE_GATEWAY_SHARED_KEY = env(
+    "PAMOLIVE_GATEWAY_SHARED_KEY",
     default="unsafe-local-gateway-key-change-before-production",
 )
-CBPAM_TRUST_PROXY_HEADERS = env.bool("CBPAM_TRUST_PROXY_HEADERS", default=False)
-CBPAM_GATEWAY_CONTROL_URL = env("CBPAM_GATEWAY_CONTROL_URL", default="http://gateway:8001")
-CBPAM_OPERATIONS_TOKEN = env("CBPAM_OPERATIONS_TOKEN", default="")
-CBPAM_ROTATION_BACKENDS = env.json("CBPAM_ROTATION_BACKENDS", default={})
-CBPAM_RDP_ENABLED = env.bool("CBPAM_RDP_ENABLED", default=False)
-CBPAM_RDP_PUBLIC_ORIGIN = env(
-    "CBPAM_RDP_PUBLIC_ORIGIN",
+PAMOLIVE_TRUST_PROXY_HEADERS = env.bool("PAMOLIVE_TRUST_PROXY_HEADERS", default=False)
+PAMOLIVE_GATEWAY_CONTROL_URL = env("PAMOLIVE_GATEWAY_CONTROL_URL", default="http://gateway:8001")
+PAMOLIVE_OPERATIONS_TOKEN = env("PAMOLIVE_OPERATIONS_TOKEN", default="")
+PAMOLIVE_ROTATION_BACKENDS = env.json("PAMOLIVE_ROTATION_BACKENDS", default={})
+PAMOLIVE_RDP_ENABLED = env.bool("PAMOLIVE_RDP_ENABLED", default=False)
+PAMOLIVE_RDP_PUBLIC_ORIGIN = env(
+    "PAMOLIVE_RDP_PUBLIC_ORIGIN",
     default="http://localhost:8081",
 ).rstrip("/")
-CBPAM_GUACAMOLE_JSON_KEY = env("CBPAM_GUACAMOLE_JSON_KEY", default="")
+PAMOLIVE_GUACAMOLE_JSON_KEY = env("PAMOLIVE_GUACAMOLE_JSON_KEY", default="")
 
 CELERY_BEAT_SCHEDULE = {
     "dispatch-due-credential-rotations": {
-        "task": "cbpam.operations.tasks.dispatch_due_rotation_jobs",
+        "task": "pamolive.operations.tasks.dispatch_due_rotation_jobs",
         "schedule": 300.0,
     },
 }

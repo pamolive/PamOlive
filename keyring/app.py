@@ -7,12 +7,15 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 DATA_DIR = Path(os.environ.get("KEYRING_DATA_DIR", "/data"))
 MASTER_KEY_PATH = DATA_DIR / "master.key"
 MAX_VALUE_LENGTH = 1_048_576
+AUTH_TOKEN = os.environ.get("PAMOLIVE_KEYRING_TOKEN", "")
+if len(AUTH_TOKEN) < 32:
+    raise RuntimeError("PAMOLIVE_KEYRING_TOKEN must contain at least 32 characters")
 
 
 class PlaintextRequest(BaseModel):
@@ -75,17 +78,27 @@ app = FastAPI(
 )
 
 
+def require_authentication(authorization: str = Header(default="")):
+    scheme, separator, token = authorization.partition(" ")
+    if (
+        not separator
+        or scheme.lower() != "bearer"
+        or not hmac.compare_digest(token, AUTH_TOKEN)
+    ):
+        raise HTTPException(status_code=401, detail="Keyring authentication failed")
+
+
 @app.get("/healthz")
 def healthcheck():
     return {"status": "ok"}
 
 
-@app.post("/encrypt")
+@app.post("/encrypt", dependencies=[Depends(require_authentication)])
 def encrypt(request: PlaintextRequest):
     return {"ciphertext": CIPHER.encrypt(request.plaintext.encode()).decode()}
 
 
-@app.post("/decrypt")
+@app.post("/decrypt", dependencies=[Depends(require_authentication)])
 def decrypt(request: CiphertextRequest):
     try:
         plaintext = CIPHER.decrypt(request.ciphertext.encode()).decode()
@@ -94,7 +107,7 @@ def decrypt(request: CiphertextRequest):
     return {"plaintext": plaintext}
 
 
-@app.post("/sign")
+@app.post("/sign", dependencies=[Depends(require_authentication)])
 def sign(request: PayloadRequest):
     signature = hmac.new(
         SIGNING_KEY,
@@ -104,7 +117,7 @@ def sign(request: PayloadRequest):
     return {"signature": signature}
 
 
-@app.post("/verify")
+@app.post("/verify", dependencies=[Depends(require_authentication)])
 def verify(request: VerifyRequest):
     expected = hmac.new(
         SIGNING_KEY,

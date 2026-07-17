@@ -7,11 +7,24 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Added
 
+- Browser SSH terminal based on the vendored xterm.js 6.0.0 emulator, including
+  ANSI/VT rendering, UTF-8 byte preservation, resizing, scrollback, and an explicit
+  audited multi-line command paste control.
+- Local `.txt` download of the one-time MFA recovery codes displayed after enrollment
+  or regeneration.
+- Idempotent Linux and Windows installers which generate independent Django,
+  PostgreSQL, Redis, keyring, gateway, recording, operations, and Guacamole secrets.
+- A startup secret gate which refuses blank, short, or known placeholder values.
+- A blocking Trivy 0.70.0 CI gate for every final Compose image.
 - Isolated FastAPI keyring with a dedicated master-key volume, separate HKDF-derived
   encryption/signing keys, and no published port.
 - Transactional legacy-secret and audit-signature migration with mandatory dry-run
   verification and mixed-state retry support.
 - Global MFA enforcement with a cache-disabled first-login TOTP enrollment flow.
+- Canonical `/mfa/setup/` onboarding, ten hashed one-time recovery codes, and a
+  multilingual administration warning when the global MFA requirement is disabled.
+- Three-network Compose segmentation (`frontend`, `internal`, and `targets`) with
+  a disposable isolation probe enforced by CI.
 - Mandatory server-side business justification for every target-secret reveal and
   SSH/RDP session, persisted on leases and sessions and included in signed audit data.
 - Server-enforced inactivity and absolute browser-session limits with an
@@ -21,6 +34,15 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Changed
 
+- All Python runtime images now use an immutable, critical-CVE-clean Alpine digest.
+- PostgreSQL and Guacamole use PAM-olive hardened derivatives of immutable upstream
+  images: the PostgreSQL image removes the vulnerable `gosu` binary, while the
+  Guacamole image updates Tomcat and retains only the JSON authentication extension
+  required by the RDP broker.
+- The keyring API now requires an independent Bearer token on every cryptographic
+  operation; its unauthenticated endpoint is limited to the internal health probe.
+- The source package and runtime identifiers are consistently named `pamolive`;
+  legacy product-name references have been removed from published project content.
 - Vault encryption, decryption, and audit signing now use the internal keyring API;
   Django no longer receives vault or audit-signing keys through its environment.
 - Theme and language preferences now use independent, race-free server updates;
@@ -28,12 +50,14 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 - Light-theme contrast is stronger across navigation, forms, buttons, badges, and
   secret panels.
 - Redis now requires authentication and the SSH gateway uses a dedicated egress
-  network separated from the internal web path.
+  network separated from PostgreSQL, Redis, Celery, and the keyring.
 - Fresh Docker installations use the non-debug base settings profile; public TLS
   deployments explicitly opt into the hardened production profile.
 
 ### Fixed
 
+- PostgreSQL credential rotation no longer locks the nullable side of an outer join.
+- Syslog TLS delivery now explicitly requires TLS 1.2 or newer.
 - Anonymous visitors can choose Auto, Light, or Dark directly on the login page;
   the preference is stored locally and remains active after authentication.
 - Theme selection now initializes from the persisted preference through a
@@ -132,12 +156,12 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Added
 
-- Modular Django foundation for the CBPAM domains.
+- Modular Django foundation for the PAMOLIVE domains.
 - PostgreSQL, Redis, Channels, and Celery runtime.
 - Encrypted credential service and append-only hash-chained audit events.
 - Docker Compose, CI, tests, and MkDocs documentation.
 
 ### Changed
 
-- Product identity renamed from CBPAM to PAM-olive.
+- Product identity renamed from PAMOLIVE to PAM-olive.
 - Authentication and dashboard interfaces redesigned with an accessible responsive design system.

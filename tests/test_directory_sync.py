@@ -2,18 +2,18 @@ import pytest
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.connectors.adapters import DirectoryUser
-from cbpam.connectors.models import (
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.connectors.adapters import DirectoryUser
+from pamolive.connectors.models import (
     DirectoryGroupMapping,
     ExternalIdentity,
     IdentitySource,
 )
-from cbpam.connectors.oidc import provision_oidc_identity
-from cbpam.connectors.services import set_identity_source_configuration
-from cbpam.connectors.sync import synchronize_identity_source
-from cbpam.rbac.models import UserGroup
+from pamolive.connectors.oidc import provision_oidc_identity
+from pamolive.connectors.services import set_identity_source_configuration
+from pamolive.connectors.sync import synchronize_identity_source
+from pamolive.rbac.models import UserGroup
 
 
 class FakeDirectoryAdapter:

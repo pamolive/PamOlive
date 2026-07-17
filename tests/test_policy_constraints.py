@@ -5,16 +5,16 @@ import pytest
 from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 
-from cbpam.accounts.models import User
-from cbpam.console.forms import AccessPolicyForm
-from cbpam.policies.models import AccessPolicy, TimeFrame
-from cbpam.policies.services import policy_is_current
-from cbpam.rbac.models import UserGroup
-from cbpam.sessions.services import consume_session_ticket, issue_session_ticket
-from cbpam.targets.models import Target, TargetGroup, TargetHostKey
-from cbpam.vault.leases import issue_secret_lease
-from cbpam.vault.models import Credential
-from cbpam.vault.services import VaultCipher
+from pamolive.accounts.models import User
+from pamolive.console.forms import AccessPolicyForm
+from pamolive.policies.models import AccessPolicy, TimeFrame
+from pamolive.policies.services import policy_is_current
+from pamolive.rbac.models import UserGroup
+from pamolive.sessions.services import consume_session_ticket, issue_session_ticket
+from pamolive.targets.models import Target, TargetGroup, TargetHostKey
+from pamolive.vault.leases import issue_secret_lease
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher
 
 
 def public_host_key():

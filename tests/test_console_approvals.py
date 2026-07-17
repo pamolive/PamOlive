@@ -1,11 +1,11 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.approvals.models import AccessRequest
-from cbpam.policies.models import AccessPolicy
-from cbpam.rbac.models import UserGroup
-from cbpam.targets.models import Target
+from pamolive.accounts.models import User
+from pamolive.approvals.models import AccessRequest
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import UserGroup
+from pamolive.targets.models import Target
 
 
 @pytest.mark.django_db

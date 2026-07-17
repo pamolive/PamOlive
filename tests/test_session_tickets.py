@@ -8,21 +8,21 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.urls import reverse
 from django.utils import timezone
 
-from cbpam.accounts.models import User
-from cbpam.approvals.models import AccessRequest
-from cbpam.audit.models import AuditEvent
-from cbpam.policies.models import AccessPolicy
-from cbpam.rbac.models import UserGroup
-from cbpam.sessions.consumers import TerminalConsumer
-from cbpam.sessions.models import PrivilegedSession, SessionTicket
-from cbpam.sessions.services import (
+from pamolive.accounts.models import User
+from pamolive.approvals.models import AccessRequest
+from pamolive.audit.models import AuditEvent
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import UserGroup
+from pamolive.sessions.consumers import TerminalConsumer
+from pamolive.sessions.models import PrivilegedSession, SessionTicket
+from pamolive.sessions.services import (
     consume_session_ticket,
     issue_session_ticket,
     request_session_termination,
 )
-from cbpam.targets.models import Target, TargetGroup, TargetHostKey
-from cbpam.vault.models import Credential
-from cbpam.vault.services import VaultCipher
+from pamolive.targets.models import Target, TargetGroup, TargetHostKey
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher
 
 
 def session_fixture(*, protocol=Target.Protocol.SSH, requires_approval=False):
@@ -221,6 +221,9 @@ def test_start_session_page_is_policy_controlled_and_never_cached(client):
     assert response.status_code == 200
     assert "no-store" in response.headers["Cache-Control"]
     assert b"data-session-ticket" in response.content
+    assert b"xterm-6.0.0.js" in response.content
+    assert b'id="terminal-command"' in response.content
+    assert b'id="terminal-command-send"' in response.content
     session = PrivilegedSession.objects.get(user=user)
     assert session.status == PrivilegedSession.Status.CREATED
 
@@ -246,7 +249,7 @@ def test_administrator_terminates_active_session_and_auditor_cannot(monkeypatch,
     consume_session_ticket(session_id=session.pk, token=token, user=user)
     notified = []
     monkeypatch.setattr(
-        "cbpam.console.views.notify_gateway_termination",
+        "pamolive.console.views.notify_gateway_termination",
         lambda session_id: notified.append(session_id) or True,
     )
 

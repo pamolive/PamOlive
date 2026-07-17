@@ -1,7 +1,7 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
+from pamolive.accounts.models import User
 
 
 @pytest.mark.django_db

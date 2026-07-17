@@ -1,13 +1,13 @@
 import pytest
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.policies.models import AccessPolicy
-from cbpam.rbac.models import UserGroup
-from cbpam.targets.models import Target, TargetGroup
-from cbpam.vault.models import Credential
-from cbpam.vault.services import VaultCipher
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import UserGroup
+from pamolive.targets.models import Target, TargetGroup
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher
 
 
 def grant_target_actions(user, target, actions):

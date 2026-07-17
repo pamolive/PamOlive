@@ -36,13 +36,15 @@ decision and a short, single-use lease or session ticket. The browser receives t
 secret only when a policy explicitly grants the separate reveal capability; normal
 SSH and RDP sessions inject it inside the broker and never expose it to the user.
 
-The current Docker edition loads a versioned keyring from environment secrets. This
-is encryption at rest, but it is **not equivalent to an HSM**: a complete compromise
-of the application host could obtain both ciphertext and runtime keys. Production V1
-therefore requires a pluggable external KMS/HSM envelope-encryption backend and a
-documented recovery ceremony. Key rotation is already versioned and target password
-rotation is policy-driven, but remote account rotation depends on a configured,
-tested target connector.
+The Docker edition uses an isolated keyring service. Its master key is generated on
+first start in a dedicated volume mounted nowhere else; Django sends only scoped
+encrypt, decrypt, sign, and verify requests over the internal network. This is
+encryption at rest with key separation, but it is **not equivalent to an HSM**: a
+complete compromise of the Docker host or an authorised Django process can still
+request key operations. A pluggable external KMS/HSM backend and documented recovery
+ceremony remain production-hardening options. Key rotation is already versioned and
+target password rotation is policy-driven, but remote account rotation depends on a
+configured, tested target connector.
 
 ## Authentication and MFA
 
@@ -83,14 +85,19 @@ zero-standing-privilege provisioning.
 ## Network isolation
 
 No gateway, `guacd`, PostgreSQL, or Redis port is published. The browser can only
-reach the reverse proxies. Internal Docker networks separate browser traffic,
-authorization, Redis/PostgreSQL, RDP JSON authentication, Guacamole, and target
-egress. The SSH gateway has no database network and uses a dedicated egress network.
+reach the reverse proxies. Compose defines three named boundaries: `frontend` for
+proxied application traffic, `internal` for application/database/cache/keyring
+control traffic, and `targets` for broker egress. PostgreSQL, Redis, Celery, and
+the keyring are not members of `targets`. The disposable
+`scripts/check-isolation.sh` probe is attached only to `targets` and fails when
+PostgreSQL or Redis becomes reachable from that network.
 
 Docker network names are not a firewall guarantee. A production deployment must put
 broker egress in a dedicated VLAN/subnet and enforce destination/port allowlists on
-the NAS or upstream firewall. PAM-olive cannot prove those external firewall rules
-from inside its own containers.
+the NAS or upstream firewall: allow gateway addresses to approved target addresses
+on declared SSH/RDP ports only, deny management/database subnets, then deny every
+other destination. PAM-olive cannot prove those external firewall rules from inside
+its own containers.
 
 ## Audit integrity and SIEM
 

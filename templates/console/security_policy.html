@@ -7,6 +7,15 @@
 <div class="security-policy-layout">
   <section class="resource-form-card">
     <div class="resource-card-title"><span>{{ ui.browser_sessions }}</span><strong>{{ ui.inactivity_and_absolute }}</strong></div>
+    <div class="security-warning{% if policy.require_mfa_for_all_users %} is-protected{% endif %}" role="alert">
+      {% if policy.require_mfa_for_all_users %}
+        <strong>{{ ui.mfa_required_enabled }}</strong>
+        <p>{{ ui.mfa_required_enabled_detail }}</p>
+      {% else %}
+        <strong>{{ ui.mfa_required_disabled }}</strong>
+        <p>{{ ui.mfa_required_disabled_detail }}</p>
+      {% endif %}
+    </div>
     <form method="post" class="console-form">{% csrf_token %}
       {% for field in form %}<div class="console-field {% if field.errors %}has-error{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}</div>{% endfor %}
       {% if can_manage %}<button class="primary-button" type="submit">{{ ui.save_policy }}</button>{% endif %}

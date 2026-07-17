@@ -1,0 +1,10 @@
+FROM postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+
+# The upstream image currently ships a gosu binary built with a Go runtime
+# affected by a critical TLS CVE. PAM-olive only needs gosu's user switch for
+# the postgres account, so replace it with a small BusyBox su compatibility
+# wrapper already provided by the pinned Alpine base.
+USER root
+RUN rm -f /usr/local/bin/gosu
+COPY scripts/postgres-gosu-compat.sh /usr/local/bin/gosu
+RUN chmod 0755 /usr/local/bin/gosu

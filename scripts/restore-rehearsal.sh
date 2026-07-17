@@ -10,8 +10,8 @@ backup="$1"
 database="$2"
 expected_user="${3:-}"
 
-if [ "${CBPAM_RESTORE_REHEARSAL_ACK:-}" != "ephemeral-ci-only" ]; then
-  echo "Refusing restore: set CBPAM_RESTORE_REHEARSAL_ACK=ephemeral-ci-only." >&2
+if [ "${PAMOLIVE_RESTORE_REHEARSAL_ACK:-}" != "ephemeral-ci-only" ]; then
+  echo "Refusing restore: set PAMOLIVE_RESTORE_REHEARSAL_ACK=ephemeral-ci-only." >&2
   exit 1
 fi
 if ! printf '%s' "$database" | grep -Eq '^pamolive_restore_rehearsal_[a-z0-9_]+$'; then

@@ -9,6 +9,7 @@
   <title>{% block title %}PAM-olive{% endblock %}</title>
   <script src="{% static 'js/theme-init.js' %}"></script>
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block extra_head %}{% endblock %}
   <script src="{% static 'vendor/htmx/htmx-2.0.10.min.js' %}" defer></script>
 </head>
 <body class="{% block body_class %}app-body{% endblock %}">

@@ -7,20 +7,20 @@ from cryptography.fernet import Fernet
 from django.core.management import call_command
 from django.core.management.base import CommandError
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.audit.services import record_event, verify_audit_chain
-from cbpam.targets.models import Target
-from cbpam.vault.models import Credential, PersonalVaultItem
-from cbpam.vault.services import VaultCipher
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.audit.services import record_event, verify_audit_chain
+from pamolive.targets.models import Target
+from pamolive.vault.models import Credential, PersonalVaultItem
+from pamolive.vault.services import VaultCipher
 
 
 @pytest.mark.django_db
 def test_keyring_migration_is_dry_run_first_resumable_and_audited(monkeypatch):
     legacy_key = Fernet.generate_key()
     legacy_audit_key = b"legacy-audit-signing-key-with-at-least-32-characters"
-    monkeypatch.setenv("CBPAM_VAULT_KEY", legacy_key.decode())
-    monkeypatch.setenv("CBPAM_AUDIT_SIGNING_KEY", legacy_audit_key.decode())
+    monkeypatch.setenv("PAMOLIVE_VAULT_KEY", legacy_key.decode())
+    monkeypatch.setenv("PAMOLIVE_AUDIT_SIGNING_KEY", legacy_audit_key.decode())
     legacy_cipher = Fernet(legacy_key)
 
     user = User.objects.create_user(username="keyring-migration-user")

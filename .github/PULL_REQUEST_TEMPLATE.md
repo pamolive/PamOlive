@@ -16,7 +16,7 @@ Describe migrations, backward compatibility, and required operations.
 - [ ] `ruff check .`
 - [ ] `python manage.py makemigrations --check --dry-run`
 - [ ] `python manage.py check`
-- [ ] `pytest --cov=cbpam --cov-fail-under=90`
+- [ ] `pytest --cov=pamolive --cov-fail-under=90`
 - [ ] `mkdocs build --strict`
 - [ ] documentation and changelog updated
 - [ ] no real data, keys, internal addresses, or sensitive screenshots included

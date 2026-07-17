@@ -1,6 +1,8 @@
 services:
   keyring:
     build: ./keyring
+    environment:
+      PAMOLIVE_KEYRING_TOKEN: ${PAMOLIVE_KEYRING_TOKEN:?PAMOLIVE_KEYRING_TOKEN must be configured}
     volumes:
       - keyring_data:/data
     healthcheck:
@@ -24,7 +26,10 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres:17-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    image: pamolive/postgres:17-hardened
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-pamolive}
       POSTGRES_USER: ${POSTGRES_USER:-pamolive}
@@ -40,7 +45,7 @@ services:
     restart: unless-stopped
 
   redis:
-    image: redis:7.4-alpine
+    image: redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}
     command: ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
@@ -58,8 +63,8 @@ services:
     build: .
     env_file: .env
     environment:
-      CBPAM_TRUST_PROXY_HEADERS: "true"
-    command: ["sh", "-c", "python manage.py migrate && daphne -b 0.0.0.0 -p 8000 config.asgi:application"]
+      PAMOLIVE_TRUST_PROXY_HEADERS: "true"
+    command: ["sh", "-c", "python -m config.runtime_secrets && python manage.py migrate && daphne -b 0.0.0.0 -p 8000 config.asgi:application"]
     expose: ["8000"]
     depends_on:
       keyring: {condition: service_healthy}
@@ -77,7 +82,7 @@ services:
       timeout: 5s
       retries: 6
       start_period: 20s
-    networks: [frontend_secure, internal, egress]
+    networks: [frontend, internal]
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
@@ -86,10 +91,10 @@ services:
       context: .
       dockerfile: Dockerfile.gateway
     environment:
-      CBPAM_INTERNAL_URL: http://web:8000
-      CBPAM_GATEWAY_SHARED_KEY: ${CBPAM_GATEWAY_SHARED_KEY:?CBPAM_GATEWAY_SHARED_KEY must be configured}
-      CBPAM_RECORDING_KEY: ${CBPAM_RECORDING_KEY:?CBPAM_RECORDING_KEY must be configured}
-      CBPAM_RECORDING_DIR: /recordings
+      PAMOLIVE_INTERNAL_URL: http://web:8000
+      PAMOLIVE_GATEWAY_SHARED_KEY: ${PAMOLIVE_GATEWAY_SHARED_KEY:?PAMOLIVE_GATEWAY_SHARED_KEY must be configured}
+      PAMOLIVE_RECORDING_KEY: ${PAMOLIVE_RECORDING_KEY:?PAMOLIVE_RECORDING_KEY must be configured}
+      PAMOLIVE_RECORDING_DIR: /recordings
     expose: ["8001"]
     depends_on: [web]
     healthcheck:
@@ -104,7 +109,7 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
-    networks: [frontend_secure, ssh_egress]
+    networks: [frontend, internal, targets]
     volumes:
       - recordings_data:/recordings
     read_only: true
@@ -118,13 +123,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.gateway
-    command: ["daphne", "-b", "0.0.0.0", "-p", "8002", "cbpam.rdp.asgi:application"]
+    command: ["daphne", "-b", "0.0.0.0", "-p", "8002", "pamolive.rdp.asgi:application"]
     environment:
-      CBPAM_INTERNAL_URL: http://web:8000
-      CBPAM_GATEWAY_SHARED_KEY: ${CBPAM_GATEWAY_SHARED_KEY:?CBPAM_GATEWAY_SHARED_KEY must be configured}
-      CBPAM_GUACAMOLE_JSON_KEY: ${CBPAM_GUACAMOLE_JSON_KEY:?CBPAM_GUACAMOLE_JSON_KEY must be configured}
-      CBPAM_GUACAMOLE_INTERNAL_URL: http://guacamole:8080/guacamole
-      CBPAM_RDP_LAUNCH_LIFETIME_SECONDS: "15"
+      PAMOLIVE_INTERNAL_URL: http://web:8000
+      PAMOLIVE_GATEWAY_SHARED_KEY: ${PAMOLIVE_GATEWAY_SHARED_KEY:?PAMOLIVE_GATEWAY_SHARED_KEY must be configured}
+      PAMOLIVE_GUACAMOLE_JSON_KEY: ${PAMOLIVE_GUACAMOLE_JSON_KEY:?PAMOLIVE_GUACAMOLE_JSON_KEY must be configured}
+      PAMOLIVE_GUACAMOLE_INTERNAL_URL: http://guacamole:8080/guacamole
+      PAMOLIVE_RDP_LAUNCH_LIFETIME_SECONDS: "15"
     expose: ["8002"]
     depends_on:
       web: {condition: service_healthy}
@@ -141,7 +146,7 @@ services:
       timeout: 5s
       retries: 6
       start_period: 10s
-    networks: [frontend_secure, rdp_launch, rdp_auth]
+    networks: [frontend, internal, targets]
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=32m
@@ -150,9 +155,9 @@ services:
     restart: unless-stopped
 
   guacd:
-    image: guacamole/guacd:1.6.0
+    image: guacamole/guacd@sha256:8974eaa9ba32f713daf311e7cc8cd7e4cdfba1edea39eed75524e78ef4b08f4f
     expose: ["4822"]
-    networks: [rdp_guacd, egress]
+    networks: [internal, targets]
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
@@ -161,11 +166,14 @@ services:
     restart: unless-stopped
 
   guacamole:
-    image: guacamole/guacamole:1.6.0
+    build:
+      context: .
+      dockerfile: Dockerfile.guacamole
+    image: pamolive/guacamole:1.6.0-hardened
     environment:
       GUACD_HOSTNAME: guacd
       JSON_ENABLED: "true"
-      JSON_SECRET_KEY: ${CBPAM_GUACAMOLE_JSON_KEY:?CBPAM_GUACAMOLE_JSON_KEY must be configured}
+      JSON_SECRET_KEY: ${PAMOLIVE_GUACAMOLE_JSON_KEY:?PAMOLIVE_GUACAMOLE_JSON_KEY must be configured}
       REMOTE_IP_VALVE_ENABLED: "true"
       REMOTE_IP_VALVE_REMOTE_IP_HEADER: X-Forwarded-For
       REMOTE_IP_VALVE_PROTOCOL_HEADER: X-Forwarded-Proto
@@ -184,21 +192,21 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-    networks: [rdp_frontend, rdp_auth, rdp_guacd]
+    networks: [frontend, internal, targets]
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
     restart: unless-stopped
 
   rdp-proxy:
-    image: caddy:2.11.4-alpine
+    image: caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     ports:
-      - "${CBPAM_RDP_HTTP_BIND:-127.0.0.1}:${CBPAM_RDP_HTTP_PORT:-8081}:8081"
+      - "${PAMOLIVE_RDP_HTTP_BIND:-127.0.0.1}:${PAMOLIVE_RDP_HTTP_PORT:-8081}:8081"
     volumes:
       - ./deploy/Caddyfile.rdp:/etc/caddy/Caddyfile:ro
     depends_on:
       rdp-broker: {condition: service_healthy}
       guacamole: {condition: service_healthy}
-    networks: [rdp_public, rdp_launch, rdp_frontend]
+    networks: [frontend]
     read_only: true
     tmpfs:
       - /config:rw,noexec,nosuid,size=16m
@@ -209,15 +217,15 @@ services:
     restart: unless-stopped
 
   proxy:
-    image: caddy:2.11.4-alpine
+    image: caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     ports:
-      - "${CBPAM_HTTP_BIND:-127.0.0.1}:${CBPAM_HTTP_PORT:-8000}:8080"
+      - "${PAMOLIVE_HTTP_BIND:-127.0.0.1}:${PAMOLIVE_HTTP_PORT:-8000}:8080"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
     depends_on:
       web: {condition: service_healthy}
       gateway: {condition: service_healthy}
-    networks: [public_ingress, frontend_secure]
+    networks: [frontend]
     read_only: true
     tmpfs:
       - /config:rw,noexec,nosuid,size=16m
@@ -235,7 +243,7 @@ services:
       keyring: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
-    networks: [internal, egress]
+    networks: [internal]
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
@@ -267,9 +275,12 @@ services:
       dockerfile: Dockerfile.test
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.test
-      DATABASE_URL: sqlite:////tmp/pam-olive-test.sqlite3
+      DATABASE_URL: postgresql://${POSTGRES_USER:-pamolive}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be configured}@postgres:5432/${POSTGRES_DB:-pamolive}
       DJANGO_SECRET_KEY: isolated-test-only-secret-key-not-for-production
-    command: ["pytest", "--cov=cbpam", "--cov-fail-under=90", "-q"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    command: ["pytest", "--cov=pamolive", "--cov-fail-under=90", "-q"]
+    networks: [internal]
 
 volumes:
   keyring_data:
@@ -278,26 +289,18 @@ volumes:
   recordings_data:
 
 networks:
-  frontend_secure:
-    internal: true
-  public_ingress:
+  frontend:
     internal: false
+    ipam:
+      config:
+        - subnet: ${PAMOLIVE_FRONTEND_SUBNET:-10.253.0.0/24}
   internal:
     internal: true
     ipam:
       config:
-        - subnet: ${CBPAM_INTERNAL_SUBNET:-10.254.0.0/24}
-  egress:
+        - subnet: ${PAMOLIVE_INTERNAL_SUBNET:-10.254.0.0/24}
+  targets:
     internal: false
-  ssh_egress:
-    internal: false
-  rdp_public:
-    internal: false
-  rdp_launch:
-    internal: true
-  rdp_auth:
-    internal: true
-  rdp_frontend:
-    internal: true
-  rdp_guacd:
-    internal: true
+    ipam:
+      config:
+        - subnet: ${PAMOLIVE_TARGETS_SUBNET:-10.255.0.0/24}

@@ -1,11 +1,13 @@
+from uuid import uuid4
+
 import pytest
 from django.test import override_settings
 from django.urls import reverse
 
-from cbpam.accounts.models import User
-from cbpam.mfa.models import MFADevice, MFARecoveryCode
-from cbpam.mfa.services import begin_totp_enrollment, device_secret
-from cbpam.vault.services import totp_code, verify_totp
+from pamolive.accounts.models import PlatformSecurityPolicy, User
+from pamolive.mfa.models import MFADevice, MFARecoveryCode
+from pamolive.mfa.services import begin_totp_enrollment, device_secret
+from pamolive.vault.services import totp_code, verify_totp
 
 
 def test_totp_implementation_matches_current_token():
@@ -99,6 +101,8 @@ def test_recovery_codes_are_displayed_once_and_can_be_regenerated(client):
     display = client.get(reverse("mfa_recovery_codes"))
     assert display.status_code == 200
     assert b"Codes de r\xc3\xa9cup\xc3\xa9ration" in display.content
+    assert b"pam-olive-recovery-codes.txt" in display.content
+    assert b"recovery-codes.js" in display.content
     assert "no-store" in display.headers["Cache-Control"]
     assert client.get(reverse("mfa_recovery_codes")).status_code == 302
 
@@ -112,7 +116,7 @@ def test_recovery_codes_are_displayed_once_and_can_be_regenerated(client):
     assert b"Nouveaux codes" in refreshed.content
 
 
-@override_settings(CBPAM_TEST_BYPASS_GLOBAL_MFA=False)
+@override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
 @pytest.mark.django_db
 def test_global_mfa_policy_forces_safe_enrollment_before_application_access(client):
     user = User.objects.create_user(
@@ -124,9 +128,10 @@ def test_global_mfa_policy_forces_safe_enrollment_before_application_access(clie
 
     blocked = client.get(reverse("dashboard"))
     assert blocked.status_code == 302
-    assert blocked.url == reverse("mfa_enrollment_required")
+    assert blocked.url == reverse("mfa_setup_required")
+    assert blocked.url == "/mfa/setup/"
 
-    enrollment = client.get(reverse("mfa_enrollment_required"))
+    enrollment = client.get(reverse("mfa_setup_required"))
     assert enrollment.status_code == 200
     assert b"MFA obligatoire" in enrollment.content
     assert "no-store" in enrollment.headers["Cache-Control"]
@@ -138,4 +143,34 @@ def test_global_mfa_policy_forces_safe_enrollment_before_application_access(clie
     )
     assert confirmation.status_code == 302
     assert confirmation.url == reverse("mfa_recovery_codes")
+    assert client.get(reverse("dashboard")).status_code == 200
+
+
+@override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
+@pytest.mark.django_db
+def test_mfa_middleware_blocks_privileged_session_and_target_secret_endpoints(client):
+    user = User.objects.create_user(username="blocked-privileged-action", password="safe-pass")
+    client.force_login(user)
+
+    session_response = client.post(reverse("start_session", args=[uuid4()]), {"reason": "test"})
+    secret_response = client.post(
+        reverse("reveal_target_credential", args=[uuid4()]),
+        {"reason": "test"},
+    )
+
+    assert session_response.status_code == 302
+    assert session_response.url == "/mfa/setup/"
+    assert secret_response.status_code == 302
+    assert secret_response.url == "/mfa/setup/"
+
+
+@override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
+@pytest.mark.django_db
+def test_global_policy_can_explicitly_disable_mandatory_enrollment(client):
+    policy, _created = PlatformSecurityPolicy.objects.get_or_create(pk=1)
+    policy.require_mfa_for_all_users = False
+    policy.save()
+    user = User.objects.create_user(username="mfa-policy-exception", password="safe-pass")
+    client.force_login(user)
+
     assert client.get(reverse("dashboard")).status_code == 200

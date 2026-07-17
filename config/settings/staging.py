@@ -2,15 +2,19 @@ from urllib.parse import urlparse
 
 from django.core.exceptions import ImproperlyConfigured
 
+from config.runtime_secrets import validate_runtime_secrets
+
 from .base import *  # noqa: F403
+
+validate_runtime_secrets()
 
 if SECRET_KEY == "unsafe-local-key-change-before-production":  # noqa: F405
     raise ImproperlyConfigured("DJANGO_SECRET_KEY must be configured")
-keyring_url = urlparse(CBPAM_KEYRING_URL)  # noqa: F405
-if CBPAM_KEYRING_BACKEND != "http":  # noqa: F405
+keyring_url = urlparse(PAMOLIVE_KEYRING_URL)  # noqa: F405
+if PAMOLIVE_KEYRING_BACKEND != "http":  # noqa: F405
     raise ImproperlyConfigured("Staging requires the HTTP keyring backend")
 if keyring_url.scheme != "http" or keyring_url.hostname != "keyring":
-    raise ImproperlyConfigured("CBPAM_KEYRING_URL must point to the internal keyring service")
+    raise ImproperlyConfigured("PAMOLIVE_KEYRING_URL must point to the internal keyring service")
 
 # Safe settings for a private HTTP validation environment. Production must use
 # config.settings.production behind HTTPS.

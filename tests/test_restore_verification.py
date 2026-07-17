@@ -3,11 +3,11 @@ from io import StringIO
 import pytest
 from django.core.management import CommandError, call_command
 
-from cbpam.accounts.models import User
-from cbpam.audit.models import AuditEvent
-from cbpam.audit.services import record_event
-from cbpam.vault.models import PersonalVaultItem
-from cbpam.vault.services import VaultCipher
+from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
+from pamolive.audit.services import record_event
+from pamolive.vault.models import PersonalVaultItem
+from pamolive.vault.services import VaultCipher
 
 
 @pytest.mark.django_db

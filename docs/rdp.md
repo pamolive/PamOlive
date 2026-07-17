@@ -26,28 +26,27 @@ RDP recording still require validation in an isolated Docker stack.
 
 | Network | Members | Purpose |
 | --- | --- | --- |
-| `rdp_launch` | RDP proxy, RDP broker | receives the launch form |
-| `rdp_auth` | RDP broker, Guacamole | internal JSON exchange |
-| `rdp_frontend` | RDP proxy, Guacamole | HTML5 and WebSocket interface |
-| `rdp_guacd` | Guacamole, guacd | internal Guacamole protocol |
-| `egress` | guacd | outbound connections to RDP targets |
+| `frontend` | RDP proxy, RDP broker, Guacamole | launch form, HTML5, and WebSocket traffic |
+| `internal` | RDP broker, Guacamole, guacd | authorization and Guacamole control traffic |
+| `targets` | RDP broker, Guacamole, guacd | outbound connections to approved RDP targets |
 
 `guacd` is a passive daemon with no authentication of its own. It therefore has no
-published port and is reachable only by the Guacamole container.
+published port. The `targets` network does not contain PostgreSQL, Redis, Celery, or
+the keyring, and CI checks this boundary with `scripts/check-isolation.sh`.
 
 ## Configuration
 
 Main variables:
 
 ```dotenv
-CBPAM_RDP_ENABLED=true
-CBPAM_RDP_PUBLIC_ORIGIN=https://rdp.pam-olive.example
-CBPAM_RDP_HTTP_BIND=127.0.0.1
-CBPAM_RDP_HTTP_PORT=8081
-CBPAM_GUACAMOLE_JSON_KEY=<32-random-hex-characters>
+PAMOLIVE_RDP_ENABLED=true
+PAMOLIVE_RDP_PUBLIC_ORIGIN=https://rdp.pam-olive.example
+PAMOLIVE_RDP_HTTP_BIND=127.0.0.1
+PAMOLIVE_RDP_HTTP_PORT=8081
+PAMOLIVE_GUACAMOLE_JSON_KEY=<32-random-hex-characters>
 ```
 
-In production, `CBPAM_RDP_PUBLIC_ORIGIN` must be a pathless HTTPS origin distinct
+In production, `PAMOLIVE_RDP_PUBLIC_ORIGIN` must be a pathless HTTPS origin distinct
 from the main origin. The bootstrap script generates a separate 128-bit JSON key.
 
 For each RDP target:
