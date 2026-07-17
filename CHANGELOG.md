@@ -7,6 +7,10 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Added
 
+- Structured permission-profile levels and sectioned access authorizations which
+  clearly separate console administration from target access.
+- SSH terminal selection and full-output copy controls, terminal-aware copy
+  shortcuts, and best-effort SSH/RDP session-tab closure after logout.
 - Browser SSH terminal based on the vendored xterm.js 6.0.0 emulator, including
   ANSI/VT rendering, UTF-8 byte preservation, resizing, scrollback, and an explicit
   audited multi-line command paste control.

@@ -1,3 +1,10 @@
+FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df AS lifecycle_extension
+
+WORKDIR /extension
+COPY deploy/guacamole-extension/ ./
+RUN python -m zipfile -c /pamolive-session-lifecycle.jar \
+      guac-manifest.json session-lifecycle.js
+
 FROM tomcat@sha256:417d9eba5b60dda304f3d966ffa048aedd70a13b4f35e484a45bb53f62df6b9f AS patched_tomcat
 
 FROM guacamole/guacamole@sha256:f344085e618bb05e22b964b0208dbd06d3468275bac70206f93805245e067b40
@@ -12,5 +19,6 @@ COPY --from=patched_tomcat /usr/local/tomcat /usr/local/tomcat
 RUN find /opt/guacamole/extensions -mindepth 1 -maxdepth 1 \
       ! -name guacamole-auth-json -exec rm -rf {} + \
     && rm -rf /opt/guacamole/drivers/*
+COPY --from=lifecycle_extension /pamolive-session-lifecycle.jar /opt/guacamole/extensions/pamolive-session-lifecycle.jar
 
 USER guacamole

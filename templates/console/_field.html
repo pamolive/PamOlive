@@ -1,0 +1,10 @@
+<div class="console-field {% if field.errors %}has-error{% endif %}" data-console-field="{{ field.name }}">
+  {% if field.field.widget.input_type == 'checkbox' and field.field.widget.allow_multiple_selected != True %}
+    <label class="toggle-row">{{ field }}<span><strong>{{ field.label }}</strong>{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</span></label>
+  {% else %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<b>*</b>{% endif %}</label>
+    {{ field }}
+    {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
+  {% endif %}
+  {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+</div>

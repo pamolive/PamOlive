@@ -10,6 +10,10 @@
   const statusDot = document.getElementById("terminal-status-dot");
   const command = document.getElementById("terminal-command");
   const commandSend = document.getElementById("terminal-command-send");
+  const copySelectionButton = document.getElementById("terminal-copy-selection");
+  const copyAllButton = document.getElementById("terminal-copy-all");
+  const closeNotice = document.getElementById("terminal-close-notice");
+  const closeTabButton = document.getElementById("terminal-close-tab");
   const emulator = new window.Terminal({
     cursorBlink: true,
     cursorStyle: "block",
@@ -50,6 +54,69 @@
     `${websocketScheme}://${window.location.host}/ws/sessions/${sessionId}/terminal/`,
   );
   let connected = false;
+  let wasConnected = false;
+
+  const writeClipboard = async (text) => {
+    if (!text) return false;
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (_error) {
+      const fallback = document.createElement("textarea");
+      fallback.value = text;
+      fallback.setAttribute("readonly", "");
+      fallback.style.position = "fixed";
+      fallback.style.opacity = "0";
+      document.body.appendChild(fallback);
+      fallback.select();
+      const copied = document.execCommand("copy");
+      fallback.remove();
+      return copied;
+    }
+  };
+
+  const showCopyFeedback = (label) => {
+    const previous = status.textContent;
+    status.textContent = label;
+    window.setTimeout(() => {
+      if (connected) status.textContent = previous;
+    }, 1200);
+  };
+
+  const copySelection = async () => {
+    if (!emulator.hasSelection()) return;
+    if (await writeClipboard(emulator.getSelection())) {
+      showCopyFeedback("Sélection copiée");
+    }
+  };
+
+  const terminalBufferText = () => {
+    const buffer = emulator.buffer.active;
+    let outputText = "";
+    for (let index = 0; index < buffer.length; index += 1) {
+      const line = buffer.getLine(index);
+      if (!line) continue;
+      if (outputText && !line.isWrapped) outputText += "\n";
+      outputText += line.translateToString(true);
+    }
+    return outputText.trimEnd();
+  };
+
+  const copyAll = async () => {
+    if (await writeClipboard(terminalBufferText())) {
+      showCopyFeedback("Sortie du terminal copiée");
+    }
+  };
+
+  const attemptToCloseTab = () => {
+    window.close();
+    window.setTimeout(() => {
+      if (closeNotice) {
+        closeNotice.querySelector("span").textContent =
+          "La fermeture automatique a été bloquée par le navigateur.";
+      }
+    }, 700);
+  };
 
   const sendInput = (data) => {
     if (!connected || socket.readyState !== WebSocket.OPEN || !data) return;
@@ -66,7 +133,23 @@
     }
   };
 
+  emulator.attachCustomKeyEventHandler((event) => {
+    if (event.type !== "keydown") return true;
+    const copyShortcut =
+      (event.ctrlKey || event.metaKey) &&
+      event.key.toLowerCase() === "c" &&
+      (event.shiftKey || emulator.hasSelection());
+    if (!copyShortcut) return true;
+    copySelection();
+    return false;
+  });
   emulator.onData(sendInput);
+  emulator.onSelectionChange(() => {
+    copySelectionButton.disabled = !emulator.hasSelection();
+  });
+  copySelectionButton.addEventListener("click", copySelection);
+  copyAllButton.addEventListener("click", copyAll);
+  closeTabButton.addEventListener("click", attemptToCloseTab);
   commandSend.addEventListener("click", () => {
     const pasted = command.value.slice(0, 65535);
     if (!pasted.trim()) return;
@@ -90,6 +173,7 @@
     }
     if (message.state === "connected") {
       connected = true;
+      wasConnected = true;
       status.textContent = "Session SSH active";
       statusDot.classList.add("is-connected");
       commandSend.disabled = false;
@@ -118,11 +202,15 @@
     }
   });
 
-  socket.addEventListener("close", () => {
+  socket.addEventListener("close", (event) => {
     connected = false;
     commandSend.disabled = true;
     if (!statusDot.classList.contains("is-error")) status.textContent = "Session terminée";
     statusDot.classList.remove("is-connected");
+    if (wasConnected && event.code === 1000) {
+      closeNotice.hidden = false;
+      window.setTimeout(attemptToCloseTab, 1600);
+    }
   });
 
   socket.addEventListener("error", () => {

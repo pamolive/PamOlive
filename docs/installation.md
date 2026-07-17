@@ -113,7 +113,12 @@ The release gate is 100% passing tests and at least 90% coverage. Also verify an
 password session and, if enabled, an RDP session against non-production test targets.
 The SSH terminal uses a local xterm.js emulator for ANSI/VT output and exposes an
 explicit command-paste box. Pasted input is part of the encrypted session recording
-and must be reviewed before it is sent.
+and must be reviewed before it is sent. Operators can select terminal output and copy
+it with the visible action, `Ctrl+Shift+C`, or `Ctrl+C` while a selection exists;
+without a selection, `Ctrl+C` is still sent to the remote process. A normal SSH close
+attempts to close the session tab and keeps a manual close action when the browser
+blocks it. The Guacamole extension makes the same best-effort attempt when the RDP
+authentication token is removed during logout.
 
 ## Upgrade preparation
 

@@ -1,0 +1,6 @@
+{
+  "guacamoleVersion": "1.6.0",
+  "name": "PAM-olive session lifecycle",
+  "namespace": "pamolive-session-lifecycle",
+  "js": ["session-lifecycle.js"]
+}

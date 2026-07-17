@@ -388,6 +388,8 @@ def roles(request, pk=None):
         request, Role.Capability.ROLES_MANAGE, Role.Capability.ROLES_VIEW
     )
     instance = get_object_or_404(Role, pk=pk) if pk else None
+    if instance and instance.is_system:
+        can_manage = False
     form = RoleForm(request.POST or None, instance=instance)
     if request.method == "POST":
         response = _save_form(request, form, "Rôle enregistré.", "console:roles")

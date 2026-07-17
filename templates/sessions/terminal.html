@@ -20,7 +20,11 @@
 >
   <div class="terminal-toolbar">
     <span><i id="terminal-status-dot"></i><strong id="terminal-status">Autorisation en cours…</strong></span>
-    <code>{{ privileged_session.pk }}</code>
+    <div class="terminal-toolbar-actions">
+      <button id="terminal-copy-selection" type="button" disabled>Copier la sélection</button>
+      <button id="terminal-copy-all" type="button">Copier la sortie</button>
+      <code>{{ privileged_session.pk }}</code>
+    </div>
   </div>
   <div class="terminal-command-panel">
     <label for="terminal-command">
@@ -33,8 +37,13 @@
     </div>
   </div>
   <div id="terminal-output" class="terminal-output" aria-label="Terminal SSH interactif"></div>
+  <div id="terminal-close-notice" class="terminal-close-notice" hidden>
+    <strong>Session terminée.</strong>
+    <span>Fermeture automatique de cet onglet…</span>
+    <button id="terminal-close-tab" type="button">Fermer maintenant</button>
+  </div>
 </section>
-<p class="terminal-notice">Les identifiants techniques ne sont jamais envoyés au navigateur. Les entrées et sorties de la session sont enregistrées et chiffrées.</p>
+<p class="terminal-notice">Sélectionnez du texte puis utilisez « Copier la sélection », Ctrl+Maj+C ou Ctrl+C lorsqu’une sélection existe. Sans sélection, Ctrl+C reste transmis au serveur. Les entrées et sorties sont enregistrées et chiffrées.</p>
 <script src="{% static 'vendor/xterm/xterm-6.0.0.js' %}" defer></script>
 <script src="{% static 'js/terminal.js' %}" defer></script>
 {% endblock %}

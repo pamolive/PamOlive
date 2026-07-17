@@ -8,7 +8,7 @@
     {% elif resource == 'user_groups' %}
       <h1>Groupes utilisateurs</h1><p>Un utilisateur peut appartenir à plusieurs groupes et cumuler leurs profils autorisés.</p>
     {% elif resource == 'roles' %}
-      <h1>Profils de permissions</h1><p>Séparez la consultation, la gestion et les actions sensibles pour chaque domaine.</p>
+      <h1>Profils de permissions</h1><p>Définissez les fonctions administratives avec des niveaux explicites. Les accès aux cibles restent gérés dans Autorisations.</p>
     {% elif resource == 'ldap_sources' %}
       <h1>Annuaires LDAP / AD</h1><p>Connectez les annuaires d’entreprise et synchronisez leurs identités.</p>
     {% elif resource == 'identity_sources' %}
@@ -30,7 +30,7 @@
     {% elif resource == 'rotation_policies' %}
       <h1>Politiques de rotation</h1><p>Centralisez fréquence, méthode et connecteur de changement des mots de passe.</p>
     {% else %}
-      <h1>Politiques d’accès</h1><p>Reliez groupes utilisateurs, groupes de cibles et actions autorisées.</p>
+      <h1>Autorisations d’accès</h1><p>Répondez clairement à quatre questions : qui accède à quoi, pour quel usage et sous quelles conditions ?</p>
     {% endif %}
   </div>
   {% if resource == 'credentials' and editing and can_rotate %}
@@ -41,7 +41,7 @@
   {% elif not can_manage %}<span class="admin-badge"><span></span>Lecture seule</span>{% endif %}
 </header>
 
-<div class="resource-layout {% if not can_manage %}readonly-layout{% endif %}">
+<div class="resource-layout {% if not can_manage %}readonly-layout{% endif %} {% if resource == 'roles' or resource == 'policies' %}is-permission-resource{% endif %}">
   {% if can_manage %}
     <section class="resource-form-card">
       <div class="resource-card-title">
@@ -51,18 +51,19 @@
       <form method="post" class="console-form" data-console-resource="{{ resource }}">
         {% csrf_token %}
         {% if form.non_field_errors %}<div class="form-alert">{{ form.non_field_errors }}</div>{% endif %}
-        {% for field in form %}
-          <div class="console-field {% if field.errors %}has-error{% endif %}" data-console-field="{{ field.name }}">
-            {% if field.field.widget.input_type == 'checkbox' and field.field.widget.allow_multiple_selected != True %}
-              <label class="toggle-row">{{ field }}<span><strong>{{ field.label }}</strong>{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</span></label>
-            {% else %}
-              <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<b>*</b>{% endif %}</label>
-              {{ field }}
-              {% if field.help_text %}<small class="help-text">{{ field.help_text }}</small>{% endif %}
-            {% endif %}
-            {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
-          </div>
-        {% endfor %}
+        {% if form.sectioned_fields %}
+          {% for section in form.sectioned_fields %}
+            <fieldset class="permission-form-section">
+              <legend><span>{{ section.number }}</span><strong>{{ section.title }}</strong></legend>
+              <p>{{ section.description }}</p>
+              <div class="permission-form-fields">
+                {% for field in section.fields %}{% include "console/_field.html" with field=field %}{% endfor %}
+              </div>
+            </fieldset>
+          {% endfor %}
+        {% else %}
+          {% for field in form %}{% include "console/_field.html" with field=field %}{% endfor %}
+        {% endif %}
         <div class="form-actions">
           {% if editing %}<a href="." class="cancel-button">Annuler</a>{% endif %}
           <button class="primary-button" type="submit">Enregistrer <span>→</span></button>
@@ -91,7 +92,8 @@
             </strong>
             {% if resource == 'users' %}<small>{{ object.email }} · {{ object.pam_user_groups.count }} groupe{{ object.pam_user_groups.count|pluralize }}</small>
             {% elif resource == 'user_groups' %}<small>{{ object.member_count }} membre{{ object.member_count|pluralize }} · {{ object.roles.count }} profil{{ object.roles.count|pluralize }}</small>
-            {% elif resource == 'roles' %}<small>{{ object.capabilities|length }} permission{{ object.capabilities|length|pluralize }}</small>
+            {% elif resource == 'roles' %}
+              <small>{{ object.permission_summary|slice:":3"|join:" · " }}{% if object.permission_summary|length > 3 %} · +{{ object.permission_summary|length|add:"-3" }} domaine{{ object.permission_summary|length|add:"-3"|pluralize }}{% endif %}</small>
             {% elif resource == 'identity_sources' or resource == 'ldap_sources' or resource == 'oidc_sources' %}<small>{{ object.get_kind_display }} · {{ object.identity_count }} identité{{ object.identity_count|pluralize }} · {{ object.mapping_count }} correspondance{{ object.mapping_count|pluralize }}</small>
             {% elif resource == 'directory_mappings' %}<small>{{ object.source.name }} → {{ object.user_group.name }}</small>
             {% elif resource == 'domains' %}<small>{{ object.get_kind_display }} · {{ object.target_count }} cible{{ object.target_count|pluralize }} · {{ object.credential_count }} compte{{ object.credential_count|pluralize }}</small>
@@ -100,7 +102,14 @@
             {% elif resource == 'credentials' %}<small>{{ object.target.name }} · {{ object.username }} · {{ object.get_account_type_display }} · Rotation : {{ object.get_last_rotation_status_display }}</small>
             {% elif resource == 'time_frames' %}<small>{{ object.start_time|default:"Toute la journée" }}{% if object.end_time %} → {{ object.end_time }}{% endif %} · {{ object.access_policies.count }} politique{{ object.access_policies.count|pluralize }}</small>
             {% elif resource == 'rotation_policies' %}<small>Tous les {{ object.interval_days }} jours · {{ object.credentials.count }} compte{{ object.credentials.count|pluralize }}</small>
-            {% else %}<small>{% for label in object.action_labels %}{{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}</small>{% endif %}
+            {% else %}
+              <small class="authorization-summary">
+                <span>{% for group in object.user_groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+                <b>→</b>
+                <span>{% for group in object.target_groups.all %}{{ group.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>
+              </small>
+              <small>{% for label in object.action_labels %}{{ label }}{% if not forloop.last %} · {% endif %}{% endfor %}{% if object.requires_approval %} · Approbation {{ object.approval_quorum }}×{% else %} · Accès direct{% endif %}</small>
+            {% endif %}
           </span>
           <span class="resource-state {% if resource == 'user_groups' and not object.has_active_policy %}is-warning{% endif %}">
             {% if resource == 'user_groups' and not object.has_active_policy %}À configurer

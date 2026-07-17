@@ -124,6 +124,58 @@ def test_administrator_can_configure_role_groups_credentials_and_policy(client, 
 
 
 @pytest.mark.django_db
+def test_permission_profile_uses_explicit_levels_and_includes_prerequisites(
+    client, administrator
+):
+    client.force_login(administrator)
+
+    response = client.post(
+        reverse("console:roles"),
+        {
+            "name": "Scoped operations",
+            "slug": "scoped-operations",
+            "description": "Operations without secret disclosure",
+            "users_level": "view",
+            "groups_level": "view",
+            "targets_level": "manage",
+            "target_groups_level": "view",
+            "credentials_level": "view",
+            "secret_operations_level": "none",
+            "policies_level": "view",
+            "approvals_level": "decide",
+            "sessions_level": "control",
+            "audit_level": "view",
+            "system_level": "none",
+            "enabled": "on",
+        },
+    )
+
+    role = Role.objects.get(slug="scoped-operations")
+    assert response.status_code == 302
+    assert Role.Capability.CONSOLE_ACCESS in role.capabilities
+    assert Role.Capability.TARGETS_VIEW in role.capabilities
+    assert Role.Capability.TARGETS_MANAGE in role.capabilities
+    assert Role.Capability.APPROVALS_VIEW in role.capabilities
+    assert Role.Capability.APPROVALS_DECIDE in role.capabilities
+    assert Role.Capability.SESSIONS_TERMINATE in role.capabilities
+    assert Role.Capability.CREDENTIALS_REVEAL not in role.capabilities
+
+
+@pytest.mark.django_db
+def test_rights_and_authorization_forms_are_sectioned(client, administrator):
+    client.force_login(administrator)
+
+    roles_response = client.get(reverse("console:roles"))
+    policies_response = client.get(reverse("console:policies"))
+
+    assert b"Identit\xc3\xa9s et d\xc3\xa9l\xc3\xa9gation" in roles_response.content
+    assert b"Ressources privil\xc3\xa9gi\xc3\xa9es" in roles_response.content
+    assert b"Circuit d\xe2\x80\x99approbation" in policies_response.content
+    assert b"Calendrier et origine" in policies_response.content
+    assert b"Administrer les cibles" not in policies_response.content
+
+
+@pytest.mark.django_db
 def test_administrator_can_create_local_user(client, administrator):
     client.force_login(administrator)
 

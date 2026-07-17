@@ -15,6 +15,12 @@ from pamolive.connectors.services import (
 )
 from pamolive.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
 from pamolive.rbac.models import Role, UserGroup
+from pamolive.rbac.permission_profiles import (
+    PERMISSION_AREAS,
+    capabilities_from_levels,
+    level_for_capabilities,
+    normalize_capabilities,
+)
 from pamolive.targets.models import Domain, Target, TargetGroup, TargetHostKey
 from pamolive.targets.services import parse_ssh_public_key
 from pamolive.vault.models import Credential
@@ -22,6 +28,8 @@ from pamolive.vault.services import VaultCipher
 
 
 class ConsoleFormMixin:
+    field_sections = ()
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
@@ -32,6 +40,24 @@ class ConsoleFormMixin:
                 widget.attrs["class"] = "toggle-input"
             else:
                 widget.attrs["class"] = "console-input"
+
+    @property
+    def sectioned_fields(self):
+        sections = []
+        for number, (title, description, field_names) in enumerate(
+            self.field_sections, start=1
+        ):
+            fields = [self[name] for name in field_names if name in self.fields]
+            if fields:
+                sections.append(
+                    {
+                        "number": f"{number:02d}",
+                        "title": title,
+                        "description": description,
+                        "fields": fields,
+                    }
+                )
+        return sections
 
 
 class PlatformSecurityPolicyForm(ConsoleFormMixin, forms.ModelForm):
@@ -142,10 +168,57 @@ class UserGroupForm(ConsoleFormMixin, forms.ModelForm):
 
 class RoleForm(ConsoleFormMixin, forms.ModelForm):
     capabilities = forms.MultipleChoiceField(
-        label="Droits associés",
+        label="Compatibilité des droits",
         choices=Role.Capability.choices,
-        widget=forms.SelectMultiple(attrs={"size": 9}),
+        widget=forms.MultipleHiddenInput,
         required=False,
+    )
+
+    field_sections = (
+        (
+            "Identité du profil",
+            "Un profil décrit les fonctions administratives accessibles. "
+            "Il ne donne pas accès aux cibles.",
+            ("name", "slug", "description"),
+        ),
+        (
+            "Identités et délégation",
+            "Séparez la gestion des utilisateurs, des groupes, des profils et des annuaires.",
+            tuple(
+                area.field_name
+                for area in PERMISSION_AREAS
+                if area.section == "Identités et délégation"
+            ),
+        ),
+        (
+            "Ressources privilégiées",
+            "Définissez ce que l’administrateur peut consulter ou configurer côté cibles.",
+            tuple(
+                area.field_name
+                for area in PERMISSION_AREAS
+                if area.section == "Ressources privilégiées"
+            ),
+        ),
+        (
+            "Secrets et autorisations",
+            "La gestion des comptes, la révélation des secrets et les "
+            "autorisations restent indépendantes.",
+            tuple(
+                area.field_name
+                for area in PERMISSION_AREAS
+                if area.section == "Secrets et autorisations"
+            ),
+        ),
+        (
+            "Exploitation et contrôle",
+            "Accordez séparément approbations, supervision, audit et configuration système.",
+            tuple(
+                area.field_name
+                for area in PERMISSION_AREAS
+                if area.section == "Exploitation et contrôle"
+            ),
+        ),
+        ("Activation", "Un profil inactif ne confère aucun droit.", ("enabled",)),
     )
 
     class Meta:
@@ -158,6 +231,19 @@ class RoleForm(ConsoleFormMixin, forms.ModelForm):
             "enabled": "Rôle actif",
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        capabilities = self.instance.capabilities if self.instance.pk else ()
+        for area in PERMISSION_AREAS:
+            self.fields[area.field_name] = forms.ChoiceField(
+                label=area.label,
+                choices=((level.value, level.label) for level in area.levels),
+                initial=level_for_capabilities(area, capabilities),
+                required=False,
+                help_text=area.help_text,
+                widget=forms.Select(attrs={"class": "console-input permission-level-select"}),
+            )
+
     def clean(self):
         cleaned = super().clean()
         if self.instance.is_system and self.has_changed():
@@ -166,7 +252,24 @@ class RoleForm(ConsoleFormMixin, forms.ModelForm):
                 raise forms.ValidationError(
                     "Les profils système sont versionnés et ne peuvent pas être modifiés ici."
                 )
+        level_fields_were_submitted = any(
+            area.field_name in self.data for area in PERMISSION_AREAS
+        )
+        if level_fields_were_submitted:
+            cleaned["capabilities"] = capabilities_from_levels(cleaned)
+        else:
+            cleaned["capabilities"] = normalize_capabilities(
+                cleaned.get("capabilities", ())
+            )
         return cleaned
+
+    def save(self, commit=True):
+        role = super().save(commit=False)
+        role.capabilities = self.cleaned_data["capabilities"]
+        if commit:
+            role.save()
+            self.save_m2m()
+        return role
 
 
 class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
@@ -495,9 +598,18 @@ class TargetHostKeyForm(ConsoleFormMixin, forms.ModelForm):
 class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
     actions = forms.MultipleChoiceField(
         label="Actions autorisées",
-        choices=AccessPolicy.Action.choices,
+        choices=(
+            (AccessPolicy.Action.REQUEST_ACCESS, "Demander un accès"),
+            (AccessPolicy.Action.START_SESSION, "Démarrer une session"),
+            (AccessPolicy.Action.VIEW_SECRET, "Consulter un secret"),
+            (AccessPolicy.Action.REVEAL_TOTP, "Consulter un code TOTP"),
+        ),
         widget=forms.SelectMultiple(attrs={"size": 6}),
         required=True,
+        help_text=(
+            "Les droits d’administration sont définis dans les profils de permissions, "
+            "jamais ici."
+        ),
     )
     protocols = forms.MultipleChoiceField(
         label="Protocoles autorisés",
@@ -511,6 +623,48 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Un CIDR par ligne ou séparé par une virgule. Vide : toute origine.",
+    )
+
+    field_sections = (
+        (
+            "Bénéficiaires",
+            "Qui reçoit cette autorisation ? Un utilisateur peut cumuler plusieurs groupes.",
+            ("name", "user_groups"),
+        ),
+        (
+            "Ressources autorisées",
+            "À quels groupes de cibles, comptes et protocoles l’autorisation s’applique-t-elle ?",
+            ("target_groups", "credentials", "protocols"),
+        ),
+        (
+            "Usages accordés",
+            "Choisissez uniquement les opérations que les bénéficiaires peuvent "
+            "demander ou exécuter.",
+            ("actions",),
+        ),
+        (
+            "Circuit d’approbation",
+            "Définissez les approbateurs, le quorum et la référence métier attendue.",
+            ("requires_approval", "approver_groups", "approval_quorum", "ticket_required"),
+        ),
+        (
+            "Sécurité de session",
+            "Appliquez MFA, durée, concurrence et presse-papiers à toutes les sessions couvertes.",
+            (
+                "requires_mfa",
+                "max_duration_minutes",
+                "max_concurrent_sessions",
+                "allow_clipboard_copy",
+                "allow_clipboard_paste",
+            ),
+        ),
+        (
+            "Calendrier et origine",
+            "Limitez l’autorisation à des plages réutilisables, une période et des "
+            "réseaux sources.",
+            ("time_frames", "valid_from", "valid_until", "source_cidrs"),
+        ),
+        ("Activation", "Une autorisation inactive ne donne aucun accès.", ("enabled",)),
     )
 
     class Meta:

@@ -32,5 +32,16 @@
       kind?.addEventListener("change", update);
       update();
     }
+    if (resource === "policies") {
+      const approval = form.querySelector('[name="requires_approval"]');
+      const updateApproval = () => {
+        const required = Boolean(approval?.checked);
+        ["approver_groups", "approval_quorum"].forEach((name) =>
+          setVisible(form, name, required),
+        );
+      };
+      approval?.addEventListener("change", updateApproval);
+      updateApproval();
+    }
   });
 })();

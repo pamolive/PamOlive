@@ -58,6 +58,12 @@ class Role(UUIDTimeStampedModel):
     def allows(self, capability):
         return capability in self.capabilities
 
+    @property
+    def permission_summary(self):
+        from .permission_profiles import permission_summary
+
+        return permission_summary(self.capabilities)
+
 
 class RoleAssignment(UUIDTimeStampedModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)

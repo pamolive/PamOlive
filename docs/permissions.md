@@ -9,6 +9,36 @@
 - Django `is_superuser` status is reserved for the technical Super Administrator.
 - The PAM-olive Administrator role never grants access to `/django-admin/`.
 
+## Two separate control planes
+
+PAM-olive deliberately separates administrative permission profiles from target
+authorizations:
+
+1. A **permission profile** answers which console domains an operator can read,
+   manage, or operate. It never grants access to a target account by itself.
+2. An **access authorization** links one or more user groups to one or more target
+   groups and states which target operations are allowed, with protocols, approval,
+   MFA, schedules, source networks, duration, concurrency, and clipboard controls.
+
+This separation prevents an administrator who can configure equipment from silently
+receiving access to its credentials. Users may belong to multiple groups; effective
+console permissions are additive, while every target operation still requires a
+current authorization.
+
+The product console presents profiles through explicit levels instead of an opaque
+capability list. `Manage` always includes `View`; approval decisions include approval
+view; session control includes session view; and exports include audit view. Secret
+reveal and password rotation remain distinct sensitive operations.
+
+Access authorizations are displayed as a readable chain:
+
+```text
+User groups -> target groups/accounts -> allowed use -> approval and security conditions
+```
+
+Administrative actions such as managing targets or deciding approvals are not valid
+target-policy actions. They belong exclusively to permission profiles.
+
 ## System profiles
 
 | Domain | Super admin | Administrator | Auditor | Approver | User |
