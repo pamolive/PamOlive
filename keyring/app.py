@@ -7,8 +7,9 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
+from rate_limit import SlidingWindowRateLimiter
 
 DATA_DIR = Path(os.environ.get("KEYRING_DATA_DIR", "/data"))
 MASTER_KEY_PATH = DATA_DIR / "master.key"
@@ -16,6 +17,30 @@ MAX_VALUE_LENGTH = 1_048_576
 AUTH_TOKEN = os.environ.get("PAMOLIVE_KEYRING_TOKEN", "")
 if len(AUTH_TOKEN) < 32:
     raise RuntimeError("PAMOLIVE_KEYRING_TOKEN must contain at least 32 characters")
+
+
+def _positive_integer_environment(name, default):
+    try:
+        value = int(os.environ.get(name, default))
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be a positive integer") from exc
+    if value < 1:
+        raise RuntimeError(f"{name} must be a positive integer")
+    return value
+
+
+RATE_LIMITER = SlidingWindowRateLimiter(
+    {
+        "default": _positive_integer_environment(
+            "PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE",
+            1200,
+        ),
+        "/decrypt": _positive_integer_environment(
+            "PAMOLIVE_KEYRING_DECRYPT_LIMIT_PER_MINUTE",
+            300,
+        ),
+    }
+)
 
 
 class PlaintextRequest(BaseModel):
@@ -88,17 +113,30 @@ def require_authentication(authorization: str = Header(default="")):
         raise HTTPException(status_code=401, detail="Keyring authentication failed")
 
 
+def enforce_rate_limit(request: Request):
+    allowed, retry_after = RATE_LIMITER.acquire(request.url.path)
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Keyring operation rate limit exceeded",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+
+PROTECTED_OPERATION = [Depends(require_authentication), Depends(enforce_rate_limit)]
+
+
 @app.get("/healthz")
 def healthcheck():
     return {"status": "ok"}
 
 
-@app.post("/encrypt", dependencies=[Depends(require_authentication)])
+@app.post("/encrypt", dependencies=PROTECTED_OPERATION)
 def encrypt(request: PlaintextRequest):
     return {"ciphertext": CIPHER.encrypt(request.plaintext.encode()).decode()}
 
 
-@app.post("/decrypt", dependencies=[Depends(require_authentication)])
+@app.post("/decrypt", dependencies=PROTECTED_OPERATION)
 def decrypt(request: CiphertextRequest):
     try:
         plaintext = CIPHER.decrypt(request.ciphertext.encode()).decode()
@@ -107,7 +145,7 @@ def decrypt(request: CiphertextRequest):
     return {"plaintext": plaintext}
 
 
-@app.post("/sign", dependencies=[Depends(require_authentication)])
+@app.post("/sign", dependencies=PROTECTED_OPERATION)
 def sign(request: PayloadRequest):
     signature = hmac.new(
         SIGNING_KEY,
@@ -117,7 +155,7 @@ def sign(request: PayloadRequest):
     return {"signature": signature}
 
 
-@app.post("/verify", dependencies=[Depends(require_authentication)])
+@app.post("/verify", dependencies=PROTECTED_OPERATION)
 def verify(request: VerifyRequest):
     expected = hmac.new(
         SIGNING_KEY,

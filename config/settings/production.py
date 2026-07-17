@@ -16,6 +16,9 @@ if PAMOLIVE_KEYRING_BACKEND != "http":  # noqa: F405
     raise ImproperlyConfigured("Production requires the HTTP keyring backend")
 if keyring_url.scheme != "http" or keyring_url.hostname != "keyring":
     raise ImproperlyConfigured("PAMOLIVE_KEYRING_URL must point to the internal keyring service")
+redis_url = urlparse(REDIS_URL)  # noqa: F405
+if redis_url.scheme != "rediss" or not REDIS_TLS_CA_PATH:  # noqa: F405
+    raise ImproperlyConfigured("Production requires verified TLS for the internal Redis service")
 if len(PAMOLIVE_GATEWAY_SHARED_KEY) < 32:  # noqa: F405
     raise ImproperlyConfigured("PAMOLIVE_GATEWAY_SHARED_KEY must contain at least 32 characters")
 if len(PAMOLIVE_OPERATIONS_TOKEN) < 32:  # noqa: F405

@@ -36,6 +36,11 @@ Guacamole JSON authentication. The vault encryption and audit-signing keys are
 generated inside the dedicated keyring volume and never written to `.env`. Keep a
 protected offline copy of `.env`; never commit it.
 
+The first Compose start also generates an internal Redis CA and server certificate in
+dedicated volumes. Redis listens only with verified TLS. Django, Channels, Celery, and
+workers receive the CA certificate read-only; no application container receives the CA
+private key or Redis server key.
+
 Create the first technical administrator:
 
 ```sh
@@ -135,6 +140,24 @@ Review the release notes and new environment variables before pulling a release.
 Run the new image and migrations first in an isolated clone with copied test data.
 The project does not provide a destructive automatic rollback. Database rollback is
 a restore operation and must be rehearsed separately.
+
+For a v0.2 deployment, retain the legacy vault and audit-signing variables until the
+schema migration and keyring migration both succeed. After starting the new keyring and
+database in the isolated rehearsal, run:
+
+```sh
+docker compose exec web python manage.py migrate --noinput
+docker compose exec web python manage.py migrate_secrets_to_keyring
+docker compose exec web python manage.py migrate_secrets_to_keyring \
+  --apply --confirm MIGRATE-TO-KEYRING
+docker compose exec web python manage.py verify_restore
+```
+
+Only remove legacy key variables after `verify_restore` validates the complete audit
+chain and decrypts every protected field. `tests/test_upgrade_v02.py` reproduces the
+historical v0.2 migration graph, seeds encrypted witness data, upgrades to the current
+schema, migrates it to the isolated keyring, and proves that identities, inventory,
+metadata, and plaintext meaning are preserved.
 
 ## Current security boundary
 

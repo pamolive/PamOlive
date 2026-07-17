@@ -36,11 +36,14 @@ POSTGRES_PASSWORD=$postgresPassword
 DATABASE_URL=postgresql://pamolive:$postgresPassword@postgres:5432/pamolive
 
 REDIS_PASSWORD=$redisPassword
-REDIS_URL=redis://:$redisPassword@redis:6379/0
+REDIS_URL=rediss://:$redisPassword@redis:6379/0
+REDIS_TLS_CA_PATH=/run/redis-tls/ca.crt
 
 PAMOLIVE_KEYRING_URL=http://keyring:8000
 PAMOLIVE_KEYRING_TIMEOUT_SECONDS=3
 PAMOLIVE_KEYRING_TOKEN=$keyringToken
+PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE=1200
+PAMOLIVE_KEYRING_DECRYPT_LIMIT_PER_MINUTE=300
 PAMOLIVE_GATEWAY_SHARED_KEY=$gatewayKey
 PAMOLIVE_RECORDING_KEY=$recordingKey
 PAMOLIVE_OPERATIONS_TOKEN=$operationsToken

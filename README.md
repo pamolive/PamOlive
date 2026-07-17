@@ -4,6 +4,9 @@ PAM-olive is an open-source privileged access management (PAM) platform built
 with Django, PostgreSQL, Redis, Celery, an isolated SSH gateway, and Apache
 Guacamole for HTML5 RDP brokering.
 
+PAM-olive is authored and stewarded by **[MOPACY.eu](https://mopacy.eu)**. Project
+governance and release authority are documented in [GOVERNANCE.md](GOVERNANCE.md).
+
 > **Status: pre-V1.** The functional and security foundation is under active
 > development. This release is not yet declared ready for Internet-facing
 > production use. The V1 release decision will be explicitly documented,

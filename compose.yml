@@ -3,6 +3,8 @@ services:
     build: ./keyring
     environment:
       PAMOLIVE_KEYRING_TOKEN: ${PAMOLIVE_KEYRING_TOKEN:?PAMOLIVE_KEYRING_TOKEN must be configured}
+      PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE: ${PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE:-1200}
+      PAMOLIVE_KEYRING_DECRYPT_LIMIT_PER_MINUTE: ${PAMOLIVE_KEYRING_DECRYPT_LIMIT_PER_MINUTE:-300}
     volumes:
       - keyring_data:/data
     healthcheck:
@@ -44,15 +46,48 @@ services:
     networks: [internal]
     restart: unless-stopped
 
+  redis-tls-init:
+    build: ./keyring
+    environment:
+      REDIS_RUNTIME_UID: ${PAMOLIVE_REDIS_RUNTIME_UID:-999}
+      REDIS_RUNTIME_GID: ${PAMOLIVE_REDIS_RUNTIME_GID:-1000}
+    command: ["python", "/app/init_redis_tls.py"]
+    network_mode: none
+    volumes:
+      - redis_tls_server:/redis-server-tls
+      - redis_tls_client:/redis-client-tls
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+
   redis:
     image: redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}
-    command: ["sh", "-ec", "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
+    command:
+      - sh
+      - -ec
+      - >-
+        exec redis-server --appendonly yes --port 0 --tls-port 6379
+        --tls-cert-file /run/redis-tls/server.crt
+        --tls-key-file /run/redis-tls/server.key
+        --tls-ca-cert-file /run/redis-tls/ca.crt
+        --tls-auth-clients no --requirepass "$${REDIS_PASSWORD}"
     volumes:
       - redis_data:/data
+      - redis_tls_server:/run/redis-tls:ro
+    depends_on:
+      redis-tls-init: {condition: service_completed_successfully}
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping"]
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --tls --cacert /run/redis-tls/ca.crt -h redis --no-auth-warning -a \"$${REDIS_PASSWORD}\" ping",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -64,6 +99,8 @@ services:
     env_file: .env
     environment:
       PAMOLIVE_TRUST_PROXY_HEADERS: "true"
+      REDIS_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/0
+      REDIS_TLS_CA_PATH: /run/redis-tls/ca.crt
     command: ["sh", "-c", "python -m config.runtime_secrets && python manage.py migrate && daphne -b 0.0.0.0 -p 8000 config.asgi:application"]
     expose: ["8000"]
     depends_on:
@@ -83,6 +120,8 @@ services:
       retries: 6
       start_period: 20s
     networks: [frontend, internal]
+    volumes:
+      - redis_tls_client:/run/redis-tls:ro
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
@@ -258,18 +297,26 @@ services:
   worker:
     build: .
     env_file: .env
+    environment:
+      REDIS_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/0
+      REDIS_TLS_CA_PATH: /run/redis-tls/ca.crt
     command: ["celery", "-A", "config", "worker", "-l", "INFO"]
     depends_on:
       keyring: {condition: service_healthy}
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     networks: [internal]
+    volumes:
+      - redis_tls_client:/run/redis-tls:ro
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
   beat:
     build: .
     env_file: .env
+    environment:
+      REDIS_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/0
+      REDIS_TLS_CA_PATH: /run/redis-tls/ca.crt
     command:
       [
         "celery",
@@ -285,6 +332,8 @@ services:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
     networks: [internal]
+    volumes:
+      - redis_tls_client:/run/redis-tls:ro
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
@@ -306,6 +355,8 @@ volumes:
   keyring_data:
   postgres_data:
   redis_data:
+  redis_tls_server:
+  redis_tls_client:
   recordings_data:
 
 networks:

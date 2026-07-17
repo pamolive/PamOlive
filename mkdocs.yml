@@ -1,4 +1,5 @@
 site_name: PAM-olive
+site_author: MOPACY.eu
 site_description: PAM-olive, open-source privileged access management
 theme:
   name: material
@@ -17,3 +18,4 @@ nav:
   - Sprint 2 and 3 report: reports/2026-07-16-sprint-2-3.md
   - SSH recording incident: reports/2026-07-17-ssh-recording-permissions.md
   - Terminal and rights report: reports/2026-07-17-terminal-copy-and-rights.md
+  - V1 release gates: reports/2026-07-17-v1-release-gates.md

@@ -6,6 +6,8 @@ build-backend = "hatchling.build"
 name = "pam-olive"
 version = "0.4.0"
 description = "PAM-olive, an open-source privileged access management platform"
+authors = [{ name = "MOPACY.eu" }]
+maintainers = [{ name = "MOPACY.eu" }]
 readme = "README.md"
 requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
@@ -17,6 +19,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Security",
 ]
+
 dependencies = [
   "Django>=5.2,<5.3",
   "channels[daphne]>=4.3,<5",
@@ -33,6 +36,11 @@ dependencies = [
   "whitenoise>=6.9,<7",
   "gunicorn>=23,<24",
 ]
+
+[project.urls]
+Homepage = "https://pamolive.eu"
+Source = "https://github.com/pamolive/PamOlive"
+Issues = "https://github.com/pamolive/PamOlive/issues"
 
 [project.optional-dependencies]
 dev = [

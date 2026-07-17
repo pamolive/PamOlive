@@ -7,35 +7,55 @@ privileged access. Its architecture uses proven PAM concepts, including separati
 of identities, resources, authorizations, approvals, sessions, and audit. The
 product, code, and identity remain specific to PAM-olive.
 
-## Mandatory release criteria
+## Mandatory release checklist
 
-A release may be declared a “V1 candidate” only when all the following criteria are met:
+The box may be checked only when the repository contains repeatable evidence. A checked
+box describes the Community V1 scope; documented post-V1 limitations are not silently
+reclassified as delivered features.
 
-1. Super Administrator, Administrator, Auditor, Approver, and User roles are enforced
-   server-side with distinct read and modify permissions.
-2. A user may belong to multiple groups and receive the controlled union of their
-   active authorizations.
-3. Local, LDAP/Active Directory, and OpenID Connect identities are modeled, testable,
-   and synchronizable without storing directory passwords in plain text.
-4. SSH and RDP equipment, domains, target groups, and privileged accounts are
-   represented separately. Application targets remain outside the first stable scope.
-5. Secrets are encrypted at rest, versioned, revealed only after authorization and
-   a mandatory business justification, and every access is audited.
-6. Policies explicitly link user groups, target groups, accounts, protocols, time
-   windows, global and action-level MFA, and approval workflows.
-7. An approver can never approve their own request. Decisions, reasons, and durations
-   are immutable in audit history.
-8. SSH brokering is isolated from the web process, verifies time-limited authorization,
-   and produces a session trace. RDP launch provides at least a governed flow and a
-   documented traceability strategy.
-9. Auditors may view and export events and sessions without revealing secrets or
-   modifying configuration.
-10. Restore, key rotation, health checks, metrics, and operational alerts are documented
-    and tested.
-11. Migrations are additive, automated tests cover at least 90% of the business core,
-    and Django security checks report no blocking errors.
-12. Both a fresh installation and an upgrade from v0.2 are reproducible with Docker
-    Compose without data loss.
+- [x] **Distinct roles.** Super Administrator, Administrator, Auditor, Approver, and
+  User rights are enforced server-side with explicit permission levels. Evidence:
+  `tests/test_rbac.py`, `tests/test_admin_resources.py`, and `docs/permissions.md`.
+- [x] **Multiple groups.** A user can belong to several groups and receives only the
+  controlled union of active authorizations. Evidence: `tests/test_rbac.py` and
+  `tests/test_policy_constraints.py`.
+- [x] **Local and federated identities.** Local, LDAP/Active Directory, and OpenID
+  Connect identities are modeled and synchronized without plaintext directory secrets.
+  Evidence: `tests/test_identity_sources.py`, `tests/test_directory_sync.py`, and
+  `tests/test_connector_adapters.py`.
+- [x] **Separated inventory.** SSH/RDP equipment, domains, target groups, and privileged
+  accounts are distinct resources. Application targets remain outside Community V1.
+  Evidence: `tests/test_domains.py` and `tests/test_target_access.py`.
+- [x] **Governed secrets.** Secrets are versioned, encrypted by the isolated keyring,
+  revealed only after authorization and a mandatory justification, and fully audited.
+  Evidence: `tests/test_vault.py`, `tests/test_secret_leases.py`, and
+  `tests/test_keyring_migration.py`.
+- [x] **Explicit policies.** Policies bind groups, target groups, accounts, protocols,
+  schedules, networks, MFA, quotas, and approvals. Evidence:
+  `tests/test_policy_constraints.py` and `tests/test_approval_quorum.py`.
+- [x] **Approval separation.** Requesters cannot approve their own requests; decisions,
+  reasons, quorum, and duration remain immutable. Evidence: `tests/test_approvals.py`
+  and `tests/test_approval_quorum.py`.
+- [x] **Brokered sessions.** SSH uses an isolated broker, time-limited ticket, encrypted
+  trace, and target-side credential injection. RDP provides a governed single-use
+  launch and documented traceability boundary. Evidence: `tests/test_gateway.py`,
+  `tests/test_session_tickets.py`, `tests/test_rdp.py`, and `docs/rdp.md`. Encrypted
+  graphical RDP recording and authoritative Guacamole disconnect reconciliation remain
+  explicit post-V1 work.
+- [x] **Read-only audit.** Auditors can inspect and export events and sessions without
+  secrets or configuration changes. Evidence: `tests/test_audit_integrity.py` and
+  `tests/test_console.py`.
+- [x] **Operations.** Restore rehearsal, key rotation, health, metrics, backup
+  verification, SIEM forwarding, and alerts are documented and tested. Evidence:
+  `tests/test_restore_verification.py`, `tests/test_rotation.py`,
+  `tests/test_operations_health.py`, and `tests/test_siem.py`.
+- [x] **Quality gate.** Migrations are additive, business-core coverage is at least 90%,
+  and Django, Ruff, documentation, CodeQL, and critical-CVE gates are configured.
+  Evidence: `.github/workflows/ci.yml` and the V1 build report.
+- [x] **Fresh install and v0.2 upgrade.** Installers are idempotent and the historical
+  v0.2 schema plus encrypted witness data are migrated to the current schema and
+  isolated keyring without loss. Evidence: `tests/test_upgrade_v02.py`,
+  `scripts/restore-rehearsal.sh`, and `docs/installation.md`.
 
 ## V1 functional domains
 

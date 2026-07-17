@@ -1,4 +1,6 @@
+import ssl
 from pathlib import Path
+from urllib.parse import urlparse
 
 import environ
 
@@ -95,17 +97,34 @@ LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+REDIS_TLS_CA_PATH = env("REDIS_TLS_CA_PATH", default="")
+REDIS_TLS_OPTIONS = {}
+if urlparse(REDIS_URL).scheme == "rediss":
+    REDIS_TLS_OPTIONS = {
+        "ssl_cert_reqs": "required",
+        "ssl_ca_certs": REDIS_TLS_CA_PATH,
+    }
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [REDIS_URL]},
+        "CONFIG": {"hosts": [{"address": REDIS_URL, **REDIS_TLS_OPTIONS}]},
     }
 }
 CACHES = {
-    "default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL}
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+        "OPTIONS": REDIS_TLS_OPTIONS,
+    }
 }
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+if REDIS_TLS_OPTIONS:
+    CELERY_BROKER_USE_SSL = {
+        "ssl_cert_reqs": ssl.CERT_REQUIRED,
+        "ssl_ca_certs": REDIS_TLS_CA_PATH,
+    }
+    CELERY_REDIS_BACKEND_USE_SSL = CELERY_BROKER_USE_SSL
 CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_RESULT_SERIALIZER = "json"

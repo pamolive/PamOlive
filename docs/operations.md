@@ -2,9 +2,25 @@
 
 ## Redis
 
-Docker Compose requires both `REDIS_PASSWORD` and a matching authenticated
-`REDIS_URL`. Redis is private and exposes no host port. Never pass the password on a
-command line or commit it to Git. Multi-host deployments must also enable TLS.
+Docker Compose requires both `REDIS_PASSWORD` and a matching authenticated `rediss://`
+URL. Redis is private, exposes no host port, and accepts only TLS on port 6379. A
+one-shot initializer creates an internal CA and server certificate in dedicated Docker
+volumes; application services mount only the CA certificate, never the CA private key
+or Redis server key. Never pass the password on a command line or commit it to Git.
+
+The initializer refuses an incomplete bundle or a server certificate with fewer than
+30 validity days. Back up the two TLS volumes with the deployment metadata and schedule
+explicit certificate rotation before expiry. Redis TLS protects traffic inside the
+Docker host; it does not replace host hardening or a firewall in multi-host deployments.
+
+## Keyring request limits
+
+Every authenticated keyring operation uses a per-operation sliding-window limit. The
+default is 1,200 total operations per minute and 300 decryptions per minute, configured
+with `PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE` and
+`PAMOLIVE_KEYRING_DECRYPT_LIMIT_PER_MINUTE`. Exceeding the limit returns HTTP 429 with
+`Retry-After`. Raising the decrypt limit for a controlled migration must be temporary,
+documented, and followed by a normal configuration restart.
 
 ## SIEM forwarding
 
@@ -17,8 +33,7 @@ back into the form.
 Each forwarding attempt is recorded locally. Failed deliveries are retried by Celery
 and can be inspected without exposing event secrets.
 
-This page describes the controls available during the pre-V1 phase. Restore
-operations remain prohibited on the reference NAS until an isolated rehearsal
+Restore operations remain prohibited on the reference NAS until an isolated rehearsal
 and rollback plan have been approved.
 
 ## Health

@@ -126,18 +126,9 @@ jobs:
         run: docker compose --profile test build
 
       - name: Start the full stack and wait for health checks
-        shell: bash
         run: |
           docker compose up --detach
-          mapfile -t long_running_services < <(
-            docker compose config --services | grep -v '^recordings-init$'
-          )
-          docker compose up \
-            --detach \
-            --wait \
-            --wait-timeout 240 \
-            --no-deps \
-            "${long_running_services[@]}"
+          sh scripts/wait-for-stack.sh
 
       - name: Verify target-network isolation
         run: sh scripts/check-isolation.sh

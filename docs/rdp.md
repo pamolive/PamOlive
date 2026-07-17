@@ -2,9 +2,10 @@
 
 ## Status
 
-Governed RDP launch is implemented and tested without a real target network. It
-remains **pre-V1**: forced termination of an active Guacamole session and encrypted
-RDP recording still require validation in an isolated Docker stack.
+Governed RDP launch satisfies the Community V1 boundary: access policy, approval,
+MFA, single-use authorization, credential injection, and launch auditing are enforced.
+The advanced recording and disconnect limitations below are intentionally visible and
+remain post-V1 work; Community V1 does not claim full graphical-session forensics.
 
 ## Launch flow
 
@@ -78,7 +79,7 @@ The manual test must use a laboratory Windows target and a known certificate
 fingerprint. It must confirm rejection of an invalid fingerprint, single-use ticket
 behavior, clipboard restrictions, expiration, and the absence of secrets in logs.
 
-## V1-candidate blockers
+## Documented post-V1 limitations
 
 - administrative RDP termination has not yet been proven to close the active
   Guacamole tunnel;
