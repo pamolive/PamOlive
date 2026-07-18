@@ -12,22 +12,65 @@ model; review the architecture limitations before exposing it to the Internet.
 - at least 4 GB of available RAM for the complete SSH and RDP stack;
 - a DNS name and TLS reverse proxy for public deployment.
 
+GNU Make is optional. On systems such as Synology DSM, `make` is often not
+installed; use `sh install.sh` directly instead.
+
 ## Fresh installation
+
+Choose the command path for the machine that will run the Compose stack.
+
+| Environment | Use this installer | Notes |
+| --- | --- | --- |
+| Linux server | `sh install.sh` | Requires Docker Compose and OpenSSL. |
+| macOS workstation | `sh install.sh` | Intended for local evaluation with Docker Desktop or another Compose-capable Docker runtime. |
+| Synology NAS | `sh install.sh` | Keep the checkout under `/volume1/docker` or another Docker shared-folder path. Do not rely on `make`. |
+| Windows PowerShell | `powershell -ExecutionPolicy Bypass -File install.ps1` | Use PowerShell from the repository root. |
+| Developer machine with GNU Make | `make init` | Optional shortcut only; equivalent to `sh install.sh`. |
+
+Linux, macOS, or a generic Docker host:
 
 ```sh
 git clone https://github.com/pamolive/PamOlive.git
 cd PamOlive
-make init
+sh install.sh
 docker compose up --build -d
 ```
 
-On Windows:
+Synology NAS:
+
+```sh
+cd /volume1/docker
+git clone https://github.com/pamolive/PamOlive.git pam-olive
+cd pam-olive
+sh install.sh
+docker compose up --build -d
+```
+
+Do not install the NAS checkout under `/root`; keep it in a Docker shared-folder
+location so the deployment files are visible, backed up, and managed with the rest
+of the NAS Docker data.
+
+Windows PowerShell:
 
 ```powershell
 git clone https://github.com/pamolive/PamOlive.git
 Set-Location PamOlive
-powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1
+powershell -ExecutionPolicy Bypass -File install.ps1
+docker compose up --build -d
 ```
+
+The helper scripts `scripts/bootstrap.sh` and `scripts/bootstrap.ps1` combine the
+install and Compose start steps. They are convenient for a first local start, while
+the explicit commands above are easier to audit during production preparation.
+
+Common first-start errors:
+
+| Error | Cause | Fix |
+| --- | --- | --- |
+| `make: command not found` | GNU Make is not installed. This is common on NAS systems. | Run `sh install.sh` instead of `make init`. |
+| `REDIS_PASSWORD must be configured` | `.env` has not been generated yet, or Compose was started from the wrong directory. | Run `sh install.sh` or `install.ps1` from the repository root, then start Compose again. |
+| `docker: command not found` | Docker is not installed or is not in `PATH`. | Install Docker Engine/Desktop or enable the NAS Docker package before starting PAM-olive. |
+| `docker compose: command not found` | The Docker Compose plugin is missing. | Install the Compose plugin; PAM-olive expects `docker compose`, not the legacy `docker-compose` binary. |
 
 The installer refuses to overwrite an existing `.env`. It generates independent
 values for the Django signing key, PostgreSQL and Redis passwords, keyring API
