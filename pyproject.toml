@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 dependencies = [
-  "Django>=5.2,<5.3",
+  "Django>=5.2,<6.1",
   "channels[daphne]>=4.3,<5",
   "channels-redis>=4.2,<5",
   "celery[redis]>=5.6,<5.7",
