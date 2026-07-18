@@ -12,6 +12,13 @@ class MFAEnrollmentMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
+        if (
+            request.path.startswith("/django-admin/")
+            and request.user.is_authenticated
+            and request.user.is_superuser
+            and not request.user.mfa_enrolled
+        ):
+            return redirect(reverse("mfa_setup_required"))
         if getattr(settings, "PAMOLIVE_TEST_BYPASS_GLOBAL_MFA", False):
             return self.get_response(request)
         if request.user.is_authenticated and not request.user.is_service_account:
