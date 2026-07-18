@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0b110e">
   <title>{% block title %}PAM-olive{% endblock %}</title>
   <script src="{% static 'js/theme-init.js' %}"></script>
-  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  <link rel="stylesheet" href="{% static 'css/app.css' %}?v=1.0.2">
   {% block extra_head %}{% endblock %}
   <script src="{% static 'vendor/htmx/htmx-2.0.10.min.js' %}" defer></script>
 </head>
@@ -47,6 +47,7 @@
     </main>
   </div>
 {% endblock %}
+{% include "components/site_footer.html" %}
 </body>
 <script src="{% static 'js/ui-preferences.js' %}" defer></script>
 </html>

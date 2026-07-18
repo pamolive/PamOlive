@@ -88,6 +88,8 @@ def test_theme_language_home_navigation_and_brand_assets(client):
         {"preferred_theme": User.Theme.LIGHT, "preferred_language": User.Language.ENGLISH},
     )
     page = client.get(reverse("dashboard"))
+    client.logout()
+    login_page = client.get(reverse("login"))
     user.refresh_from_db()
 
     assert changed.status_code == 200
@@ -97,6 +99,15 @@ def test_theme_language_home_navigation_and_brand_assets(client):
     assert b">Home<" in page.content
     assert b"pam-olive-green.png" in page.content
     assert b"pam-olive-black.png" in page.content
+    for url in (
+        b"https://mopacy.be",
+        b"https://github.com/pamolive/PamOlive",
+        b"https://discord.gg/RqUBXjc7HE",
+        b"https://www.linkedin.com/company/pam-olive",
+    ):
+        assert url in page.content
+        assert url in login_page.content
+    assert page.content.count(b'rel="noopener noreferrer"') >= 4
 
 
 @pytest.mark.django_db

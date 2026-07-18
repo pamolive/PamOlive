@@ -5,6 +5,12 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-07-18
+
+### Added
+
+- Add a shared company and community footer with MOPACY, GitHub, Discord, and LinkedIn links.
+
 ## [1.0.1] - 2026-07-18
 
 ### Fixed
