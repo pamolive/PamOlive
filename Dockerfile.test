@@ -11,7 +11,10 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY pamolive ./pamolive
 COPY config ./config
+COPY keyring ./keyring
 COPY manage.py ./
+COPY compose.yml Dockerfile.guacamole ./
+COPY deploy ./deploy
 COPY templates ./templates
 COPY static ./static
 COPY tests ./tests

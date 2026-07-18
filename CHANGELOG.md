@@ -5,6 +5,13 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-18
+
+### Fixed
+
+- The isolated Compose test image now includes the keyring, Redis TLS initializer,
+  Compose model, and Guacamole lifecycle sources inspected by the V1 release tests.
+
 ## [1.0.0] - 2026-07-18
 
 ### Added
