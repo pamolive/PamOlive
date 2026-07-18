@@ -34,7 +34,7 @@ dependencies = [
   "qrcode>=8.2,<9",
   "requests>=2.32,<3",
   "whitenoise>=6.9,<7",
-  "gunicorn>=23,<24",
+  "gunicorn>=23,<27",
 ]
 
 [project.urls]
