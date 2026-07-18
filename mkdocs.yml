@@ -1,5 +1,5 @@
 site_name: PAM-olive
-site_author: MOPACY.eu
+site_author: MOPACY (mopacy.eu / mopacy.be)
 site_description: PAM-olive, open-source privileged access management
 theme:
   name: material
@@ -19,3 +19,4 @@ nav:
   - SSH recording incident: reports/2026-07-17-ssh-recording-permissions.md
   - Terminal and rights report: reports/2026-07-17-terminal-copy-and-rights.md
   - V1 release gates: reports/2026-07-17-v1-release-gates.md
+  - V1 NAS deployment: reports/2026-07-18-v1-nas-deployment.md
