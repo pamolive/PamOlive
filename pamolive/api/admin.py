@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from django.shortcuts import redirect
+from django.urls import reverse
 
 from pamolive.accounts.models import User
 from pamolive.approvals.models import AccessRequest, ApprovalDecision
@@ -298,11 +300,24 @@ class IdentitySourceAdmin(admin.ModelAdmin):
         return False
 
 
-def superuser_only(request):
-    return request.user.is_active and request.user.is_superuser
+def superuser_with_mfa_only(request):
+    return (
+        request.user.is_active
+        and request.user.is_superuser
+        and request.user.mfa_enrolled
+    )
 
 
-admin.site.has_permission = superuser_only
+def redirect_admin_login_to_product_login(request, extra_context=None):
+    if request.user.is_authenticated:
+        if request.user.is_superuser and not request.user.mfa_enrolled:
+            return redirect("mfa_setup_required")
+        return redirect("admin:index")
+    return redirect(f"{reverse('login')}?next=/django-admin/")
+
+
+admin.site.has_permission = superuser_with_mfa_only
+admin.site.login = redirect_admin_login_to_product_login
 
 admin.site.site_header = "PAM-olive · Administration technique"
 admin.site.site_title = "PAM-olive"
