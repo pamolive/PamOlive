@@ -4,10 +4,12 @@ from django.urls import reverse
 from pamolive.accounts.models import User
 from pamolive.approvals.models import AccessRequest
 from pamolive.console.forms import AccessPolicyForm
+from pamolive.mfa.services import begin_totp_enrollment, confirm_totp_device, device_secret
 from pamolive.policies.models import AccessPolicy
 from pamolive.policies.services import policies_for_user, targets_for_policies
 from pamolive.rbac.models import UserGroup
 from pamolive.targets.models import Target, TargetGroup
+from pamolive.vault.services import totp_code
 
 
 @pytest.fixture
@@ -46,8 +48,34 @@ def test_product_console_is_separate_from_django_admin(client, staff_user):
     )
     client.force_login(superuser)
     technical_response = client.get("/django-admin/")
+    assert technical_response.status_code == 302
+    assert technical_response.url == reverse("mfa_setup_required")
+
+    device, _secret = begin_totp_enrollment(superuser)
+    assert confirm_totp_device(device, totp_code(device_secret(device)))
+    technical_response = client.get("/django-admin/")
     assert technical_response.status_code == 200
     assert b"Administration technique" in technical_response.content
+
+
+@pytest.mark.django_db
+def test_django_admin_login_redirects_to_product_login_for_mfa(client):
+    User.objects.create_superuser(
+        username="root-olive",
+        email="root@example.test",
+        password="a-safe-super-password",
+    )
+
+    login_page = client.get("/django-admin/login/?next=/django-admin/")
+    password_only_attempt = client.post(
+        "/django-admin/login/?next=/django-admin/",
+        {"username": "root-olive", "password": "a-safe-super-password"},
+    )
+
+    assert login_page.status_code == 302
+    assert login_page.url == f"{reverse('login')}?next=/django-admin/"
+    assert password_only_attempt.status_code == 302
+    assert password_only_attempt.url == f"{reverse('login')}?next=/django-admin/"
 
 
 @pytest.mark.django_db
