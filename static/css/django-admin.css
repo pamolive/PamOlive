@@ -1,0 +1,72 @@
+:root {
+  --primary: #2f6f86;
+  --secondary: #234958;
+  --accent: #f2d84b;
+  --primary-fg: #ffffff;
+  --body-fg: #1f2933;
+  --link-fg: #12617a;
+  --link-selected-fg: #0f4f63;
+  --hairline-color: #d9e3e8;
+}
+
+#header {
+  background: var(--secondary);
+  color: var(--primary-fg);
+  min-height: 48px;
+}
+
+#branding h1,
+#branding h1 a:link,
+#branding h1 a:visited {
+  color: var(--primary-fg);
+}
+
+.pam-admin-brand {
+  align-items: baseline;
+  display: flex;
+  gap: 0.65rem;
+}
+
+.pam-admin-logo {
+  color: var(--accent);
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.pam-admin-scope {
+  color: #d8eef5;
+  font-size: 0.95rem;
+}
+
+.pam-admin-security {
+  background: #14313c;
+  border-left: 3px solid var(--accent);
+  color: #e8f5f8;
+  font-size: 0.78rem;
+  margin-left: 1rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.module h2,
+.module caption,
+.inline-group h2 {
+  background: var(--primary);
+}
+
+div.breadcrumbs {
+  background: #1f5365;
+}
+
+input[type="submit"],
+button,
+.submit-row input,
+a.button {
+  background: var(--primary);
+}
+
+input[type="submit"]:hover,
+button:hover,
+.submit-row input:hover,
+a.button:hover {
+  background: #245b70;
+}
