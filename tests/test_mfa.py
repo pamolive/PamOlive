@@ -116,6 +116,28 @@ def test_recovery_codes_are_displayed_once_and_can_be_regenerated(client):
     assert b"Nouveaux codes" in refreshed.content
 
 
+@pytest.mark.django_db
+def test_replayed_mfa_confirmation_redirects_to_pending_recovery_codes(client):
+    user = User.objects.create_user(username="mfa-replay", password="safe-pass")
+    device, _secret = begin_totp_enrollment(user)
+    client.force_login(user)
+    confirm_url = reverse("mfa_confirm", args=[device.pk])
+
+    first_confirmation = client.post(
+        confirm_url,
+        {"token": totp_code(device_secret(device))},
+    )
+    replayed_confirmation = client.post(
+        confirm_url,
+        {"token": totp_code(device_secret(device))},
+    )
+
+    assert first_confirmation.status_code == 302
+    assert first_confirmation.url == reverse("mfa_recovery_codes")
+    assert replayed_confirmation.status_code == 302
+    assert replayed_confirmation.url == reverse("mfa_recovery_codes")
+
+
 @override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
 @pytest.mark.django_db
 def test_global_mfa_policy_forces_safe_enrollment_before_application_access(client):
