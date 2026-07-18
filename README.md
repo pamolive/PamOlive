@@ -54,20 +54,30 @@ to isolate the Guacamole interface's local token.
 
 ## Local startup with Docker Compose
 
-Prerequisites: Docker with Compose, GNU Make and OpenSSL on Linux, or PowerShell
-on Windows.
+Prerequisites: Docker with Compose and OpenSSL on Linux/NAS, or PowerShell on
+Windows. GNU Make is optional; `make init` is only a shortcut for `sh install.sh`.
+
+Linux, macOS, and NAS shells:
 
 ```sh
-make init
+sh install.sh
 docker compose up --build -d
 ```
 
-On Windows:
+If GNU Make is installed, the first command can also be run as `make init`. On
+Synology DSM, install from a Docker shared-folder path such as
+`/volume1/docker/pam-olive`, not from `/root`.
+
+Windows PowerShell:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File install.ps1
 docker compose up --build -d
 ```
+
+To run the full bootstrap in one command, use `sh scripts/bootstrap.sh` on
+Linux/macOS/NAS or `powershell -ExecutionPolicy Bypass -File scripts/bootstrap.ps1`
+on Windows.
 
 The installer never overwrites an existing `.env`. On first run it generates
 independent secrets for Django, PostgreSQL, Redis, keyring authentication, gateway
