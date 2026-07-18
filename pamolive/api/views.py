@@ -578,8 +578,13 @@ def mfa_enrollment_required(request):
 @login_required
 def mfa_confirm(request, pk):
     device = get_object_or_404(
-        MFADevice, pk=pk, user=request.user, kind=MFADevice.Kind.TOTP, confirmed=False
+        MFADevice, pk=pk, user=request.user, kind=MFADevice.Kind.TOTP
     )
+    if device.confirmed:
+        if request.session.get("new_mfa_recovery_codes"):
+            return redirect("mfa_recovery_codes")
+        messages.info(request, "La MFA est deja activee pour ce compte.")
+        return redirect("account")
     form = MFAConfirmForm(request.POST)
     if form.is_valid() and confirm_totp_device(device, form.cleaned_data["token"]):
         recovery_codes = replace_recovery_codes(request.user, device)
