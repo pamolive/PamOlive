@@ -1,0 +1,20 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | PAM-olive{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/django-admin.css' %}">
+{% endblock %}
+
+{% block branding %}
+<div class="pam-admin-brand">
+  <span class="pam-admin-logo">PAM-olive</span>
+  <span class="pam-admin-scope">Administration technique</span>
+</div>
+{% endblock %}
+
+{% block nav-global %}
+<div class="pam-admin-security">Acces reserve aux super administrateurs avec MFA activee.</div>
+{% endblock %}
