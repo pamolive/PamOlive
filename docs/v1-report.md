@@ -4,8 +4,9 @@
 
 - Starting version: 0.2.0
 - Target version: 1.0.0
-- Current state: V1 architecture in progress, active Docker test deployment on the NAS,
-  not yet approved for production
+- Current state: Community V1 release criteria complete; repository candidate approved
+  for version 1.0.0. Internet-facing operation remains subject to the documented
+  environment-specific production controls.
 - Modified environments: local repository and isolated `/volume1/docker/pam-olive` stack
 - NAS scope: every operation is limited to the explicitly authorized project boundary
   and recorded below
@@ -256,5 +257,8 @@ maintain at least 90% business-core coverage.
 
 ## Release decision
 
-The “V1 candidate” label will be added only after every criterion in
-`docs/v1-scope.md` has been demonstrated by tests and recorded in this report.
+All twelve criteria in `docs/v1-scope.md` are checked and backed by repeatable
+repository evidence. The Community V1 candidate is approved for version `1.0.0` and
+may be tagged after the release commit is merged into `main` and the GitHub checks
+pass. This decision does not waive the environment-specific deployment controls or
+authorize changes outside the PAM-olive project boundary.

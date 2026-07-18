@@ -5,6 +5,8 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-18
+
 ### Added
 
 - Verified internal TLS for Redis, with a dedicated CA/server-key volume, a client-only
@@ -13,7 +15,8 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
   `Retry-After` responses.
 - A reproducible v0.2 schema and encrypted-data upgrade test, plus a binary V1 release
   checklist with evidence for every criterion.
-- Formal project governance identifying MOPACY.eu as PAM-olive author and steward.
+- Formal project governance identifying MOPACY (mopacy.eu and mopacy.be) as
+  PAM-olive author and steward.
 - Structured permission-profile levels and sectioned access authorizations which
   clearly separate console administration from target access.
 - SSH terminal selection and full-output copy controls, terminal-aware copy

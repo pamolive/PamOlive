@@ -4,16 +4,16 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pam-olive"
-version = "0.4.0"
+version = "1.0.0"
 description = "PAM-olive, an open-source privileged access management platform"
-authors = [{ name = "MOPACY.eu" }]
-maintainers = [{ name = "MOPACY.eu" }]
+authors = [{ name = "MOPACY" }]
+maintainers = [{ name = "MOPACY" }]
 readme = "README.md"
 requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
 keywords = ["pam", "privileged-access-management", "django", "ssh", "security"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 5 - Production/Stable",
   "Framework :: Django :: 5.2",
   "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
   "Programming Language :: Python :: 3.12",
