@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import time
+import uuid
 
 import asyncssh
 import pytest
@@ -9,6 +10,7 @@ from asgiref.sync import async_to_sync
 from channels.testing import HttpCommunicator, WebsocketCommunicator
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
+from django.test import override_settings
 from django.urls import reverse
 
 from pamolive.accounts.models import User
@@ -77,14 +79,20 @@ def gateway_session_fixture():
     return user, credential
 
 
-def signed_headers(body, *, timestamp=None):
+def signed_headers(body, path, *, timestamp=None, request_id=None):
     timestamp = str(int(time.time()) if timestamp is None else timestamp)
+    request_id = request_id or str(uuid.uuid4())
     return {
         "HTTP_X_PAM_TIMESTAMP": timestamp,
+        "HTTP_X_PAM_REQUEST_ID": request_id,
+        "HTTP_X_PAM_SIGNATURE_VERSION": "2",
         "HTTP_X_PAM_SIGNATURE": request_signature(
             settings.PAMOLIVE_GATEWAY_SHARED_KEY,
             timestamp,
             body,
+            method="POST",
+            path=path,
+            request_id=request_id,
         ),
     }
 
@@ -95,8 +103,78 @@ def post_signed(client, url, payload, *, timestamp=None):
         url,
         data=body,
         content_type="application/json",
-        **signed_headers(body, timestamp=timestamp),
+        **signed_headers(body, url, timestamp=timestamp),
     )
+
+
+def post_legacy_signed(client, url, payload):
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    timestamp = str(int(time.time()))
+    return client.post(
+        url,
+        data=body,
+        content_type="application/json",
+        HTTP_X_PAM_TIMESTAMP=timestamp,
+        HTTP_X_PAM_SIGNATURE=request_signature(
+            settings.PAMOLIVE_GATEWAY_SHARED_KEY,
+            timestamp,
+            body,
+        ),
+    )
+
+
+@pytest.mark.django_db
+def test_legacy_gateway_signature_is_rejected_by_default(client):
+    response = post_legacy_signed(
+        client,
+        reverse("gateway_close"),
+        {"session_id": "00000000-0000-0000-0000-000000000099"},
+    )
+
+    assert response.status_code == 403
+
+
+@override_settings(PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES=True)
+@pytest.mark.django_db
+def test_legacy_gateway_signature_can_be_enabled_for_rolling_upgrade(client):
+    user, credential = gateway_session_fixture()
+    session, _ticket, _raw_ticket = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Legacy signature transition test",
+    )
+
+    response = post_legacy_signed(
+        client,
+        reverse("gateway_close"),
+        {"session_id": str(session.pk), "outcome": "closed"},
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_internal_gateway_rejects_replayed_signed_request(client):
+    user, credential = gateway_session_fixture()
+    session, _ticket, _raw_ticket = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Gateway replay protection test",
+    )
+    url = reverse("gateway_close")
+    body = json.dumps(
+        {"session_id": str(session.pk), "outcome": "closed"},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    request_id = str(uuid.uuid4())
+    headers = signed_headers(body, url, request_id=request_id)
+
+    first = client.post(url, data=body, content_type="application/json", **headers)
+    replay = client.post(url, data=body, content_type="application/json", **headers)
+
+    assert first.status_code == 200
+    assert replay.status_code == 403
 
 
 def test_gateway_crypto_rejects_tampering_and_stale_requests():
@@ -108,6 +186,36 @@ def test_gateway_crypto_rejects_tampering_and_stale_requests():
     assert verify_request_signature(key, now, body, signature, now=now)
     assert not verify_request_signature(key, now, body + b"x", signature, now=now)
     assert not verify_request_signature(key, now - 31, body, signature, now=now)
+
+    request_id = str(uuid.uuid4())
+    v2_signature = request_signature(
+        key,
+        now,
+        body,
+        method="POST",
+        path="/internal/example/",
+        request_id=request_id,
+    )
+    assert verify_request_signature(
+        key,
+        now,
+        body,
+        v2_signature,
+        method="POST",
+        path="/internal/example/",
+        request_id=request_id,
+        now=now,
+    )
+    assert not verify_request_signature(
+        key,
+        now,
+        body,
+        v2_signature,
+        method="POST",
+        path="/internal/other/",
+        request_id=request_id,
+        now=now,
+    )
 
     envelope = encrypt_envelope({"secret": "not-plaintext"}, key)
     assert "not-plaintext" not in envelope
@@ -416,6 +524,7 @@ def test_gateway_control_endpoint_requires_hmac_and_signals_active_session(tmp_p
             separators=(",", ":"),
         ).encode()
         timestamp = str(int(time.time()))
+        request_id = str(uuid.uuid4())
         cancellation = asyncio.Event()
         application.cancellations[session_id] = cancellation
         communicator = HttpCommunicator(
@@ -425,20 +534,29 @@ def test_gateway_control_endpoint_requires_hmac_and_signals_active_session(tmp_p
             body=body,
             headers=[
                 (b"x-pam-timestamp", timestamp.encode()),
-                (b"x-pam-signature", signature(timestamp, body).encode()),
+                (b"x-pam-request-id", request_id.encode()),
+                (b"x-pam-signature-version", b"2"),
+                (b"x-pam-signature", signature(timestamp, body, request_id).encode()),
             ],
         )
         response = await communicator.get_response()
         return response, cancellation.is_set()
 
-    def valid(timestamp, body):
-        return request_signature(config.shared_key, timestamp, body)
+    def valid(timestamp, body, request_id):
+        return request_signature(
+            config.shared_key,
+            timestamp,
+            body,
+            method="POST",
+            path="/internal/control/terminate/",
+            request_id=request_id,
+        )
 
     response, cancelled = async_to_sync(request)(valid)
     assert response["status"] == 202
     assert cancelled
 
-    def invalid(_timestamp, _body):
+    def invalid(_timestamp, _body, _request_id):
         return "0" * 64
 
     response, cancelled = async_to_sync(request)(invalid)

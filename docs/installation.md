@@ -190,6 +190,42 @@ Run the new image and migrations first in an isolated clone with copied test dat
 The project does not provide a destructive automatic rollback. Database rollback is
 a restore operation and must be rehearsed separately.
 
+### Rolling gateway signature upgrade
+
+Gateway signature version 2 is intentionally incompatible with version 1. To upgrade
+the web, SSH gateway, and RDP broker without interrupting session launches, enable the
+temporary receiver compatibility switch before deploying the new images:
+
+```env
+PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES=true
+```
+
+Then update receivers first and the remaining sender immediately afterwards:
+
+```sh
+docker compose up -d --build --no-deps web gateway
+docker compose up -d --build --no-deps rdp-broker
+```
+
+The new components always emit version 2. While compatibility is enabled, receivers
+accept both versions, but only version 2 receives request-ID replay protection. After
+all three services are healthy and SSH/RDP launch and termination tests pass, set:
+
+```env
+PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES=false
+```
+
+Finally recreate only the receivers; rebuilding is unnecessary:
+
+```sh
+docker compose up -d --no-deps --force-recreate web gateway
+```
+
+Never leave legacy acceptance enabled after the rollout. During the short interval
+between the two receiver updates, avoid administrative session termination: a new web
+may send version 2 to an old gateway which cannot verify it yet. Existing sessions and
+gateway-to-web authorization remain compatible during that interval.
+
 For a v0.2 deployment, retain the legacy vault and audit-signing variables until the
 schema migration and keyring migration both succeed. After starting the new keyring and
 database in the isolated rehearsal, run:

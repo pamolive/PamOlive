@@ -7,6 +7,10 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Security
 
+- Internal gateway requests now use a versioned signature covering the request ID,
+  HTTP method, path, timestamp, and body; request IDs are single-use to reject replay.
+- A disabled-by-default compatibility switch permits a receiver-first rolling upgrade
+  from gateway signature version 1 to version 2.
 - Target-secret reveals and SSH/RDP session launches now require a local MFA proof
   no older than five minutes, including for sessions created through OIDC.
 
