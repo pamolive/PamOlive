@@ -5,13 +5,7 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
-## [1.1.0] - 2026-07-19
-
-### Changed
-
-- Python production, development, and keyring dependencies are now fully locked with
-  SHA-256 hashes; Docker and CI install those locks and reuse dependency layers when
-  only application source changes.
+## [1.2.0] - 2026-07-20
 
 ### Security
 
@@ -25,6 +19,16 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
   restrict trusted Guacamole proxies, and SHA-pin third-party GitHub Actions.
 - Add an optional Vault Transit backend with file-based authentication, TLS validation,
   legacy local-ciphertext routing, and a transactional backend-migration command.
+
+## [1.1.0] - 2026-07-19
+
+### Changed
+
+- Python production, development, and keyring dependencies are now fully locked with
+  SHA-256 hashes; Docker and CI install those locks and reuse dependency layers when
+  only application source changes.
+
+### Security
 
 - Internal gateway requests now use a versioned signature covering the request ID,
   HTTP method, path, timestamp, and body; request IDs are single-use to reject replay.
