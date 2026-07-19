@@ -173,3 +173,33 @@ def test_oidc_login_and_callback_are_governed(client, monkeypatch):
     assert callback_response.url == reverse("dashboard")
     assert group.users.filter(pk=user.pk).exists()
     assert AuditEvent.objects.filter(action="authentication.oidc.succeeded").exists()
+
+
+@pytest.mark.django_db
+def test_oidc_login_uses_forwarded_https_callback(client, monkeypatch, settings):
+    settings.PAMOLIVE_TRUST_PROXY_HEADERS = True
+    settings.SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    settings.USE_X_FORWARDED_HOST = True
+    settings.ALLOWED_HOSTS = ["pamolive.mopacy.be"]
+    source = source_with_configuration(IdentitySource.Kind.OIDC)
+    callback_uris = []
+
+    class FakeOIDCClient:
+        def authorize_redirect(self, request, callback_uri):
+            callback_uris.append(callback_uri)
+            return HttpResponseRedirect("https://identity.example.test/authorize")
+
+    monkeypatch.setattr(
+        "pamolive.accounts.views.oidc_client_for", lambda selected_source: FakeOIDCClient()
+    )
+
+    response = client.get(
+        reverse("oidc_login", args=(source.slug,)),
+        HTTP_HOST="pamolive.mopacy.be",
+        HTTP_X_FORWARDED_PROTO="https",
+    )
+
+    assert response.status_code == 302
+    assert callback_uris == [
+        f"https://pamolive.mopacy.be{reverse('oidc_callback', args=(source.slug,))}"
+    ]
