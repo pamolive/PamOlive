@@ -7,6 +7,8 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Fixed
 
+- TOTP codes are consumed atomically and cannot be replayed during their validity
+  window or after a newer counter has already been accepted.
 - Disabled OIDC identities remain disabled during sign-in instead of being
   reactivated automatically.
 - OIDC email and domain fallback provisioning now requires an explicitly verified

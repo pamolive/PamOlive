@@ -6,7 +6,12 @@ from django.urls import reverse
 
 from pamolive.accounts.models import PlatformSecurityPolicy, User
 from pamolive.mfa.models import MFADevice, MFARecoveryCode
-from pamolive.mfa.services import begin_totp_enrollment, device_secret
+from pamolive.mfa.services import (
+    begin_totp_enrollment,
+    confirm_totp_device,
+    device_secret,
+    verify_user_totp,
+)
 from pamolive.vault.services import totp_code, verify_totp
 
 
@@ -16,6 +21,35 @@ def test_totp_implementation_matches_current_token():
 
     assert len(token) == 6
     assert verify_totp(secret, token, window=0)
+
+
+@pytest.mark.django_db
+def test_totp_code_cannot_be_replayed(monkeypatch):
+    current_time = 1_800_000_000
+    monkeypatch.setattr("pamolive.vault.services.time.time", lambda: current_time)
+    user = User.objects.create_user(username="totp-replay-user")
+    device, _secret = begin_totp_enrollment(user)
+    token = totp_code(device_secret(device), timestamp=current_time)
+    assert confirm_totp_device(device, token)
+
+    assert verify_user_totp(user, token)
+    assert not verify_user_totp(user, token)
+
+    device.refresh_from_db()
+    assert device.last_accepted_totp_counter == current_time // 30
+
+
+@pytest.mark.django_db
+def test_totp_rejects_older_counter_after_newer_code_was_accepted(monkeypatch):
+    current_time = 1_800_000_030
+    monkeypatch.setattr("pamolive.vault.services.time.time", lambda: current_time)
+    user = User.objects.create_user(username="totp-counter-user")
+    device, _secret = begin_totp_enrollment(user)
+    secret = device_secret(device)
+    assert confirm_totp_device(device, totp_code(secret, timestamp=current_time))
+
+    assert verify_user_totp(user, totp_code(secret, timestamp=current_time))
+    assert not verify_user_totp(user, totp_code(secret, timestamp=current_time - 30))
 
 
 @pytest.mark.django_db

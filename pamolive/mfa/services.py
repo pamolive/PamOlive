@@ -9,7 +9,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
 
-from pamolive.vault.services import VaultCipher, verify_totp
+from pamolive.vault.services import VaultCipher, matching_totp_counter
 
 from .models import MFADevice, MFARecoveryCode
 
@@ -52,26 +52,54 @@ def begin_totp_enrollment(user):
             "encryption_key_id": cipher.active_key_id,
             "confirmed": False,
             "last_used_at": None,
+            "last_accepted_totp_counter": None,
         },
     )
     return device, secret
 
 
+@transaction.atomic
 def confirm_totp_device(device, token):
-    if not verify_totp(device_secret(device), token):
+    locked = MFADevice.objects.select_for_update().get(pk=device.pk)
+    counter = matching_totp_counter(device_secret(locked), token)
+    if counter is None:
         return False
-    device.confirmed = True
-    device.last_used_at = timezone.now()
-    device.save(update_fields=["confirmed", "last_used_at", "updated_at"])
+    locked.confirmed = True
+    locked.last_used_at = timezone.now()
+    locked.save(
+        update_fields=[
+            "confirmed",
+            "last_used_at",
+            "updated_at",
+        ]
+    )
+    device.confirmed = locked.confirmed
+    device.last_used_at = locked.last_used_at
     return True
 
 
+@transaction.atomic
 def verify_user_totp(user, token):
-    device = user.mfa_devices.filter(kind=MFADevice.Kind.TOTP, confirmed=True).first()
-    if not device or not verify_totp(device_secret(device), token):
+    device = (
+        MFADevice.objects.select_for_update()
+        .filter(user=user, kind=MFADevice.Kind.TOTP, confirmed=True)
+        .first()
+    )
+    if not device:
+        return False
+    counter = matching_totp_counter(device_secret(device), token)
+    if counter is None:
+        return False
+    if (
+        device.last_accepted_totp_counter is not None
+        and counter <= device.last_accepted_totp_counter
+    ):
         return False
     device.last_used_at = timezone.now()
-    device.save(update_fields=["last_used_at", "updated_at"])
+    device.last_accepted_totp_counter = counter
+    device.save(
+        update_fields=["last_used_at", "last_accepted_totp_counter", "updated_at"]
+    )
     return True
 
 
