@@ -55,10 +55,15 @@ def totp_code(secret, timestamp=None, interval=30, digits=6):
 
 
 def verify_totp(secret, token, window=1):
+    return matching_totp_counter(secret, token, window=window) is not None
+
+
+def matching_totp_counter(secret, token, window=1, timestamp=None, interval=30):
     if not token or not token.isdigit():
-        return False
-    now = time.time()
-    return any(
-        hmac.compare_digest(totp_code(secret, now + offset * 30), token)
-        for offset in range(-window, window + 1)
-    )
+        return None
+    current_counter = int((time.time() if timestamp is None else timestamp) // interval)
+    for offset in range(window, -window - 1, -1):
+        counter = current_counter + offset
+        if hmac.compare_digest(totp_code(secret, counter * interval, interval=interval), token):
+            return counter
+    return None

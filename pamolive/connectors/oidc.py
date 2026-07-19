@@ -8,7 +8,7 @@ from pamolive.rbac.models import UserGroup
 
 from .models import ExternalIdentity, IdentitySource
 from .services import get_identity_source_configuration
-from .sync import reconcile_external_memberships
+from .sync import reconcile_external_memberships, reconcile_oidc_default_membership
 
 
 class OIDCProvisioningError(PermissionDenied):
@@ -70,10 +70,6 @@ def _default_group(configuration):
 def _provision_oidc_identity(source, claims):
     if source.kind != IdentitySource.Kind.OIDC or not source.enabled:
         raise OIDCProvisioningError("Le fournisseur OIDC n’est pas disponible.")
-    if claims.get("email_verified") is False:
-        raise OIDCProvisioningError(
-            "L’adresse e-mail fournie par le fournisseur n’est pas vérifiée."
-        )
     subject = claims.get("sub")
     if not subject:
         raise OIDCProvisioningError("Le jeton OIDC ne contient pas de sujet.")
@@ -101,7 +97,9 @@ def _provision_oidc_identity(source, claims):
     ]
     default_group = _default_group(configuration)
     fallback_authorized = bool(
-        default_group and _email_allowed_by_configuration(configuration, email)
+        claims.get("email_verified") is True
+        and default_group
+        and _email_allowed_by_configuration(configuration, email)
     )
 
     if identity is None:
@@ -133,27 +131,24 @@ def _provision_oidc_identity(source, claims):
             last_seen_at=timezone.now(),
         )
     else:
+        if not identity.enabled or not identity.user.is_active:
+            raise OIDCProvisioningError("Ce compte externe est désactivé.")
         identity.username = username
         identity.email = email
         identity.claims = claims
-        identity.enabled = True
         identity.last_seen_at = timezone.now()
         identity.save(
             update_fields=(
                 "username",
                 "email",
                 "claims",
-                "enabled",
                 "last_seen_at",
                 "updated_at",
             )
         )
 
     reconcile_external_memberships(identity, matched)
-    if fallback_authorized:
-        default_group.users.add(identity.user)
-    if not identity.enabled or not identity.user.is_active:
-        raise OIDCProvisioningError("Ce compte externe est désactivé.")
+    reconcile_oidc_default_membership(identity, default_group if fallback_authorized else None)
     return identity.user, bool(matched or fallback_authorized)
 
 

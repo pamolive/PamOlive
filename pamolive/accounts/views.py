@@ -14,6 +14,7 @@ from pamolive.connectors.models import IdentitySource
 from pamolive.connectors.oidc import oidc_client_for, provision_oidc_identity
 
 from .forms import PAMOliveAuthenticationForm
+from .recent_mfa import mark_mfa_verified
 
 
 class PAMOliveLoginView(LoginView):
@@ -29,6 +30,8 @@ class PAMOliveLoginView(LoginView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
+        if form.get_user().mfa_enrolled:
+            mark_mfa_verified(self.request)
         record_event(
             actor=form.get_user(),
             action="authentication.password.succeeded",

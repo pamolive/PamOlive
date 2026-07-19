@@ -3,6 +3,10 @@
 - Secrets must never appear in logs, URLs, Celery tasks, or WebSocket messages.
 - Secrets are encrypted at rest with a key supplied outside the database.
 - Approvals enforce separation of duties.
+- Revealing a target secret or launching SSH/RDP requires a local MFA proof no
+  older than five minutes by default. `PAMOLIVE_MFA_STEP_UP_MAX_AGE_SECONDS`
+  configures this window; OIDC authentication alone does not satisfy the local
+  step-up requirement.
 - Audit events are immutable and hash-chained.
 - Production requires HTTPS, secure cookies, HSTS, and explicit origins.
 - The SSH/RDP gateway is a separate, least-privileged component.
