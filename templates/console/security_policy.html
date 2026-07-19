@@ -27,6 +27,8 @@
     <p>{{ ui.session_policy_detail }}</p>
     <div class="policy-fact"><strong>{{ policy.idle_timeout_minutes }} min</strong><small>{{ ui.idle_limit }}</small></div>
     <div class="policy-fact"><strong>{{ policy.absolute_session_minutes }} min</strong><small>{{ ui.absolute_limit }}</small></div>
+    <div class="policy-fact"><strong>{{ policy.sensitive_action_mfa_window_minutes }} min</strong><small>MFA récente pour actions sensibles</small></div>
+    <p>Actions sensibles : révéler un secret ou TOTP, démarrer une session SSH/RDP, approuver une demande, exporter l’audit, terminer une session ou modifier la configuration. La MFA n’est pas redemandée pendant une session SSH/RDP déjà ouverte.</p>
   </section>
 </div>
 {% endblock %}

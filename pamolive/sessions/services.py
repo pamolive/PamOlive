@@ -22,7 +22,7 @@ def _token_hash(token):
 
 @transaction.atomic
 def issue_session_ticket(
-    *, user, credential, justification, lifetime_seconds=60, source_ip=None
+    *, user, credential, justification, lifetime_seconds=60, source_ip=None, mfa_verified_at=None
 ):
     justification = normalize_justification(justification)
     if credential.target.protocol not in {
@@ -50,6 +50,7 @@ def issue_session_ticket(
         credential,
         AccessPolicy.Action.START_SESSION,
         source_ip=source_ip,
+        mfa_verified_at=mfa_verified_at,
     )
     # Serialize quota decisions for a policy. Counting alone is racy under
     # PostgreSQL READ COMMITTED and pending tickets already reserve capacity.

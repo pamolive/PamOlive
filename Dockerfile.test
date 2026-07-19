@@ -16,7 +16,7 @@ COPY pamolive ./pamolive
 COPY config ./config
 COPY keyring ./keyring
 COPY manage.py ./
-COPY compose.yml Dockerfile.guacamole ./
+COPY compose.yml Dockerfile Dockerfile.guacamole requirements.lock ./
 COPY deploy ./deploy
 COPY templates ./templates
 COPY static ./static

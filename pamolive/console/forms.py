@@ -67,11 +67,15 @@ class PlatformSecurityPolicyForm(ConsoleFormMixin, forms.ModelForm):
             "idle_timeout_minutes",
             "absolute_session_minutes",
             "require_mfa_for_all_users",
+            "sensitive_action_mfa_window_minutes",
         )
         labels = {
             "idle_timeout_minutes": "Déconnexion après inactivité (minutes)",
             "absolute_session_minutes": "Durée maximale d’une session web (minutes)",
             "require_mfa_for_all_users": "MFA obligatoire pour tous les utilisateurs",
+            "sensitive_action_mfa_window_minutes": (
+                "Validité MFA pour actions sensibles"
+            ),
         }
 
     def clean(self):

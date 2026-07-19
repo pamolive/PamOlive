@@ -5,7 +5,12 @@ from django.test import override_settings
 from django.urls import reverse
 
 from pamolive.accounts.models import PlatformSecurityPolicy, User
-from pamolive.accounts.recent_mfa import MFA_VERIFIED_AT_SESSION_KEY
+from pamolive.accounts.recent_mfa import (
+    MFA_VERIFIED_AT_SESSION_KEY,
+    has_recent_mfa,
+    mark_mfa_verified,
+    verify_mfa_step_up,
+)
 from pamolive.mfa.models import MFADevice, MFARecoveryCode
 from pamolive.mfa.services import (
     begin_totp_enrollment,
@@ -293,23 +298,29 @@ def test_target_secret_and_session_require_recent_mfa_after_oidc_style_login(cli
     )
     session_challenge = client.post(reverse("start_session", args=[credential.pk]), request_data)
 
-    assert reveal_challenge.status_code == 403
-    assert session_challenge.status_code == 403
-    assert b"V\xc3\xa9rification MFA requise" in reveal_challenge.content
+    assert reveal_challenge.status_code == 302
+    assert session_challenge.status_code == 302
+    assert reverse("mfa_verify") in reveal_challenge.url
+    assert reverse("mfa_verify") in session_challenge.url
     assert b"step-up-secret" not in reveal_challenge.content
     assert MFA_VERIFIED_AT_SESSION_KEY not in client.session
 
     verified = client.post(
-        reverse("reveal_target_credential", args=[credential.pk]),
+        reverse("mfa_verify"),
         {
-            **request_data,
-            "otp_token": totp_code(device_secret(device)),
+            "token": totp_code(device_secret(device)),
+            "next": reverse("reveal_target_credential", args=[credential.pk]),
+            "action": "révéler un secret de cible",
         },
     )
 
-    assert verified.status_code == 200
-    assert b"step-up-secret" in verified.content
+    assert verified.status_code == 302
     assert MFA_VERIFIED_AT_SESSION_KEY in client.session
+    revealed = client.post(
+        reverse("reveal_target_credential", args=[credential.pk]), request_data
+    )
+    assert revealed.status_code == 200
+    assert b"step-up-secret" in revealed.content
 
 
 @override_settings(
@@ -319,19 +330,25 @@ def test_target_secret_and_session_require_recent_mfa_after_oidc_style_login(cli
 @pytest.mark.django_db
 def test_expired_mfa_proof_requires_a_new_step_up(client, monkeypatch):
     user, _device, credential = _privileged_mfa_fixture()
+    from pamolive.accounts.models import PlatformSecurityPolicy
+
+    PlatformSecurityPolicy.objects.update_or_create(
+        pk=1,
+        defaults={"sensitive_action_mfa_window_minutes": 5},
+    )
     client.force_login(user)
     session = client.session
     session[MFA_VERIFIED_AT_SESSION_KEY] = 1_800_000_000
     session.save()
-    monkeypatch.setattr("pamolive.accounts.recent_mfa.time.time", lambda: 1_800_000_301)
+    monkeypatch.setattr("pamolive.accounts.sensitive_actions.time.time", lambda: 1_800_000_301)
 
     response = client.post(
         reverse("start_session", args=[credential.pk]),
         {"justification": "Investigate a privileged production issue"},
     )
 
-    assert response.status_code == 403
-    assert b"V\xc3\xa9rification MFA requise" in response.content
+    assert response.status_code == 302
+    assert reverse("mfa_verify") in response.url
 
 
 @override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
@@ -353,3 +370,18 @@ def test_password_login_records_recent_mfa_proof(client):
 
     assert response.status_code == 302
     assert MFA_VERIFIED_AT_SESSION_KEY in client.session
+
+
+@override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
+def test_legacy_recent_mfa_helpers_fail_closed(monkeypatch):
+    class Request:
+        session = {}
+        user = None
+
+    request = Request()
+    assert has_recent_mfa(request) is False
+    mark_mfa_verified(request, verified_at=1_000)
+    monkeypatch.setattr("pamolive.accounts.recent_mfa.time.time", lambda: 1_100)
+    assert has_recent_mfa(request) is True
+    monkeypatch.setattr("pamolive.accounts.recent_mfa.verify_user_mfa", lambda user, token: False)
+    assert verify_mfa_step_up(request, "invalid") is False

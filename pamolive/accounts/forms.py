@@ -100,6 +100,25 @@ class MFAConfirmForm(forms.Form):
     )
 
 
+class MFAVerificationForm(forms.Form):
+    token = forms.CharField(
+        label="Code MFA",
+        widget=forms.TextInput(
+            attrs={"class": "console-input", "autocomplete": "one-time-code"}
+        ),
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        self.user = user
+        super().__init__(*args, **kwargs)
+
+    def clean_token(self):
+        token = self.cleaned_data["token"]
+        if not verify_user_mfa(self.user, token):
+            raise forms.ValidationError("Le code MFA est incorrect.")
+        return token
+
+
 class MFASecurityForm(forms.Form):
     password = forms.CharField(
         label="Mot de passe actuel",

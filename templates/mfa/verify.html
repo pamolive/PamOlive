@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Confirmation MFA · PAM-olive{% endblock %}
+{% block content %}
+<header class="section-hero">
+  <div>
+    <span class="eyebrow"><i></i> Action sensible</span>
+    <h1>Confirmez votre MFA.</h1>
+    <p>Cette confirmation protège les actions qui révèlent, ouvrent, approuvent ou modifient un accès privilégié.</p>
+  </div>
+</header>
+<section class="panel auth-panel">
+  <span class="panel-kicker">Validation ponctuelle</span>
+  <h2>Avant de {{ action_label }}</h2>
+  <p>La MFA est demandée avant l’action sensible. Elle ne sera pas redemandée pendant une session SSH ou RDP déjà ouverte.</p>
+  <form method="post" class="console-form">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <input type="hidden" name="action" value="{{ action_label }}">
+    {% for field in form %}
+      <div class="console-field {% if field.errors %}has-error{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% for error in field.errors %}<small class="field-error">{{ error }}</small>{% endfor %}
+      </div>
+    {% endfor %}
+    <button class="primary-button" type="submit">Confirmer et continuer</button>
+  </form>
+</section>
+{% endblock %}

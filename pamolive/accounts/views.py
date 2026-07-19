@@ -14,7 +14,7 @@ from pamolive.connectors.models import IdentitySource
 from pamolive.connectors.oidc import oidc_client_for, provision_oidc_identity
 
 from .forms import PAMOliveAuthenticationForm
-from .recent_mfa import mark_mfa_verified
+from .sensitive_actions import mark_mfa_verified
 
 
 class PAMOliveLoginView(LoginView):

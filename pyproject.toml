@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pam-olive"
-version = "1.0.2"
+version = "1.1.0"
 description = "PAM-olive, an open-source privileged access management platform"
 authors = [{ name = "MOPACY" }]
 maintainers = [{ name = "MOPACY" }]

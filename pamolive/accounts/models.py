@@ -50,6 +50,12 @@ class User(AbstractUser):
 
 
 class PlatformSecurityPolicy(models.Model):
+    class SensitiveActionMFAWindow(models.IntegerChoices):
+        TWO_MINUTES = 2, "2 minutes"
+        FIVE_MINUTES = 5, "5 minutes"
+        TEN_MINUTES = 10, "10 minutes"
+        FIFTEEN_MINUTES = 15, "15 minutes"
+
     id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
     idle_timeout_minutes = models.PositiveIntegerField(
         default=15,
@@ -64,6 +70,14 @@ class PlatformSecurityPolicy(models.Model):
     require_mfa_for_all_users = models.BooleanField(
         default=True,
         help_text="Require every interactive user to enroll and use MFA at sign-in.",
+    )
+    sensitive_action_mfa_window_minutes = models.PositiveSmallIntegerField(
+        default=5,
+        choices=SensitiveActionMFAWindow.choices,
+        validators=(MinValueValidator(2), MaxValueValidator(15)),
+        help_text=(
+            "Require a fresh MFA verification before sensitive actions within this window."
+        ),
     )
     updated_at = models.DateTimeField(auto_now=True)
     updated_by = models.ForeignKey(

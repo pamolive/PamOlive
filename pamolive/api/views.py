@@ -7,6 +7,7 @@ from django.core.exceptions import PermissionDenied
 from django.db import connection
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.cache import patch_cache_control
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -16,11 +17,16 @@ from django.views.decorators.http import require_POST
 from pamolive.accounts.forms import (
     MFAConfirmForm,
     MFASecurityForm,
+    MFAVerificationForm,
     PreferencesForm,
     ProfileForm,
 )
 from pamolive.accounts.models import PlatformSecurityPolicy, User
-from pamolive.accounts.recent_mfa import has_recent_mfa, mark_mfa_verified, verify_mfa_step_up
+from pamolive.accounts.sensitive_actions import (
+    MFA_SESSION_KEY,
+    mark_mfa_verified,
+    require_recent_mfa,
+)
 from pamolive.api.forms import PrivilegedActionJustificationForm
 from pamolive.approvals.forms import AccessRequestForm
 from pamolive.approvals.models import AccessRequest
@@ -56,40 +62,6 @@ def health(request):
     with connection.cursor() as cursor:
         cursor.execute("SELECT 1")
     return JsonResponse({"status": "ok", "database": "ok"})
-
-
-def _mfa_step_up_response(request):
-    if has_recent_mfa(request):
-        return None
-    token = request.POST.get("otp_token", "")
-    if token and verify_mfa_step_up(request, token):
-        record_event(
-            actor=request.user,
-            action="authentication.mfa.step_up_succeeded",
-            resource=request.user,
-            source_ip=request_client_ip(request),
-        )
-        return None
-    if token:
-        record_event(
-            actor=request.user,
-            action="authentication.mfa.step_up_failed",
-            resource=request.user,
-            source_ip=request_client_ip(request),
-        )
-    response = render(
-        request,
-        "mfa/step_up.html",
-        {
-            "error": bool(token),
-            "justification": request.POST.get("justification", ""),
-        },
-        status=403,
-    )
-    patch_cache_control(
-        response, no_cache=True, no_store=True, must_revalidate=True, private=True
-    )
-    return response
 
 
 @login_required
@@ -227,6 +199,7 @@ def edit_personal_item(request, pk):
 
 @require_POST
 @login_required
+@require_recent_mfa("révéler un élément du coffre personnel")
 def reveal_personal_item(request, pk):
     item = get_object_or_404(PersonalVaultItem, pk=pk, owner=request.user)
     payload = VaultCipher().decrypt_payload(
@@ -255,15 +228,13 @@ def reveal_personal_item(request, pk):
 
 @require_POST
 @login_required
+@require_recent_mfa("révéler un secret de cible")
 def reveal_target_credential(request, pk):
     credential = get_object_or_404(Credential.objects.select_related("target"), pk=pk)
     source_ip = request_client_ip(request)
     actions = actions_for_target(request.user, credential.target, source_ip=source_ip)
     if AccessPolicy.Action.VIEW_SECRET not in actions:
         raise PermissionDenied
-    step_up_response = _mfa_step_up_response(request)
-    if step_up_response is not None:
-        return step_up_response
     justification_form = PrivilegedActionJustificationForm(request.POST)
     if not justification_form.is_valid():
         return render(
@@ -278,6 +249,7 @@ def reveal_target_credential(request, pk):
         credential=credential,
         justification=justification,
         source_ip=source_ip,
+        mfa_verified_at=request.session.get(MFA_SESSION_KEY),
     )
     _consumed_lease, secret = consume_secret_lease(
         token=token,
@@ -328,6 +300,7 @@ def _totp_json(secret):
 
 @never_cache
 @login_required
+@require_recent_mfa("rafraîchir un code TOTP du coffre personnel")
 def personal_item_totp(request, pk):
     item = get_object_or_404(PersonalVaultItem, pk=pk, owner=request.user)
     payload = VaultCipher().decrypt_payload(
@@ -340,6 +313,7 @@ def personal_item_totp(request, pk):
 
 @never_cache
 @login_required
+@require_recent_mfa("rafraîchir un code TOTP de cible")
 def target_credential_totp(request, pk):
     credential = get_object_or_404(Credential.objects.select_related("target"), pk=pk)
     grant_expires_at = int(request.session.get(f"target_secret_grant:{credential.pk}", 0))
@@ -399,6 +373,7 @@ def targets_page(request):
 @never_cache
 @require_POST
 @login_required
+@require_recent_mfa("démarrer une session privilégiée")
 def start_session(request, pk):
     credential = get_object_or_404(Credential.objects.select_related("target"), pk=pk)
     source_ip = request_client_ip(request)
@@ -409,9 +384,6 @@ def start_session(request, pk):
         source_ip=source_ip,
     ):
         raise PermissionDenied
-    step_up_response = _mfa_step_up_response(request)
-    if step_up_response is not None:
-        return step_up_response
     justification_form = PrivilegedActionJustificationForm(request.POST)
     if not justification_form.is_valid():
         response = render(
@@ -436,6 +408,7 @@ def start_session(request, pk):
             credential=credential,
             justification=justification_form.cleaned_data["justification"],
             source_ip=source_ip,
+            mfa_verified_at=request.session.get(MFA_SESSION_KEY),
         )
     except PermissionDenied as error:
         if "clé d’hôte SSH approuvée" not in str(error):
@@ -615,6 +588,47 @@ def mfa_enrollment_required(request):
     return response
 
 
+@never_cache
+@login_required
+def mfa_verify(request):
+    if not request.user.mfa_enrolled:
+        return redirect("mfa_setup_required")
+    next_url = request.GET.get("next") or request.POST.get("next") or reverse("dashboard")
+    if not url_has_allowed_host_and_scheme(
+        next_url,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        next_url = reverse("dashboard")
+    action_label = request.GET.get("action") or request.POST.get("action") or "continuer"
+    form = MFAVerificationForm(
+        request.POST or None,
+        user=request.user,
+    )
+    if request.method == "POST" and form.is_valid():
+        mark_mfa_verified(request)
+        record_event(
+            actor=request.user,
+            action="authentication.mfa.step_up_succeeded",
+            resource=request.user,
+            metadata={"action": action_label},
+            source_ip=request_client_ip(request),
+        )
+        messages.success(request, "MFA confirmée. Vous pouvez relancer l’action sensible.")
+        return redirect(next_url)
+    response = render(
+        request,
+        "mfa/verify.html",
+        {
+            "form": form,
+            "next": next_url,
+            "action_label": action_label,
+        },
+    )
+    patch_cache_control(response, no_cache=True, no_store=True, must_revalidate=True, private=True)
+    return response
+
+
 @require_POST
 @login_required
 def mfa_confirm(request, pk):
@@ -665,6 +679,7 @@ def mfa_reset(request):
     if not form.is_valid():
         messages.error(request, "La MFA n’a pas été réinitialisée : vérifiez vos codes.")
         return redirect("account")
+    mark_mfa_verified(request)
     device = request.user.mfa_devices.filter(confirmed=True).first()
     reset_user_mfa(request.user)
     record_event(actor=request.user, action="account.mfa_reset", resource=device)
@@ -686,6 +701,7 @@ def mfa_recovery_regenerate(request):
     if not form.is_valid():
         messages.error(request, "Les codes n’ont pas été renouvelés : vérifiez vos codes.")
         return redirect("account")
+    mark_mfa_verified(request)
     recovery_codes = replace_recovery_codes(request.user, device)
     record_event(actor=request.user, action="account.mfa_recovery_regenerated", resource=device)
     request.session["new_mfa_recovery_codes"] = recovery_codes
