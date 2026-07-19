@@ -5,6 +5,8 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-19
+
 ### Changed
 
 - Python production, development, and keyring dependencies are now fully locked with
