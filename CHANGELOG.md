@@ -5,6 +5,11 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+### Security
+
+- Target-secret reveals and SSH/RDP session launches now require a local MFA proof
+  no older than five minutes, including for sessions created through OIDC.
+
 ### Fixed
 
 - TOTP codes are consumed atomically and cannot be replayed during their validity
