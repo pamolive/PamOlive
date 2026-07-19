@@ -2,11 +2,11 @@ FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed3356887313
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 RUN addgroup -S pamolive && adduser -S -G pamolive -h /home/pamolive pamolive
 WORKDIR /app
-COPY pyproject.toml README.md ./
+COPY requirements.lock ./
+RUN pip install --require-hashes -r requirements.lock
 COPY pamolive ./pamolive
 COPY config ./config
 COPY manage.py ./
-RUN pip install --upgrade pip && pip install .
 COPY templates ./templates
 COPY static ./static
 RUN python manage.py collectstatic --noinput --settings=config.settings.base

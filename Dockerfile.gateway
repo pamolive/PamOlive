@@ -11,10 +11,10 @@ RUN addgroup -S -g "${PAMOLIVE_RUNTIME_GID}" pamolive \
 WORKDIR /app
 RUN mkdir /recordings && chown pamolive:pamolive /recordings
 
-COPY pyproject.toml README.md ./
+COPY requirements.lock ./
+RUN pip install --require-hashes -r requirements.lock
 COPY pamolive ./pamolive
 COPY config ./config
-RUN pip install --upgrade pip && pip install .
 
 USER pamolive
 EXPOSE 8001
