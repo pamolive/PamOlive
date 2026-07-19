@@ -287,7 +287,7 @@ def test_oidc_default_group_membership_is_reconciled_when_configuration_changes(
 
     assert not first_group.users.filter(pk=user.pk).exists()
     assert second_group.users.filter(pk=user.pk).exists()
-    membership.refresh_from_db()
+    membership = OIDCDefaultGroupMembership.objects.get(identity__user=user)
     assert membership.user_group == second_group
 
 
