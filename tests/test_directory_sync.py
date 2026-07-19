@@ -9,6 +9,7 @@ from pamolive.connectors.models import (
     DirectoryGroupMapping,
     ExternalIdentity,
     IdentitySource,
+    OIDCDefaultGroupMembership,
 )
 from pamolive.connectors.oidc import provision_oidc_identity
 from pamolive.connectors.services import set_identity_source_configuration
