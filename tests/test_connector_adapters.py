@@ -203,3 +203,30 @@ def test_oidc_login_uses_forwarded_https_callback(client, monkeypatch, settings)
     assert callback_uris == [
         f"https://pamolive.mopacy.be{reverse('oidc_callback', args=(source.slug,))}"
     ]
+
+
+@pytest.mark.django_db
+def test_oidc_login_prefers_configured_public_url(client, monkeypatch, settings):
+    settings.PAMOLIVE_PUBLIC_URL = "https://pamolive.mopacy.be"
+    settings.ALLOWED_HOSTS = ["pamolive.mopacy.be", "127.0.0.1"]
+    source = source_with_configuration(IdentitySource.Kind.OIDC)
+    callback_uris = []
+
+    class FakeOIDCClient:
+        def authorize_redirect(self, request, callback_uri):
+            callback_uris.append(callback_uri)
+            return HttpResponseRedirect("https://identity.example.test/authorize")
+
+    monkeypatch.setattr(
+        "pamolive.accounts.views.oidc_client_for", lambda selected_source: FakeOIDCClient()
+    )
+
+    response = client.get(
+        reverse("oidc_login", args=(source.slug,)),
+        HTTP_HOST="127.0.0.1",
+    )
+
+    assert response.status_code == 302
+    assert callback_uris == [
+        f"https://pamolive.mopacy.be{reverse('oidc_callback', args=(source.slug,))}"
+    ]

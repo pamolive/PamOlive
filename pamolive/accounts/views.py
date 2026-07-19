@@ -9,6 +9,7 @@ from django.urls import reverse
 from pamolive.audit.models import AuditChainState
 from pamolive.audit.services import record_event
 from pamolive.common.network import request_client_ip
+from pamolive.common.urls import public_absolute_uri
 from pamolive.connectors.models import IdentitySource
 from pamolive.connectors.oidc import oidc_client_for, provision_oidc_identity
 
@@ -56,7 +57,7 @@ def oidc_login(request, slug):
         enabled=True,
     )
     client = oidc_client_for(source)
-    callback_uri = request.build_absolute_uri(reverse("oidc_callback", args=(source.slug,)))
+    callback_uri = public_absolute_uri(request, reverse("oidc_callback", args=(source.slug,)))
     return client.authorize_redirect(request, callback_uri)
 
 

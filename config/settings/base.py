@@ -13,6 +13,7 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="unsafe-local-key-change-before-pr
 DEBUG = False
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
+PAMOLIVE_PUBLIC_URL = env("PAMOLIVE_PUBLIC_URL", default="").rstrip("/")
 
 DJANGO_APPS = [
     "daphne",

@@ -23,6 +23,7 @@ from pamolive.approvals.models import AccessRequest, ApprovalDecision
 from pamolive.approvals.services import decide_access_request
 from pamolive.audit.models import AuditEvent, SIEMDelivery, SIEMIntegration
 from pamolive.audit.services import record_event, redact_metadata, verify_audit_chain
+from pamolive.common.urls import public_absolute_uri
 from pamolive.connectors.models import DirectoryGroupMapping, IdentitySource
 from pamolive.connectors.services import (
     set_identity_source_configuration,
@@ -467,8 +468,8 @@ def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=
         )
         extra_context = {
             "oidc_example_slug": example_slug,
-            "oidc_callback_url": request.build_absolute_uri(callback_path),
-            "oidc_login_url": request.build_absolute_uri(login_path),
+            "oidc_callback_url": public_absolute_uri(request, callback_path),
+            "oidc_login_url": public_absolute_uri(request, login_path),
         }
     return _render_resource(
         request,

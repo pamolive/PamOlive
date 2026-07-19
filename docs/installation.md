@@ -106,6 +106,7 @@ using a public name, set at least:
 DJANGO_SETTINGS_MODULE=config.settings.production
 DJANGO_ALLOWED_HOSTS=pam.example.org
 DJANGO_CSRF_TRUSTED_ORIGINS=https://pam.example.org
+PAMOLIVE_PUBLIC_URL=https://pam.example.org
 PAMOLIVE_HTTP_BIND=0.0.0.0
 PAMOLIVE_HTTP_PORT=8000
 ```
@@ -115,6 +116,11 @@ Terminate valid TLS at the external reverse proxy, preserve `Host`,
 `/ws/sessions/`. Do not publish PostgreSQL, Redis, the SSH gateway, Guacamole, or
 `guacd` ports. The dedicated RDP origin must also use HTTPS and match
 `PAMOLIVE_RDP_PUBLIC_ORIGIN`.
+
+`PAMOLIVE_PUBLIC_URL` is the canonical browser URL used when PAM-olive must
+generate absolute external URLs, such as OpenID Connect callback URLs. Set it
+explicitly when the application is behind DSM, BunkerWeb, Caddy, Nginx, Traefik,
+or another TLS-terminating reverse proxy.
 
 For Internet-facing deployment, add a firewall/VLAN destination allowlist for the
 broker egress, external append-only SIEM delivery, tested backups, and a documented
