@@ -1,3 +1,4 @@
+import time
 from datetime import timedelta
 
 import pytest
@@ -113,6 +114,7 @@ def test_secret_lease_requires_active_approval_and_mfa():
         user=user,
         credential=credential,
         justification="Routine operational access test",
+        mfa_verified_at=int(time.time()),
     )
 
     assert lease.access_request == access_request

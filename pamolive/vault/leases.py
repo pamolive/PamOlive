@@ -7,6 +7,8 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from pamolive.accounts.models import PlatformSecurityPolicy
+from pamolive.accounts.sensitive_actions import mfa_timestamp_is_recent
 from pamolive.approvals.models import AccessRequest
 from pamolive.audit.services import record_event
 from pamolive.common.justification import normalize_justification
@@ -43,7 +45,9 @@ def authorizing_policy_for(
     action=AccessPolicy.Action.VIEW_SECRET,
     *,
     source_ip=None,
+    mfa_verified_at=None,
 ):
+    platform_policy, _created = PlatformSecurityPolicy.objects.get_or_create(pk=1)
     candidates = policies_allowing(user, action, source_ip=source_ip).filter(
         Q(targets=credential.target)
         | Q(target_groups__enabled=True, target_groups__targets=credential.target)
@@ -59,6 +63,11 @@ def authorizing_policy_for(
             confirmed=True,
         ).exists():
             continue
+        if policy.requires_mfa and not mfa_timestamp_is_recent(
+            mfa_verified_at,
+            policy=platform_policy,
+        ):
+            continue
         return policy, access_request
     raise PermissionDenied("Aucune autorisation active ne permet cette opération.")
 
@@ -71,6 +80,7 @@ def issue_secret_lease(
     purpose=SecretLease.Purpose.REVEAL,
     lifetime_seconds=60,
     source_ip=None,
+    mfa_verified_at=None,
 ):
     justification = normalize_justification(justification)
     if not credential.checkout_enabled or not credential.target.enabled:
@@ -87,6 +97,7 @@ def issue_secret_lease(
         credential,
         action,
         source_ip=source_ip,
+        mfa_verified_at=mfa_verified_at,
     )
     token = secrets.token_urlsafe(32)
     lease = SecretLease.objects.create(

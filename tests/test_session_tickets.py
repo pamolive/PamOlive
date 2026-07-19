@@ -1,4 +1,5 @@
 import base64
+import time
 from datetime import timedelta
 
 import pytest
@@ -9,8 +10,10 @@ from django.urls import reverse
 from django.utils import timezone
 
 from pamolive.accounts.models import User
+from pamolive.accounts.sensitive_actions import MFA_SESSION_KEY
 from pamolive.approvals.models import AccessRequest
 from pamolive.audit.models import AuditEvent
+from pamolive.mfa.models import MFADevice
 from pamolive.policies.models import AccessPolicy
 from pamolive.rbac.models import UserGroup
 from pamolive.sessions.consumers import TerminalConsumer
@@ -23,6 +26,19 @@ from pamolive.sessions.services import (
 from pamolive.targets.models import Target, TargetGroup, TargetHostKey
 from pamolive.vault.models import Credential
 from pamolive.vault.services import VaultCipher
+
+
+def confirm_recent_mfa(client, user):
+    MFADevice.objects.create(
+        user=user,
+        name="Confirmed TOTP",
+        kind=MFADevice.Kind.TOTP,
+        encrypted_configuration=VaultCipher().encrypt("JBSWY3DPEHPK3PXP"),
+        confirmed=True,
+    )
+    session = client.session
+    session[MFA_SESSION_KEY] = int(time.time())
+    session.save()
 
 
 def session_fixture(*, protocol=Target.Protocol.SSH, requires_approval=False):
@@ -211,6 +227,7 @@ def test_start_session_page_is_policy_controlled_and_never_cached(client):
     assert denied.status_code == 403
 
     client.force_login(user)
+    confirm_recent_mfa(client, user)
     targets = client.get(reverse("targets"))
     response = client.post(
         reverse("start_session", args=[credential.pk]),
@@ -258,6 +275,7 @@ def test_administrator_terminates_active_session_and_auditor_cannot(monkeypatch,
         client.post(reverse("console:terminate_session", args=[session.pk])).status_code == 403
     )
     client.force_login(administrator)
+    confirm_recent_mfa(client, administrator)
     response = client.post(reverse("console:terminate_session", args=[session.pk]))
     session.refresh_from_db()
 

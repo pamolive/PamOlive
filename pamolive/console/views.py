@@ -19,6 +19,7 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST
 
 from pamolive.accounts.models import PlatformSecurityPolicy, User
+from pamolive.accounts.sensitive_actions import sensitive_mfa_required
 from pamolive.approvals.models import AccessRequest, ApprovalDecision
 from pamolive.approvals.services import decide_access_request
 from pamolive.audit.models import AuditEvent, SIEMDelivery, SIEMIntegration
@@ -108,6 +109,13 @@ def security_policy(request):
     )
     policy, _created = PlatformSecurityPolicy.objects.get_or_create(pk=1)
     form = PlatformSecurityPolicyForm(request.POST or None, instance=policy)
+    if request.method == "POST":
+        step_up_response = sensitive_mfa_required(
+            request,
+            action_label="modifier la politique de sécurité",
+        )
+        if step_up_response is not None:
+            return step_up_response
     if request.method == "POST" and form.is_valid():
         policy = form.save(commit=False)
         policy.updated_by = request.user
@@ -120,6 +128,9 @@ def security_policy(request):
                   "idle_timeout_minutes": policy.idle_timeout_minutes,
                   "absolute_session_minutes": policy.absolute_session_minutes,
                   "require_mfa_for_all_users": policy.require_mfa_for_all_users,
+                  "sensitive_action_mfa_window_minutes": (
+                      policy.sensitive_action_mfa_window_minutes
+                  ),
               },
         )
         messages.success(request, "La politique de session a été mise à jour.")
@@ -784,6 +795,12 @@ def approvals(request):
     if request.method == "POST":
         if not can_decide:
             raise PermissionDenied
+        step_up_response = sensitive_mfa_required(
+            request,
+            action_label="approuver ou refuser une demande d’accès",
+        )
+        if step_up_response is not None:
+            return step_up_response
         access_request = get_object_or_404(AccessRequest, pk=request.POST.get("request_id"))
         try:
             decide_access_request(
@@ -884,6 +901,12 @@ def _csv_safe(value):
 @login_required
 @capability_required(Role.Capability.AUDIT_EXPORT)
 def audit_export(request, export_format):
+    step_up_response = sensitive_mfa_required(
+        request,
+        action_label="exporter le journal d’audit",
+    )
+    if step_up_response is not None:
+        return step_up_response
     if export_format not in {"csv", "jsonl"}:
         return HttpResponse("Format d’export non pris en charge.", status=404)
     integrity = verify_audit_chain()
@@ -973,6 +996,12 @@ def sessions(request):
 @login_required
 @capability_required(Role.Capability.SESSIONS_TERMINATE)
 def terminate_session(request, pk):
+    step_up_response = sensitive_mfa_required(
+        request,
+        action_label="terminer une session privilégiée",
+    )
+    if step_up_response is not None:
+        return step_up_response
     session = get_object_or_404(PrivilegedSession, pk=pk)
     updated, notify_gateway = request_session_termination(session, actor=request.user)
     if notify_gateway:

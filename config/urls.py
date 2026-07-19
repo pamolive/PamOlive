@@ -13,6 +13,7 @@ from pamolive.api.views import (
     mfa_recovery_regenerate,
     mfa_reset,
     mfa_setup,
+    mfa_verify,
     passwords_page,
     personal_item_totp,
     requests_page,
@@ -58,6 +59,7 @@ urlpatterns = [
     ),
     path("account/mfa/<uuid:pk>/confirm/", mfa_confirm, name="mfa_confirm"),
     path("account/mfa/reset/", mfa_reset, name="mfa_reset"),
+    path("account/mfa/verify/", mfa_verify, name="mfa_verify"),
     path("account/mfa/recovery-codes/", mfa_recovery_codes, name="mfa_recovery_codes"),
     path(
         "account/mfa/recovery/regenerate/",
