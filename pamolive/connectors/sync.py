@@ -7,7 +7,12 @@ from pamolive.accounts.models import User
 from pamolive.audit.services import record_event
 
 from .adapters import adapter_for
-from .models import ExternalGroupMembership, ExternalIdentity, IdentitySource
+from .models import (
+    ExternalGroupMembership,
+    ExternalIdentity,
+    IdentitySource,
+    OIDCDefaultGroupMembership,
+)
 
 
 class DirectorySynchronizationError(RuntimeError):
@@ -83,6 +88,41 @@ def reconcile_external_memberships(identity, matched_mappings):
             user_group.users.remove(identity.user_id)
             removed += 1
     return added, removed
+
+
+def reconcile_oidc_default_membership(identity, user_group):
+    try:
+        existing = identity.oidc_default_group_membership
+    except OIDCDefaultGroupMembership.DoesNotExist:
+        existing = None
+
+    if existing and existing.user_group_id == (user_group.pk if user_group else None):
+        return
+
+    if existing:
+        previous_group = existing.user_group
+        preserve = existing.preserve_membership_on_unlink
+        existing.delete()
+        has_other_managed_source = ExternalGroupMembership.objects.filter(
+            identity__user_id=identity.user_id,
+            mapping__user_group=previous_group,
+        ).exists()
+        has_other_oidc_fallback = OIDCDefaultGroupMembership.objects.filter(
+            identity__user_id=identity.user_id,
+            user_group=previous_group,
+        ).exists()
+        if not preserve and not has_other_managed_source and not has_other_oidc_fallback:
+            previous_group.users.remove(identity.user_id)
+
+    if user_group:
+        was_member = user_group.users.filter(pk=identity.user_id).exists()
+        OIDCDefaultGroupMembership.objects.create(
+            identity=identity,
+            user_group=user_group,
+            preserve_membership_on_unlink=was_member,
+        )
+        if not was_member:
+            user_group.users.add(identity.user_id)
 
 
 @transaction.atomic
