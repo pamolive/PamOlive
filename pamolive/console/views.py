@@ -24,7 +24,10 @@ from pamolive.approvals.services import decide_access_request
 from pamolive.audit.models import AuditEvent, SIEMDelivery, SIEMIntegration
 from pamolive.audit.services import record_event, redact_metadata, verify_audit_chain
 from pamolive.connectors.models import DirectoryGroupMapping, IdentitySource
-from pamolive.connectors.services import test_oidc_provider_configuration
+from pamolive.connectors.services import (
+    set_identity_source_configuration,
+    test_oidc_provider_configuration,
+)
 from pamolive.operations.models import RotationJob
 from pamolive.operations.services import queue_rotation
 from pamolive.operations.tasks import execute_rotation_job
@@ -412,7 +415,31 @@ def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=
     kinds = kind if isinstance(kind, (tuple, list, set)) else (kind,)
     instance = get_object_or_404(IdentitySource, pk=pk, kind__in=kinds) if pk else None
     form = form_class(request.POST or None, instance=instance)
-    if request.method == "POST":
+    if request.method == "POST" and resource == "oidc_sources" and "test_draft" in request.POST:
+        if form.is_valid():
+            draft_source = IdentitySource(
+                name=form.cleaned_data["name"],
+                slug=form.cleaned_data["slug"],
+                kind=IdentitySource.Kind.OIDC,
+                enabled=False,
+                verify_tls=form.cleaned_data.get("verify_tls", True),
+            )
+            set_identity_source_configuration(draft_source, form.cleaned_data["configuration"])
+            try:
+                test_oidc_provider_configuration(draft_source)
+            except ValidationError as error:
+                messages.error(request, "Test OIDC échoué : " + " ".join(error.messages))
+            else:
+                messages.success(
+                    request,
+                    "Test OIDC réussi : PAM-olive joint le fournisseur et lit sa configuration.",
+                )
+        else:
+            messages.error(
+                request,
+                "Complétez les champs OIDC obligatoires avant de tester la connexion.",
+            )
+    elif request.method == "POST":
         response = _save_form(
             request,
             form,
@@ -427,17 +454,19 @@ def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=
     ).order_by("name")
     extra_context = None
     if resource == "oidc_sources":
+        example_slug = instance.slug if instance else "infomaniak"
         callback_path = (
             f"/accounts/oidc/{instance.slug}/callback/"
             if instance
-            else "/accounts/oidc/<identifiant-technique>/callback/"
+            else f"/accounts/oidc/{example_slug}/callback/"
         )
         login_path = (
             f"/accounts/oidc/{instance.slug}/login/"
             if instance
-            else "/accounts/oidc/<identifiant-technique>/login/"
+            else f"/accounts/oidc/{example_slug}/login/"
         )
         extra_context = {
+            "oidc_example_slug": example_slug,
             "oidc_callback_url": request.build_absolute_uri(callback_path),
             "oidc_login_url": request.build_absolute_uri(login_path),
         }

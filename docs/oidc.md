@@ -10,14 +10,14 @@ buttons to the login page; it does not replace local emergency access.
 ## Safe configuration flow
 
 1. Open **Administration → Identités et droits → Domaines de connexion**.
-2. Create the provider with **Source active** disabled.
+2. Fill in the provider with **Source active** disabled.
 3. Choose a stable technical identifier, for example `infomaniak`, `google`,
    `entra`, or `keycloak`.
 4. Copy the displayed callback URL into the provider application.
-5. Save the provider.
-6. Use **Tester la découverte OIDC avant activation**.
+5. Use **Tester la connexion sans enregistrer**.
+6. Save the provider after the test succeeds.
 7. Create at least one group mapping under **Correspondances de groupes**.
-8. Enable the provider only after the discovery test succeeds.
+8. Enable the provider only after the connection test and group mapping are ready.
 
 The callback URL has this shape:
 
@@ -67,7 +67,8 @@ In Infomaniak Cloud Computing → Auth:
 
 4. Copy the client ID and client secret into PAM-olive.
 5. Configure the Infomaniak issuer URL in PAM-olive.
-6. Save the provider disabled, test discovery, then enable it.
+6. Test the connection without saving.
+7. Save the provider disabled, add group mappings, then enable it.
 
 ## Multiple login domains
 
@@ -99,7 +100,7 @@ If users can authenticate at the provider but PAM-olive rejects them, check:
 
 ## What the test button verifies
 
-The pre-activation test checks that:
+The pre-save and pre-activation test checks that:
 
 - the issuer is HTTPS;
 - the discovery document is reachable;

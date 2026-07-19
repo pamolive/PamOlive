@@ -52,7 +52,7 @@
       <div class="oidc-setup-helper">
         <span class="panel-kicker">OpenID Connect</span>
         <h3>URL à copier chez le fournisseur</h3>
-        <p>Créez d’abord le domaine en mode inactif, copiez cette URL de redirection, testez la découverte, puis activez-le.</p>
+        <p>Pour Infomaniak, utilisez l’identifiant technique <strong>{{ oidc_example_slug }}</strong>, copiez cette URL de redirection, testez la connexion, puis activez le domaine.</p>
         <label>URL de redirection / callback</label>
         <code>{{ oidc_callback_url }}</code>
         <label>URL de connexion PamOlive</label>
@@ -62,7 +62,7 @@
       {% if editing %}
       <form method="post" action="{% url 'console:oidc_source_test' editing.pk %}" class="oidc-test-form">
         {% csrf_token %}
-        <button class="secondary-button" type="submit">Tester la découverte OIDC avant activation</button>
+        <button class="secondary-button" type="submit">Tester la connexion OIDC</button>
         <span>{% if editing.enabled %}Actif sur la page de connexion{% else %}Inactif : invisible sur la page de connexion{% endif %}</span>
       </form>
       {% endif %}
@@ -85,6 +85,9 @@
         {% endif %}
         <div class="form-actions">
           {% if editing %}<a href="." class="cancel-button">Annuler</a>{% endif %}
+          {% if resource == 'oidc_sources' %}
+          <button class="secondary-button" type="submit" name="test_draft" value="1">Tester la connexion sans enregistrer</button>
+          {% endif %}
           <button class="primary-button" type="submit">Enregistrer <span>→</span></button>
         </div>
       </form>

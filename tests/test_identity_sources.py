@@ -137,7 +137,8 @@ def test_oidc_console_shows_callback_and_login_urls(client):
     assert response.status_code == 200
     assert b"/accounts/oidc/infomaniak/callback/" in response.content
     assert b"/accounts/oidc/infomaniak/login/" in response.content
-    assert b"Tester la d\xc3\xa9couverte OIDC avant activation" in response.content
+    assert b"Tester la connexion sans enregistrer" in response.content
+    assert b"Tester la connexion OIDC" in response.content
 
 
 @pytest.mark.django_db
@@ -180,6 +181,58 @@ def test_disabled_oidc_source_can_be_tested_before_activation(client, monkeypatc
         action="console.identitysource.oidc_test_succeeded",
         resource_id=str(source.pk),
     ).exists()
+
+
+@pytest.mark.django_db
+def test_oidc_draft_can_be_tested_without_saving(client, monkeypatch):
+    administrator = User.objects.create_user(
+        username="oidc-draft-admin",
+        email="oidc-draft-admin@example.test",
+        password="safe-password",
+    )
+    UserGroup.objects.get(name="Administrateurs PAM-olive").users.add(administrator)
+    client.force_login(administrator)
+    requests_seen = []
+
+    class FakeDiscoveryResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "issuer": "https://login.infomaniak.com",
+                "authorization_endpoint": "https://login.infomaniak.com/authorize",
+                "token_endpoint": "https://login.infomaniak.com/token",
+                "jwks_uri": "https://login.infomaniak.com/oauth2/jwks",
+            }
+
+    def fake_get(url, timeout, verify):
+        requests_seen.append((url, timeout, verify))
+        return FakeDiscoveryResponse()
+
+    monkeypatch.setattr("pamolive.connectors.services.requests.get", fake_get)
+
+    response = client.post(
+        reverse("console:oidc_sources"),
+        {
+            "name": "Infomaniak - Mopacy",
+            "slug": "infomaniak",
+            "kind": IdentitySource.Kind.OIDC,
+            "verify_tls": "on",
+            "issuer": "https://login.infomaniak.com",
+            "client_id": "infomaniak-client",
+            "client_secret": "infomaniak-secret",
+            "scopes": "openid email profile",
+            "groups_claim": "groups",
+            "test_draft": "1",
+        },
+    )
+
+    assert response.status_code == 200
+    assert requests_seen == [
+        ("https://login.infomaniak.com/.well-known/openid-configuration", 8, True)
+    ]
+    assert not IdentitySource.objects.filter(slug="infomaniak").exists()
 
 
 @pytest.mark.django_db
