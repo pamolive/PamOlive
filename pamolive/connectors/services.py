@@ -51,7 +51,7 @@ def _required(configuration, fields):
 
 def validate_identity_source_configuration(kind, configuration):
     if not isinstance(configuration, dict):
-        raise IdentitySourceConfigurationError("La configuration doit ?tre un objet JSON.")
+        raise IdentitySourceConfigurationError("La configuration doit être un objet JSON.")
 
     if kind in {IdentitySource.Kind.LDAP, IdentitySource.Kind.ACTIVE_DIRECTORY}:
         unknown = set(configuration) - LDAP_FIELDS
@@ -59,12 +59,12 @@ def validate_identity_source_configuration(kind, configuration):
         parsed = urlparse(configuration["server_uri"])
         if parsed.scheme not in {"ldap", "ldaps"} or not parsed.hostname:
             raise IdentitySourceConfigurationError(
-                "L?adresse LDAP doit utiliser ldap:// ou ldaps:// avec un h?te explicite."
+                "L’adresse LDAP doit utiliser ldap:// ou ldaps:// avec un hôte explicite."
             )
         timeout = int(configuration.get("connect_timeout_seconds", 10))
         if timeout < 1 or timeout > 60:
             raise IdentitySourceConfigurationError(
-                "Le d?lai de connexion LDAP doit ?tre compris entre 1 et 60 secondes."
+                "Le délai de connexion LDAP doit être compris entre 1 et 60 secondes."
             )
     elif kind == IdentitySource.Kind.OIDC:
         unknown = set(configuration) - OIDC_FIELDS
@@ -72,10 +72,10 @@ def validate_identity_source_configuration(kind, configuration):
         parsed = urlparse(configuration["issuer"])
         if parsed.scheme != "https" or not parsed.hostname:
             raise IdentitySourceConfigurationError(
-                "L??metteur OIDC doit ?tre une URL HTTPS absolue."
+                "L’émetteur OIDC doit être une URL HTTPS absolue."
             )
     else:
-        raise IdentitySourceConfigurationError("Type de source d?identit? non pris en charge.")
+        raise IdentitySourceConfigurationError("Type de source d’identité non pris en charge.")
 
     if unknown:
         raise IdentitySourceConfigurationError(
@@ -107,7 +107,7 @@ def test_oidc_provider_configuration(source, timeout_seconds=8):
     """Test OIDC discovery for a saved source, even while it is disabled."""
 
     if source.kind != IdentitySource.Kind.OIDC:
-        raise IdentitySourceConfigurationError("Cette source n?est pas un fournisseur OIDC.")
+        raise IdentitySourceConfigurationError("Cette source n’est pas un fournisseur OIDC.")
 
     configuration = validate_identity_source_configuration(
         source.kind,
@@ -124,11 +124,11 @@ def test_oidc_provider_configuration(source, timeout_seconds=8):
         metadata = response.json()
     except requests.RequestException as exc:
         raise IdentitySourceConfigurationError(
-            f"Impossible de joindre la d?couverte OIDC : {exc.__class__.__name__}."
+            f"Impossible de joindre la découverte OIDC : {exc.__class__.__name__}."
         ) from exc
     except ValueError as exc:
         raise IdentitySourceConfigurationError(
-            "La d?couverte OIDC ne renvoie pas un document JSON valide."
+            "La découverte OIDC ne renvoie pas un document JSON valide."
         ) from exc
 
     required_metadata = {
@@ -140,11 +140,11 @@ def test_oidc_provider_configuration(source, timeout_seconds=8):
     missing = sorted(field for field in required_metadata if not metadata.get(field))
     if missing:
         raise IdentitySourceConfigurationError(
-            f"M?tadonn?es OIDC incompl?tes : {', '.join(missing)}."
+            f"Métadonnées OIDC incomplètes : {', '.join(missing)}."
         )
     if metadata["issuer"].rstrip("/") != configuration["issuer"].rstrip("/"):
         raise IdentitySourceConfigurationError(
-            "L?issuer retourn? par le fournisseur ne correspond pas ? l?issuer configur?."
+            "L’issuer retourné par le fournisseur ne correspond pas à l’issuer configuré."
         )
     return metadata
 
@@ -152,6 +152,6 @@ def test_oidc_provider_configuration(source, timeout_seconds=8):
 def redacted_identity_source_configuration(source):
     configuration = get_identity_source_configuration(source)
     return {
-        key: "????????" if key in SENSITIVE_FIELDS and value else value
+        key: "••••••••" if key in SENSITIVE_FIELDS and value else value
         for key, value in configuration.items()
     }

@@ -9,13 +9,13 @@ buttons to the login page; it does not replace local emergency access.
 
 ## Safe configuration flow
 
-1. Open **Administration ? Identit?s et droits ? Domaines de connexion**.
+1. Open **Administration → Identités et droits → Domaines de connexion**.
 2. Create the provider with **Source active** disabled.
 3. Choose a stable technical identifier, for example `infomaniak`, `google`,
    `entra`, or `keycloak`.
 4. Copy the displayed callback URL into the provider application.
 5. Save the provider.
-6. Use **Tester la d?couverte OIDC avant activation**.
+6. Use **Tester la découverte OIDC avant activation**.
 7. Create at least one group mapping under **Correspondances de groupes**.
 8. Enable the provider only after the discovery test succeeds.
 
@@ -47,7 +47,7 @@ enabled provider.
 | Nom de la source | Display name shown to administrators and on the login page |
 | Identifiant technique | Slug used in the callback and login URLs |
 | Source active | Makes the provider visible on the login page |
-| ?metteur OIDC | HTTPS issuer URL, not the authorization endpoint |
+| Émetteur OIDC | HTTPS issuer URL, not the authorization endpoint |
 | Client ID | Application/client identifier from the provider |
 | Secret client | Application/client secret from the provider |
 | Scopes OIDC | Usually `openid email profile` |
@@ -55,7 +55,7 @@ enabled provider.
 
 ## Infomaniak example
 
-In Infomaniak Cloud Computing ? Auth:
+In Infomaniak Cloud Computing → Auth:
 
 1. Create a **Web Front-End** application.
 2. Name it `PamOlive`.
