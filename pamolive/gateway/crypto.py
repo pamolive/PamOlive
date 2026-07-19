@@ -38,12 +38,35 @@ def decrypt_envelope(token, shared_key):
         raise GatewayProtocolError("L’enveloppe du broker est invalide ou expirée.") from error
 
 
-def request_signature(shared_key, timestamp, body):
-    signed = str(timestamp).encode() + b"." + body
+def request_signature(shared_key, timestamp, body, *, method="", path="", request_id=""):
+    if request_id:
+        signed = b"\n".join(
+            (
+                b"v2",
+                str(timestamp).encode(),
+                request_id.encode(),
+                method.upper().encode(),
+                path.encode(),
+                body,
+            )
+        )
+    else:
+        signed = str(timestamp).encode() + b"." + body
     return hmac.new(shared_key.encode(), signed, hashlib.sha256).hexdigest()
 
 
-def verify_request_signature(shared_key, timestamp, body, signature, *, now=None, max_age=30):
+def verify_request_signature(
+    shared_key,
+    timestamp,
+    body,
+    signature,
+    *,
+    method="",
+    path="",
+    request_id="",
+    now=None,
+    max_age=30,
+):
     try:
         issued_at = int(timestamp)
     except (TypeError, ValueError):
@@ -51,5 +74,12 @@ def verify_request_signature(shared_key, timestamp, body, signature, *, now=None
     current = int(time.time() if now is None else now)
     if abs(current - issued_at) > max_age:
         return False
-    expected = request_signature(shared_key, timestamp, body)
+    expected = request_signature(
+        shared_key,
+        timestamp,
+        body,
+        method=method,
+        path=path,
+        request_id=request_id,
+    )
     return bool(signature) and hmac.compare_digest(expected, signature)

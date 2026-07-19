@@ -5,9 +5,19 @@ from django.test import override_settings
 from django.urls import reverse
 
 from pamolive.accounts.models import PlatformSecurityPolicy, User
+from pamolive.accounts.recent_mfa import MFA_VERIFIED_AT_SESSION_KEY
 from pamolive.mfa.models import MFADevice, MFARecoveryCode
-from pamolive.mfa.services import begin_totp_enrollment, device_secret
-from pamolive.vault.services import totp_code, verify_totp
+from pamolive.mfa.services import (
+    begin_totp_enrollment,
+    confirm_totp_device,
+    device_secret,
+    verify_user_totp,
+)
+from pamolive.policies.models import AccessPolicy
+from pamolive.rbac.models import UserGroup
+from pamolive.targets.models import Target, TargetGroup
+from pamolive.vault.models import Credential
+from pamolive.vault.services import VaultCipher, totp_code, verify_totp
 
 
 def test_totp_implementation_matches_current_token():
@@ -16,6 +26,35 @@ def test_totp_implementation_matches_current_token():
 
     assert len(token) == 6
     assert verify_totp(secret, token, window=0)
+
+
+@pytest.mark.django_db
+def test_totp_code_cannot_be_replayed(monkeypatch):
+    current_time = 1_800_000_000
+    monkeypatch.setattr("pamolive.vault.services.time.time", lambda: current_time)
+    user = User.objects.create_user(username="totp-replay-user")
+    device, _secret = begin_totp_enrollment(user)
+    token = totp_code(device_secret(device), timestamp=current_time)
+    assert confirm_totp_device(device, token)
+
+    assert verify_user_totp(user, token)
+    assert not verify_user_totp(user, token)
+
+    device.refresh_from_db()
+    assert device.last_accepted_totp_counter == current_time // 30
+
+
+@pytest.mark.django_db
+def test_totp_rejects_older_counter_after_newer_code_was_accepted(monkeypatch):
+    current_time = 1_800_000_030
+    monkeypatch.setattr("pamolive.vault.services.time.time", lambda: current_time)
+    user = User.objects.create_user(username="totp-counter-user")
+    device, _secret = begin_totp_enrollment(user)
+    secret = device_secret(device)
+    assert confirm_totp_device(device, totp_code(secret, timestamp=current_time))
+
+    assert verify_user_totp(user, totp_code(secret, timestamp=current_time))
+    assert not verify_user_totp(user, totp_code(secret, timestamp=current_time - 30))
 
 
 @pytest.mark.django_db
@@ -196,3 +235,111 @@ def test_global_policy_can_explicitly_disable_mandatory_enrollment(client):
     client.force_login(user)
 
     assert client.get(reverse("dashboard")).status_code == 200
+
+
+def _privileged_mfa_fixture():
+    user = User.objects.create_user(username="step-up-user", password="safe-password")
+    device, _secret = begin_totp_enrollment(user)
+    device.confirmed = True
+    device.save(update_fields=("confirmed", "updated_at"))
+    target = Target.objects.create(
+        name="Step-up SSH",
+        hostname="192.0.2.80",
+        port=22,
+        protocol=Target.Protocol.SSH,
+        ssh_host_key_policy=Target.SSHHostKeyPolicy.TRUST_ON_FIRST_USE,
+    )
+    credential = Credential.objects.create(
+        name="Step-up root",
+        target=target,
+        username="root",
+        kind=Credential.Kind.PASSWORD,
+        encrypted_secret=VaultCipher().encrypt("step-up-secret"),
+    )
+    user_group = UserGroup.objects.create(name="Step-up users")
+    user_group.users.add(user)
+    target_group = TargetGroup.objects.create(name="Step-up targets")
+    target_group.targets.add(target)
+    policy = AccessPolicy.objects.create(
+        name="Step-up policy",
+        actions=[AccessPolicy.Action.VIEW_SECRET, AccessPolicy.Action.START_SESSION],
+        requires_approval=False,
+        requires_mfa=False,
+    )
+    policy.user_groups.add(user_group)
+    policy.target_groups.add(target_group)
+    return user, device, credential
+
+
+@override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
+@pytest.mark.django_db
+def test_target_secret_and_session_require_recent_mfa_after_oidc_style_login(client):
+    user, device, credential = _privileged_mfa_fixture()
+    client.force_login(user)
+    request_data = {"justification": "Investigate a privileged production issue"}
+
+    reveal_challenge = client.post(
+        reverse("reveal_target_credential", args=[credential.pk]), request_data
+    )
+    session_challenge = client.post(reverse("start_session", args=[credential.pk]), request_data)
+
+    assert reveal_challenge.status_code == 403
+    assert session_challenge.status_code == 403
+    assert b"V\xc3\xa9rification MFA requise" in reveal_challenge.content
+    assert b"step-up-secret" not in reveal_challenge.content
+    assert MFA_VERIFIED_AT_SESSION_KEY not in client.session
+
+    verified = client.post(
+        reverse("reveal_target_credential", args=[credential.pk]),
+        {
+            **request_data,
+            "otp_token": totp_code(device_secret(device)),
+        },
+    )
+
+    assert verified.status_code == 200
+    assert b"step-up-secret" in verified.content
+    assert MFA_VERIFIED_AT_SESSION_KEY in client.session
+
+
+@override_settings(
+    PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False,
+    PAMOLIVE_MFA_STEP_UP_MAX_AGE_SECONDS=300,
+)
+@pytest.mark.django_db
+def test_expired_mfa_proof_requires_a_new_step_up(client, monkeypatch):
+    user, _device, credential = _privileged_mfa_fixture()
+    client.force_login(user)
+    session = client.session
+    session[MFA_VERIFIED_AT_SESSION_KEY] = 1_800_000_000
+    session.save()
+    monkeypatch.setattr("pamolive.accounts.recent_mfa.time.time", lambda: 1_800_000_301)
+
+    response = client.post(
+        reverse("start_session", args=[credential.pk]),
+        {"justification": "Investigate a privileged production issue"},
+    )
+
+    assert response.status_code == 403
+    assert b"V\xc3\xa9rification MFA requise" in response.content
+
+
+@override_settings(PAMOLIVE_TEST_BYPASS_GLOBAL_MFA=False)
+@pytest.mark.django_db
+def test_password_login_records_recent_mfa_proof(client):
+    user = User.objects.create_user(username="recent-login", password="safe-password")
+    device, _secret = begin_totp_enrollment(user)
+    device.confirmed = True
+    device.save(update_fields=("confirmed", "updated_at"))
+
+    response = client.post(
+        reverse("login"),
+        {
+            "username": user.username,
+            "password": "safe-password",
+            "otp_token": totp_code(device_secret(device)),
+        },
+    )
+
+    assert response.status_code == 302
+    assert MFA_VERIFIED_AT_SESSION_KEY in client.session

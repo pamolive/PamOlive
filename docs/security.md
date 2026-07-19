@@ -3,9 +3,17 @@
 - Secrets must never appear in logs, URLs, Celery tasks, or WebSocket messages.
 - Secrets are encrypted at rest with a key supplied outside the database.
 - Approvals enforce separation of duties.
+- Revealing a target secret or launching SSH/RDP requires a local MFA proof no
+  older than five minutes by default. `PAMOLIVE_MFA_STEP_UP_MAX_AGE_SECONDS`
+  configures this window; OIDC authentication alone does not satisfy the local
+  step-up requirement.
 - Audit events are immutable and hash-chained.
 - Production requires HTTPS, secure cookies, HSTS, and explicit origins.
 - The SSH/RDP gateway is a separate, least-privileged component.
+- Internal gateway calls use short-lived HMAC signatures bound to the method, path,
+  body, and a single-use request ID. Replaying a captured signed request is rejected.
+  Legacy version 1 acceptance is disabled by default and may only be enabled
+  temporarily during the documented rolling upgrade.
 - The RDP interface uses a dedicated origin so its `GUAC_AUTH_TOKEN` cannot be
   read from the main PAM-olive origin.
 - Guacamole JSON is signed with HMAC-SHA256, encrypted with AES-128-CBC, valid for

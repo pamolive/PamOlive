@@ -1,0 +1,12 @@
+<div class="secret-denied mfa-step-up" role="group" aria-labelledby="mfa-step-up-title">
+  <strong id="mfa-step-up-title">Vérification MFA requise</strong>
+  <small>Confirmez un code TOTP ou un code de récupération avant cette opération privilégiée.</small>
+  {% if error %}<small class="field-error" role="alert">Le code MFA est incorrect.</small>{% endif %}
+  <form method="post" action="{{ request.path }}" hx-post="{{ request.path }}" hx-target="closest .mfa-step-up" hx-swap="outerHTML" class="console-form">
+    {% csrf_token %}
+    <input type="hidden" name="justification" value="{{ justification }}">
+    <label for="mfa-step-up-token">Code MFA</label>
+    <input id="mfa-step-up-token" class="console-input" name="otp_token" required autocomplete="one-time-code" inputmode="numeric" autofocus>
+    <button class="primary-button" type="submit">Vérifier et continuer</button>
+  </form>
+</div>
