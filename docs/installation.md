@@ -246,14 +246,24 @@ metadata, and plaintext meaning are preserved.
 
 ## Current security boundary
 
-The Community Compose profile creates an isolated keyring service. Its master key is
-generated on first start inside the dedicated `keyring_data` volume. No vault
-encryption key or audit-signing key is generated in `.env`, and no other service
-mounts that volume.
+The Community Compose profile creates an isolated keyring service. With the default
+`local` backend, its master key is generated on first start inside the dedicated
+`keyring_data` volume. No vault encryption key or audit-signing key is generated in
+`.env`, and no other service mounts that volume. Production operators may instead use
+the optional Vault Transit backend described in [Vault Transit](vault-transit.md).
+
+The one-shot `keyring-tls-init` service also creates a private CA plus distinct server
+and application-client certificates. Keyring traffic uses mutually authenticated TLS.
+Back up `keyring_data`, `keyring_tls_server`, and `keyring_tls_client` together; losing
+either TLS volume requires an explicit certificate rotation before services restart.
+
+LDAP, Active Directory, OIDC, and SIEM destinations cannot resolve to special-use or
+private addresses by default. List required internal directory or SIEM networks as a
+comma-separated allowlist, for example `PAMOLIVE_OUTBOUND_ALLOWED_CIDRS=10.20.0.0/16`.
 
 If any of `10.253.0.0/24`, `10.254.0.0/24`, or `10.255.0.0/24` overlaps a Docker,
 LAN, or VPN route, set `PAMOLIVE_FRONTEND_SUBNET`, `PAMOLIVE_INTERNAL_SUBNET`, and
 `PAMOLIVE_TARGETS_SUBNET` to unused private `/24` networks before first start. This service
 boundary does not claim HSM equivalence: a compromised authorised Django process can
-still request keyring operations. External KMS/HSM, target-side ephemeral-account
-provisioning, and multi-site high availability remain explicit post-V1 work.
+still request keyring operations. Cloud-specific KMS adapters, target-side
+ephemeral-account provisioning, and multi-site high availability remain future work.

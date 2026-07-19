@@ -1,19 +1,50 @@
 services:
+  keyring-tls-init:
+    build: ./keyring
+    user: "0:0"
+    command: ["python", "/app/init_keyring_tls.py"]
+    network_mode: none
+    environment:
+      PAMOLIVE_RUNTIME_UID: "10001"
+      PAMOLIVE_RUNTIME_GID: "10001"
+    volumes:
+      - keyring_data:/data
+      - keyring_tls_server:/keyring-server-tls
+      - keyring_tls_client:/keyring-client-tls
+    read_only: true
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    restart: "no"
+
   keyring:
     build: ./keyring
     environment:
       PAMOLIVE_KEYRING_TOKEN: ${PAMOLIVE_KEYRING_TOKEN:?PAMOLIVE_KEYRING_TOKEN must be configured}
       PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE: ${PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE:-1200}
       PAMOLIVE_KEYRING_DECRYPT_LIMIT_PER_MINUTE: ${PAMOLIVE_KEYRING_DECRYPT_LIMIT_PER_MINUTE:-300}
+      PAMOLIVE_KEYRING_CRYPTO_BACKEND: ${PAMOLIVE_KEYRING_CRYPTO_BACKEND:-local}
+      PAMOLIVE_VAULT_ADDR: ${PAMOLIVE_VAULT_ADDR:-}
+      PAMOLIVE_VAULT_TRANSIT_MOUNT: ${PAMOLIVE_VAULT_TRANSIT_MOUNT:-transit}
+      PAMOLIVE_VAULT_KEY_NAME: ${PAMOLIVE_VAULT_KEY_NAME:-pamolive}
+      PAMOLIVE_VAULT_TOKEN_FILE: ${PAMOLIVE_VAULT_TOKEN_FILE:-/run/secrets/pamolive_vault_token}
+      PAMOLIVE_VAULT_CA_PATH: ${PAMOLIVE_VAULT_CA_PATH:-}
+      PAMOLIVE_VAULT_NAMESPACE: ${PAMOLIVE_VAULT_NAMESPACE:-}
+      PAMOLIVE_VAULT_TIMEOUT_SECONDS: ${PAMOLIVE_VAULT_TIMEOUT_SECONDS:-5}
     volumes:
       - keyring_data:/data
+      - keyring_tls_server:/run/keyring-server-tls:ro
+      - keyring_tls_client:/run/keyring-client-tls:ro
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log", "--ssl-keyfile", "/run/keyring-server-tls/server.key", "--ssl-certfile", "/run/keyring-server-tls/server.crt", "--ssl-ca-certs", "/run/keyring-server-tls/ca.crt", "--ssl-cert-reqs", "2"]
+    depends_on:
+      keyring-tls-init: {condition: service_completed_successfully}
     healthcheck:
       test:
         [
           "CMD",
           "python",
           "-c",
-          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)",
+          "import ssl, urllib.request; c=ssl.create_default_context(cafile='/run/keyring-client-tls/ca.crt'); c.load_cert_chain('/run/keyring-client-tls/client.crt','/run/keyring-client-tls/client.key'); urllib.request.urlopen('https://127.0.0.1:8000/healthz', context=c, timeout=3)",
         ]
       interval: 5s
       timeout: 3s
@@ -48,6 +79,7 @@ services:
 
   redis-tls-init:
     build: ./keyring
+    user: "0:0"
     environment:
       REDIS_RUNTIME_UID: ${PAMOLIVE_REDIS_RUNTIME_UID:-999}
       REDIS_RUNTIME_GID: ${PAMOLIVE_REDIS_RUNTIME_GID:-1000}
@@ -99,6 +131,7 @@ services:
     env_file: .env
     environment:
       PAMOLIVE_TRUST_PROXY_HEADERS: "true"
+      PAMOLIVE_KEYRING_URL: https://keyring:8000
       REDIS_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/0
       REDIS_TLS_CA_PATH: /run/redis-tls/ca.crt
     command: ["sh", "-c", "python -m config.runtime_secrets && python manage.py migrate && daphne -b 0.0.0.0 -p 8000 config.asgi:application"]
@@ -122,6 +155,7 @@ services:
     networks: [frontend, internal]
     volumes:
       - redis_tls_client:/run/redis-tls:ro
+      - keyring_tls_client:/run/keyring-tls:ro
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
@@ -153,10 +187,13 @@ services:
       PAMOLIVE_RECORDING_KEY: ${PAMOLIVE_RECORDING_KEY:?PAMOLIVE_RECORDING_KEY must be configured}
       PAMOLIVE_RECORDING_DIR: /recordings
       PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES: ${PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES:-false}
+      PAMOLIVE_GATEWAY_REPLAY_CACHE_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/2
+      PAMOLIVE_GATEWAY_REPLAY_CACHE_CA_PATH: /run/redis-tls/ca.crt
     expose: ["8001"]
     depends_on:
       recordings-init: {condition: service_completed_successfully}
       web: {condition: service_healthy}
+      redis: {condition: service_healthy}
     healthcheck:
       test:
         [
@@ -172,6 +209,7 @@ services:
     networks: [frontend, internal, targets]
     volumes:
       - recordings_data:/recordings
+      - redis_tls_client:/run/redis-tls:ro
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,size=64m
@@ -237,7 +275,7 @@ services:
       REMOTE_IP_VALVE_ENABLED: "true"
       REMOTE_IP_VALVE_REMOTE_IP_HEADER: X-Forwarded-For
       REMOTE_IP_VALVE_PROTOCOL_HEADER: X-Forwarded-Proto
-      REMOTE_IP_VALVE_INTERNAL_PROXIES: ".*"
+      REMOTE_IP_VALVE_INTERNAL_PROXIES: ${PAMOLIVE_GUACAMOLE_TRUSTED_PROXY_REGEX:-10\\.253\\.0\\.[0-9]+}
     expose: ["8080"]
     depends_on: [guacd]
     healthcheck:
@@ -299,6 +337,7 @@ services:
     build: .
     env_file: .env
     environment:
+      PAMOLIVE_KEYRING_URL: https://keyring:8000
       REDIS_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/0
       REDIS_TLS_CA_PATH: /run/redis-tls/ca.crt
     command: ["celery", "-A", "config", "worker", "-l", "INFO"]
@@ -309,6 +348,7 @@ services:
     networks: [internal]
     volumes:
       - redis_tls_client:/run/redis-tls:ro
+      - keyring_tls_client:/run/keyring-tls:ro
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
@@ -316,6 +356,7 @@ services:
     build: .
     env_file: .env
     environment:
+      PAMOLIVE_KEYRING_URL: https://keyring:8000
       REDIS_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/0
       REDIS_TLS_CA_PATH: /run/redis-tls/ca.crt
     command:
@@ -335,6 +376,7 @@ services:
     networks: [internal]
     volumes:
       - redis_tls_client:/run/redis-tls:ro
+      - keyring_tls_client:/run/keyring-tls:ro
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 
@@ -354,6 +396,8 @@ services:
 
 volumes:
   keyring_data:
+  keyring_tls_server:
+  keyring_tls_client:
   postgres_data:
   redis_data:
   redis_tls_server:

@@ -7,6 +7,7 @@ import time
 import uuid
 
 import asyncssh
+import redis
 
 from .client import InternalAPIClient
 from .config import GatewayConfig
@@ -42,10 +43,38 @@ class GatewayApplication:
         self.recorder_class = recorder_class or EncryptedSessionRecorder
         self.cancellations = {}
         self.control_request_ids = {}
+        self.replay_cache = None
 
     def _dependencies(self):
         config = self.config or GatewayConfig.from_env()
         return config, self.api_client or InternalAPIClient(config)
+
+    def _claim_control_request_id(self, config, request_id, now):
+        if config.replay_cache_url:
+            if self.replay_cache is None:
+                options = {"socket_timeout": 2, "socket_connect_timeout": 2}
+                if config.replay_cache_ca_path:
+                    options["ssl_ca_certs"] = config.replay_cache_ca_path
+                    options["ssl_cert_reqs"] = "required"
+                self.replay_cache = redis.Redis.from_url(config.replay_cache_url, **options)
+            try:
+                return bool(
+                    self.replay_cache.set(
+                        f"pamolive:gateway-control:{request_id}", "1", ex=60, nx=True
+                    )
+                )
+            except redis.RedisError:
+                logger.error("Gateway replay cache is unavailable; refusing control request")
+                return False
+        self.control_request_ids = {
+            key: seen_at
+            for key, seen_at in self.control_request_ids.items()
+            if now - seen_at <= 60
+        }
+        if request_id in self.control_request_ids:
+            return False
+        self.control_request_ids[request_id] = now
+        return True
 
     async def __call__(self, scope, receive, send):
         if scope["type"] == "lifespan":
@@ -234,20 +263,15 @@ class GatewayApplication:
                     request_id=request_id,
                 )
             now = time.time()
-            self.control_request_ids = {
-                key: seen_at
-                for key, seen_at in self.control_request_ids.items()
-                if now - seen_at <= 60
-            }
             legacy_accepted = (
                 signature_version in {"", "1"} and config.accept_legacy_signatures
             )
             if not legacy_accepted and (
-                signature_version != "2" or not request_id or request_id in self.control_request_ids
+                signature_version != "2" or not request_id
             ):
                 valid = False
             elif valid and not legacy_accepted:
-                self.control_request_ids[request_id] = now
+                valid = self._claim_control_request_id(config, request_id, now)
             try:
                 session_id = str(json.loads(body).get("session_id", ""))
             except (json.JSONDecodeError, UnicodeDecodeError):

@@ -7,7 +7,7 @@ from pamolive.accounts.models import User
 from pamolive.rbac.models import UserGroup
 
 from .models import ExternalIdentity, IdentitySource
-from .services import get_identity_source_configuration
+from .services import get_identity_source_configuration, validate_identity_source_configuration
 from .sync import reconcile_external_memberships, reconcile_oidc_default_membership
 
 
@@ -18,7 +18,9 @@ class OIDCProvisioningError(PermissionDenied):
 def oidc_client_for(source):
     if source.kind != IdentitySource.Kind.OIDC or not source.enabled:
         raise OIDCProvisioningError("Le fournisseur OIDC n’est pas disponible.")
-    configuration = get_identity_source_configuration(source)
+    configuration = validate_identity_source_configuration(
+        source.kind, get_identity_source_configuration(source)
+    )
     oauth = OAuth()
     client = oauth.register(
         name=f"pam_olive_{source.slug}",

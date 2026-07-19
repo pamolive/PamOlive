@@ -12,6 +12,8 @@ class GatewayConfig:
     recording_dir: str
     connect_timeout: float = 10.0
     accept_legacy_signatures: bool = False
+    replay_cache_url: str = ""
+    replay_cache_ca_path: str = ""
 
     @classmethod
     def from_env(cls):
@@ -31,4 +33,6 @@ class GatewayConfig:
                 os.environ.get("PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES", "false").lower()
                 in {"1", "true", "yes", "on"}
             ),
+            replay_cache_url=os.environ.get("PAMOLIVE_GATEWAY_REPLAY_CACHE_URL", ""),
+            replay_cache_ca_path=os.environ.get("PAMOLIVE_GATEWAY_REPLAY_CACHE_CA_PATH", ""),
         )

@@ -96,19 +96,19 @@ class SIEMIntegrationForm(ConsoleFormMixin, forms.ModelForm):
 
     class Meta:
         model = SIEMIntegration
-        fields = ("name", "kind", "endpoint", "host", "port", "verify_tls", "enabled")
+        fields = ("name", "kind", "endpoint", "host", "port", "enabled")
         labels = {
             "name": "Integration name",
             "kind": "Transport",
             "endpoint": "HTTPS collector URL",
             "host": "Syslog host",
             "port": "Syslog TLS port",
-            "verify_tls": "Verify the TLS certificate",
             "enabled": "Forward new audit events",
         }
 
     def save(self, commit=True):
         integration = super().save(commit=False)
+        integration.verify_tls = True
         token = self.cleaned_data.get("auth_token")
         if token:
             cipher = VaultCipher()
@@ -320,7 +320,6 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
             "slug",
             "kind",
             "enabled",
-            "verify_tls",
             "sync_enabled",
             "sync_interval_minutes",
         )
@@ -329,7 +328,6 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
             "slug": "Identifiant technique",
             "kind": "Type de source",
             "enabled": "Source active",
-            "verify_tls": "Vérifier le certificat TLS",
             "sync_enabled": "Synchronisation automatique",
             "sync_interval_minutes": "Intervalle de synchronisation (minutes)",
         }
@@ -414,6 +412,7 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
 
     def save(self, commit=True):
         source = super().save(commit=False)
+        source.verify_tls = True
         set_identity_source_configuration(source, self.cleaned_data["configuration"])
         if commit:
             source.save()

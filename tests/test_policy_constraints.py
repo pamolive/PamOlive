@@ -175,6 +175,21 @@ def test_policy_limits_concurrent_sessions():
 
 
 @pytest.mark.django_db
+def test_pending_ticket_reserves_concurrent_session_capacity():
+    user, _target, allowed, _denied, _policy, _users, _targets = constrained_policy_fixture()
+    session, _ticket, token = issue_session_ticket(
+        user=user, credential=allowed, justification="Investigate production alert"
+    )
+
+    with pytest.raises(PermissionDenied, match="sessions simultanées"):
+        issue_session_ticket(
+            user=user, credential=allowed, justification="Investigate production alert"
+        )
+
+    consume_session_ticket(session_id=session.pk, token=token, user=user)
+
+
+@pytest.mark.django_db
 def test_policy_form_rejects_invalid_network_and_validity_order():
     _user, _target, _allowed, _denied, _policy, users, targets = constrained_policy_fixture()
     now = timezone.localtime().replace(second=0, microsecond=0)

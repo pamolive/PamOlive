@@ -26,25 +26,25 @@ Browser -- TLS reverse proxy -- Django login + TOTP -- policy / approval engine
 
 Target passwords, private SSH keys, and associated TOTP seeds are stored in the
 `vault.Credential` model as opaque ciphertext plus an explicit encryption-key ID.
-Encryption and audit signing are performed by the isolated `keyring` service. It
-creates `/data/master.key` with mode `0600` and derives separate encryption and
-signing keys with HKDF-SHA256. Its dedicated volume is never mounted by another
-service and it has no published host port.
+Encryption and audit signing are performed by the isolated `keyring` service. Its
+default Community backend creates `/data/master.key` with mode `0600` and derives
+separate encryption and signing keys with HKDF-SHA256. Its dedicated volume is never
+mounted by another service and it has no published host port. An optional
+`vault-transit` backend delegates encryption and HMAC operations to a self-hosted or
+managed HashiCorp Vault, so a fresh deployment creates no local master key.
 
 PostgreSQL does not receive the plaintext. Decryption happens only after a policy
 decision and a short, single-use lease or session ticket. The browser receives the
 secret only when a policy explicitly grants the separate reveal capability; normal
 SSH and RDP sessions inject it inside the broker and never expose it to the user.
 
-The Docker edition uses an isolated keyring service. Its master key is generated on
-first start in a dedicated volume mounted nowhere else; Django sends only scoped
-encrypt, decrypt, sign, and verify requests over the internal network. This is
-encryption at rest with key separation, but it is **not equivalent to an HSM**: a
-complete compromise of the Docker host or an authorised Django process can still
-request key operations. A pluggable external KMS/HSM backend and documented recovery
-ceremony remain production-hardening options. Key rotation is already versioned and
-target password rotation is policy-driven, but remote account rotation depends on a
-configured, tested target connector.
+The Docker edition uses an isolated keyring service; Django sends only scoped encrypt,
+decrypt, sign, and verify requests over the internal network. The local backend is
+encryption at rest with key separation, but it is **not equivalent to an HSM**. The
+Vault backend removes the local root key and provides server-side key versioning, but
+an authorised compromised application can still request operations until its Vault
+identity is revoked. Key rotation is versioned and target password rotation is
+policy-driven, but remote account rotation depends on a configured target connector.
 
 ## Authentication and MFA
 
@@ -106,9 +106,9 @@ credentials, tokens, cookies, or tickets are redacted before SIEM export. HTTPS
 webhooks and RFC 5424-style syslog over TLS are delivered asynchronously, with a
 local delivery ledger and retries.
 
-The default signing key is still supplied to Django at runtime. That detects database
-tampering but does not survive a full application-host compromise. High-assurance
-deployments must move signing to an external HSM/signing service and send events to
+The signing key is derived and retained by the isolated keyring; Django submits only
+sign and verify operations over mutually authenticated TLS. This does not survive a
+full Docker-host compromise. High-assurance deployments must use an external HSM/KMS and send events to
 an append-only or WORM SIEM destination whose credentials cannot delete prior data.
 
 ## Redis and protocol components
@@ -116,8 +116,8 @@ an append-only or WORM SIEM destination whose credentials cannot delete prior da
 Redis is reachable only on the private backend network and requires a password in
 Docker Compose. It carries channel messages, cache entries, Celery messages, and
 short-lived coordination data; permanent target credentials are not stored there.
-TLS is not enabled inside the single-host Compose topology. Multi-host deployments
-must enable Redis TLS (or use a managed private Redis service) in addition to ACLs.
+Redis disables its clear-text port and requires verified TLS. Web, workers, beat, and
+the SSH gateway receive only the client CA required for their Redis connections.
 
 Apache Guacamole and `guacd` are pinned to a specific release and isolated from the
 database and public host ports. Image digest pinning, vulnerability scanning, and a

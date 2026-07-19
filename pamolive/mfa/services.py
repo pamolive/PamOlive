@@ -66,15 +66,18 @@ def confirm_totp_device(device, token):
         return False
     locked.confirmed = True
     locked.last_used_at = timezone.now()
+    locked.last_accepted_totp_counter = counter
     locked.save(
         update_fields=[
             "confirmed",
             "last_used_at",
+            "last_accepted_totp_counter",
             "updated_at",
         ]
     )
     device.confirmed = locked.confirmed
     device.last_used_at = locked.last_used_at
+    device.last_accepted_totp_counter = locked.last_accepted_totp_counter
     return True
 
 

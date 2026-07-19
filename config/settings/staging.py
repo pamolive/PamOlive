@@ -13,7 +13,7 @@ if SECRET_KEY == "unsafe-local-key-change-before-production":  # noqa: F405
 keyring_url = urlparse(PAMOLIVE_KEYRING_URL)  # noqa: F405
 if PAMOLIVE_KEYRING_BACKEND != "http":  # noqa: F405
     raise ImproperlyConfigured("Staging requires the HTTP keyring backend")
-if keyring_url.scheme != "http" or keyring_url.hostname != "keyring":
+if keyring_url.scheme != "https" or keyring_url.hostname != "keyring":
     raise ImproperlyConfigured("PAMOLIVE_KEYRING_URL must point to the internal keyring service")
 redis_url = urlparse(REDIS_URL)  # noqa: F405
 if redis_url.scheme != "rediss" or not REDIS_TLS_CA_PATH:  # noqa: F405

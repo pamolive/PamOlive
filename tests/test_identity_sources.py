@@ -165,7 +165,7 @@ def test_disabled_oidc_source_can_be_tested_before_activation(client, monkeypatc
                 "jwks_uri": "https://identity.example.test/jwks",
             }
 
-    def fake_get(url, timeout, verify):
+    def fake_get(url, timeout, verify, allow_redirects):
         requests_seen.append((url, timeout, verify))
         return FakeDiscoveryResponse()
 
@@ -206,7 +206,7 @@ def test_oidc_draft_can_be_tested_without_saving(client, monkeypatch):
                 "jwks_uri": "https://login.infomaniak.com/oauth2/jwks",
             }
 
-    def fake_get(url, timeout, verify):
+    def fake_get(url, timeout, verify, allow_redirects):
         requests_seen.append((url, timeout, verify))
         return FakeDiscoveryResponse()
 

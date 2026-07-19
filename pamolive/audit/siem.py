@@ -6,6 +6,7 @@ import ssl
 import requests
 from django.utils import timezone
 
+from pamolive.common.outbound import validate_outbound_host, validate_outbound_url
 from pamolive.vault.services import VaultCipher
 
 from .models import SIEMDelivery, SIEMIntegration
@@ -40,6 +41,7 @@ def _auth_token(integration):
 
 
 def _send_https(integration, payload):
+    validate_outbound_url(integration.endpoint)
     headers = {"Content-Type": "application/json", "User-Agent": "PAM-olive-SIEM/1"}
     token = _auth_token(integration)
     if token:
@@ -49,20 +51,18 @@ def _send_https(integration, payload):
         json=payload,
         headers=headers,
         timeout=(5, 10),
-        verify=integration.verify_tls,
+        verify=True,
     )
     response.raise_for_status()
 
 
 def _send_syslog_tls(integration, payload):
+    validate_outbound_host(integration.host, port=integration.port)
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     message = f"<134>1 {payload['occurred_at']} pam-olive audit - - - {body}".encode()
     framed = str(len(message)).encode() + b" " + message
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
-    if not integration.verify_tls:
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
     with socket.create_connection((integration.host, integration.port), timeout=10) as raw:
         with context.wrap_socket(raw, server_hostname=integration.host) as secured:
             secured.sendall(framed)

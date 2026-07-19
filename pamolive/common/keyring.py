@@ -22,6 +22,11 @@ class KeyringClient:
                 json=payload,
                 headers={"Authorization": f"Bearer {settings.PAMOLIVE_KEYRING_TOKEN}"},
                 timeout=self.timeout,
+                verify=settings.PAMOLIVE_KEYRING_TLS_CA_PATH,
+                cert=(
+                    settings.PAMOLIVE_KEYRING_TLS_CLIENT_CERT_PATH,
+                    settings.PAMOLIVE_KEYRING_TLS_CLIENT_KEY_PATH,
+                ),
             )
             response.raise_for_status()
             return response.json()

@@ -156,6 +156,8 @@ def test_session_ticket_rejects_unsupported_protocol_foreign_user_and_changed_ip
 @pytest.mark.django_db
 def test_approval_can_authorize_multiple_sessions_during_its_validity_window():
     user, credential, policy = session_fixture(requires_approval=True)
+    policy.max_concurrent_sessions = 2
+    policy.save(update_fields=("max_concurrent_sessions", "updated_at"))
     access_request = AccessRequest.objects.create(
         requester=user,
         target=credential.target,

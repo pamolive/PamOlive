@@ -1,7 +1,7 @@
 # Security Policy
 
-Security is a product function, not an implied guarantee. PAM-olive is still in a
-pre-V1 phase and must not be considered certified or ready for a critical deployment
+Security is a product function, not an implied guarantee. PAM-olive 1.x must not be
+considered certified or ready for a critical deployment
 without an independent review.
 
 MOPACY.eu manages the official PAM-olive security response and release process.
@@ -10,9 +10,8 @@ MOPACY.eu manages the official PAM-olive security response and release process.
 
 | Version | Security fixes |
 | --- | --- |
-| Latest prerelease on the main branch | Yes, to the best of the project's ability |
-| Older prereleases | No |
-| `1.x` | Not released yet |
+| `1.0.2` and the latest commit on `main` | Yes, to the best of the project's ability |
+| Older `1.x` releases and prereleases | No |
 
 ## Reporting a vulnerability
 

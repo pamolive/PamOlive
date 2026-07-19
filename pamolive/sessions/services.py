@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from pamolive.audit.services import record_event
@@ -50,18 +51,30 @@ def issue_session_ticket(
         AccessPolicy.Action.START_SESSION,
         source_ip=source_ip,
     )
+    # Serialize quota decisions for a policy. Counting alone is racy under
+    # PostgreSQL READ COMMITTED and pending tickets already reserve capacity.
+    policy = AccessPolicy.objects.select_for_update().get(pk=policy.pk)
+    now = timezone.now()
     concurrent = PrivilegedSession.objects.filter(
         user=user,
         target=credential.target,
         policy=policy,
-        status__in=(
-            PrivilegedSession.Status.ACTIVE,
-            PrivilegedSession.Status.TERMINATING,
-        ),
+    ).filter(
+        Q(
+            status__in=(
+                PrivilegedSession.Status.ACTIVE,
+                PrivilegedSession.Status.TERMINATING,
+            )
+        )
+        | Q(
+            status=PrivilegedSession.Status.CREATED,
+            ticket__expires_at__gt=now,
+            ticket__consumed_at__isnull=True,
+            ticket__revoked_at__isnull=True,
+        )
     ).count()
     if concurrent >= policy.max_concurrent_sessions:
         raise PermissionDenied("Le nombre maximal de sessions simultanées est atteint.")
-    now = timezone.now()
     duration = policy.max_duration_minutes
     if access_request:
         duration = min(duration, access_request.requested_duration_minutes)
@@ -120,6 +133,19 @@ def consume_session_ticket(*, session_id, token, user, source_ip=None):
         raise PermissionDenied("L’autorisation de session a expiré.")
     if ticket.source_ip and source_ip and ticket.source_ip != source_ip:
         raise PermissionDenied("L’adresse d’origine de la session a changé.")
+
+    policy = AccessPolicy.objects.select_for_update().get(pk=session.policy_id)
+    concurrent = PrivilegedSession.objects.filter(
+        user=session.user,
+        target=session.target,
+        policy=policy,
+        status__in=(
+            PrivilegedSession.Status.ACTIVE,
+            PrivilegedSession.Status.TERMINATING,
+        ),
+    ).exclude(pk=session.pk).count()
+    if concurrent >= policy.max_concurrent_sessions:
+        raise PermissionDenied("Le nombre maximal de sessions simultanées est atteint.")
 
     ticket.consumed_at = now
     ticket.save(update_fields=("consumed_at", "updated_at"))

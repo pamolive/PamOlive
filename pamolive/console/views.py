@@ -423,7 +423,7 @@ def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=
                 slug=form.cleaned_data["slug"],
                 kind=IdentitySource.Kind.OIDC,
                 enabled=False,
-                verify_tls=form.cleaned_data.get("verify_tls", True),
+                verify_tls=True,
             )
             set_identity_source_configuration(draft_source, form.cleaned_data["configuration"])
             try:

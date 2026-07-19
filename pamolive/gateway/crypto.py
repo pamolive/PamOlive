@@ -5,6 +5,8 @@ import json
 import time
 
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
 class GatewayProtocolError(ValueError):
@@ -16,7 +18,14 @@ def fernet_from_key(shared_key):
         raise GatewayProtocolError(
             "La clé partagée du broker doit contenir au moins 32 caractères."
         )
-    derived = base64.urlsafe_b64encode(hashlib.sha256(shared_key.encode()).digest())
+    # Domain-separate envelope encryption from the HMAC request-signing key.
+    derived = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=b"pam-olive-gateway-v1",
+        info=b"credential-envelope-encryption",
+    ).derive(shared_key.encode())
+    derived = base64.urlsafe_b64encode(derived)
     return Fernet(derived)
 
 

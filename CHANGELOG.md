@@ -13,6 +13,17 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ### Security
 
+- Reserve concurrent-session capacity when a ticket is issued and serialize quota
+  decisions so pending or parallel launches cannot bypass policy limits.
+- Consume the TOTP counter used during enrollment, validate outbound connector/SIEM
+  destinations against an explicit CIDR policy, and require TLS verification in
+  staging and production.
+- Run the keyring as a non-root user over mutually authenticated TLS, separate gateway
+  envelope encryption from request signing, store gateway replay nonces in Redis,
+  restrict trusted Guacamole proxies, and SHA-pin third-party GitHub Actions.
+- Add an optional Vault Transit backend with file-based authentication, TLS validation,
+  legacy local-ciphertext routing, and a transactional backend-migration command.
+
 - Internal gateway requests now use a versioned signature covering the request ID,
   HTTP method, path, timestamp, and body; request IDs are single-use to reject replay.
 - A disabled-by-default compatibility switch permits a receiver-first rolling upgrade

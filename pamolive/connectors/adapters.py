@@ -11,6 +11,8 @@ from ldap3 import (
     Tls,
 )
 
+from pamolive.common.outbound import validate_outbound_host
+
 from .models import IdentitySource
 from .services import get_identity_source_configuration
 
@@ -43,7 +45,8 @@ class LDAPDirectoryAdapter:
         configuration = self.configuration
         parsed = urlparse(configuration["server_uri"])
         use_ssl = parsed.scheme == "ldaps"
-        tls = Tls(validate=ssl.CERT_REQUIRED if self.source.verify_tls else ssl.CERT_NONE)
+        validate_outbound_host(parsed.hostname, port=parsed.port or (636 if use_ssl else 389))
+        tls = Tls(validate=ssl.CERT_REQUIRED)
         server = Server(
             parsed.hostname,
             port=parsed.port or (636 if use_ssl else 389),

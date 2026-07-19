@@ -6,6 +6,7 @@ import uuid
 
 import asyncssh
 import pytest
+import redis
 from asgiref.sync import async_to_sync
 from channels.testing import HttpCommunicator, WebsocketCommunicator
 from django.conf import settings
@@ -121,6 +122,69 @@ def post_legacy_signed(client, url, payload):
             body,
         ),
     )
+
+
+def test_gateway_shared_replay_cache_claims_request_once(monkeypatch, tmp_path):
+    class FakeReplayCache:
+        def __init__(self):
+            self.keys = set()
+
+        def set(self, key, value, *, ex, nx):
+            assert value == "1"
+            assert ex == 60
+            assert nx is True
+            if key in self.keys:
+                return False
+            self.keys.add(key)
+            return True
+
+    cache = FakeReplayCache()
+    captured = {}
+
+    def fake_from_url(url, **options):
+        captured.update(url=url, **options)
+        return cache
+
+    monkeypatch.setattr("pamolive.gateway.asgi.redis.Redis.from_url", fake_from_url)
+    config = GatewayConfig(
+        internal_base_url="http://internal.invalid",
+        shared_key="s" * 40,
+        recording_key="r" * 40,
+        recording_dir=str(tmp_path),
+        replay_cache_url="rediss://redis:6379/2",
+        replay_cache_ca_path="/run/redis-tls/ca.crt",
+    )
+    application = GatewayApplication(config=config)
+
+    assert application._claim_control_request_id(config, "request-id", 1) is True
+    assert application._claim_control_request_id(config, "request-id", 2) is False
+    assert captured == {
+        "url": "rediss://redis:6379/2",
+        "socket_timeout": 2,
+        "socket_connect_timeout": 2,
+        "ssl_ca_certs": "/run/redis-tls/ca.crt",
+        "ssl_cert_reqs": "required",
+    }
+
+
+def test_gateway_shared_replay_cache_fails_closed(monkeypatch, tmp_path):
+    class UnavailableReplayCache:
+        def set(self, *args, **kwargs):
+            raise redis.RedisError("unavailable")
+
+    monkeypatch.setattr(
+        "pamolive.gateway.asgi.redis.Redis.from_url",
+        lambda *args, **kwargs: UnavailableReplayCache(),
+    )
+    config = GatewayConfig(
+        internal_base_url="http://internal.invalid",
+        shared_key="s" * 40,
+        recording_key="r" * 40,
+        recording_dir=str(tmp_path),
+        replay_cache_url="rediss://redis:6379/2",
+    )
+
+    assert GatewayApplication(config=config)._claim_control_request_id(config, "id", 1) is False
 
 
 @pytest.mark.django_db

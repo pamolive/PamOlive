@@ -37,7 +37,6 @@ def test_totp_code_cannot_be_replayed(monkeypatch):
     token = totp_code(device_secret(device), timestamp=current_time)
     assert confirm_totp_device(device, token)
 
-    assert verify_user_totp(user, token)
     assert not verify_user_totp(user, token)
 
     device.refresh_from_db()
@@ -53,12 +52,16 @@ def test_totp_rejects_older_counter_after_newer_code_was_accepted(monkeypatch):
     secret = device_secret(device)
     assert confirm_totp_device(device, totp_code(secret, timestamp=current_time))
 
+    assert not verify_user_totp(user, totp_code(secret, timestamp=current_time))
+    current_time += 30
     assert verify_user_totp(user, totp_code(secret, timestamp=current_time))
     assert not verify_user_totp(user, totp_code(secret, timestamp=current_time - 30))
 
 
 @pytest.mark.django_db
-def test_user_can_confirm_mfa_and_login_requires_token(client):
+def test_user_can_confirm_mfa_and_login_requires_token(client, monkeypatch):
+    current_time = 1_800_000_000
+    monkeypatch.setattr("pamolive.vault.services.time.time", lambda: current_time)
     user = User.objects.create_user(
         username="mfa-user", email="mfa@example.test", password="correct-horse-battery-staple"
     )
@@ -71,6 +74,7 @@ def test_user_can_confirm_mfa_and_login_requires_token(client):
     assert MFADevice.objects.get(pk=device.pk).confirmed
 
     client.logout()
+    current_time += 30
     without_token = client.post(
         reverse("login"),
         {"username": user.username, "password": "correct-horse-battery-staple"},
@@ -90,7 +94,9 @@ def test_user_can_confirm_mfa_and_login_requires_token(client):
 
 
 @pytest.mark.django_db
-def test_recovery_codes_are_one_time_and_mfa_can_be_reset(client):
+def test_recovery_codes_are_one_time_and_mfa_can_be_reset(client, monkeypatch):
+    current_time = 1_800_000_000
+    monkeypatch.setattr("pamolive.vault.services.time.time", lambda: current_time)
     password = "correct-horse-battery-staple"
     user = User.objects.create_user(username="recover", password=password)
     device, _secret = begin_totp_enrollment(user)
@@ -117,6 +123,7 @@ def test_recovery_codes_are_one_time_and_mfa_can_be_reset(client):
     assert rejected.status_code == 200
 
     client.force_login(user)
+    current_time += 30
     response = client.post(
         reverse("mfa_reset"),
         {"password": password, "token": totp_code(device_secret(device))},
@@ -127,7 +134,9 @@ def test_recovery_codes_are_one_time_and_mfa_can_be_reset(client):
 
 
 @pytest.mark.django_db
-def test_recovery_codes_are_displayed_once_and_can_be_regenerated(client):
+def test_recovery_codes_are_displayed_once_and_can_be_regenerated(client, monkeypatch):
+    current_time = 1_800_000_000
+    monkeypatch.setattr("pamolive.vault.services.time.time", lambda: current_time)
     password = "correct-horse-battery-staple"
     user = User.objects.create_user(username="regenerate", password=password)
     device, _secret = begin_totp_enrollment(user)
@@ -145,6 +154,7 @@ def test_recovery_codes_are_displayed_once_and_can_be_regenerated(client):
     assert "no-store" in display.headers["Cache-Control"]
     assert client.get(reverse("mfa_recovery_codes")).status_code == 302
 
+    current_time += 30
     regenerated = client.post(
         reverse("mfa_recovery_regenerate"),
         {"password": password, "token": totp_code(device_secret(device))},

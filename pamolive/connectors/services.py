@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 import requests
 from django.core.exceptions import ValidationError
 
+from pamolive.common.outbound import validate_outbound_host, validate_outbound_url
 from pamolive.vault.services import VaultCipher
 
 from .models import IdentitySource
@@ -64,6 +65,9 @@ def validate_identity_source_configuration(kind, configuration):
             raise IdentitySourceConfigurationError(
                 "L’adresse LDAP doit utiliser ldap:// ou ldaps:// avec un hôte explicite."
             )
+        validate_outbound_host(
+            parsed.hostname, port=parsed.port or (636 if parsed.scheme == "ldaps" else 389)
+        )
         timeout = int(configuration.get("connect_timeout_seconds", 10))
         if timeout < 1 or timeout > 60:
             raise IdentitySourceConfigurationError(
@@ -77,6 +81,7 @@ def validate_identity_source_configuration(kind, configuration):
             raise IdentitySourceConfigurationError(
                 "L’émetteur OIDC doit être une URL HTTPS absolue."
             )
+        validate_outbound_url(configuration["issuer"])
     else:
         raise IdentitySourceConfigurationError("Type de source d’identité non pris en charge.")
 
@@ -121,7 +126,8 @@ def test_oidc_provider_configuration(source, timeout_seconds=8):
         response = requests.get(
             discovery_url,
             timeout=timeout_seconds,
-            verify=source.verify_tls,
+            verify=True,
+            allow_redirects=False,
         )
         response.raise_for_status()
         metadata = response.json()
@@ -149,6 +155,8 @@ def test_oidc_provider_configuration(source, timeout_seconds=8):
         raise IdentitySourceConfigurationError(
             "L’issuer retourné par le fournisseur ne correspond pas à l’issuer configuré."
         )
+    for field in required_metadata:
+        validate_outbound_url(metadata[field])
     return metadata
 
 
