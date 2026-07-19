@@ -8,7 +8,7 @@ from pamolive.rbac.models import UserGroup
 
 from .models import ExternalIdentity, IdentitySource
 from .services import get_identity_source_configuration
-from .sync import reconcile_external_memberships
+from .sync import reconcile_external_memberships, reconcile_oidc_default_membership
 
 
 class OIDCProvisioningError(PermissionDenied):
@@ -154,8 +154,7 @@ def _provision_oidc_identity(source, claims):
         )
 
     reconcile_external_memberships(identity, matched)
-    if fallback_authorized:
-        default_group.users.add(identity.user)
+    reconcile_oidc_default_membership(identity, default_group if fallback_authorized else None)
     if not identity.enabled or not identity.user.is_active:
         raise OIDCProvisioningError("Ce compte externe est désactivé.")
     return identity.user, bool(matched or fallback_authorized)

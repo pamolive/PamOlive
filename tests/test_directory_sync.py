@@ -244,6 +244,51 @@ def test_oidc_provisioning_can_authorize_verified_email_domain_without_groups():
     assert user.email == "cyriel.bovy@mopacy.be"
     assert group.users.filter(pk=user.pk).exists()
 
+@pytest.mark.django_db
+def test_oidc_default_group_membership_is_reconciled_when_configuration_changes():
+    source = create_oidc_source()
+    first_group = UserGroup.objects.create(name="First fallback group")
+    second_group = UserGroup.objects.create(name="Second fallback group")
+    configuration = {
+        "issuer": "https://identity.example.test",
+        "client_id": "pam-olive",
+        "client_secret": "oidc-secret",
+        "scopes": "openid email profile",
+        "username_claim": "preferred_username",
+        "email_claim": "email",
+        "display_name_claim": "name",
+        "groups_claim": "groups",
+        "allowed_email_domains": "mopacy.be",
+        "allowed_emails": "",
+        "default_user_group": str(first_group.pk),
+    }
+    set_identity_source_configuration(source, configuration)
+    source.save(update_fields=("encrypted_configuration", "encryption_key_id", "updated_at"))
+    claims = {
+        "sub": "infomaniak-reconciled",
+        "preferred_username": "reconciled.user",
+        "email": "reconciled.user@mopacy.be",
+        "email_verified": True,
+        "name": "Reconciled User",
+    }
+
+    user = provision_oidc_identity(source, claims)
+    assert first_group.users.filter(pk=user.pk).exists()
+    assert not second_group.users.filter(pk=user.pk).exists()
+    membership = OIDCDefaultGroupMembership.objects.get(identity__user=user)
+    assert membership.user_group == first_group
+
+    configuration["default_user_group"] = str(second_group.pk)
+    set_identity_source_configuration(source, configuration)
+    source.save(update_fields=("encrypted_configuration", "encryption_key_id", "updated_at"))
+
+    provision_oidc_identity(source, claims)
+
+    assert not first_group.users.filter(pk=user.pk).exists()
+    assert second_group.users.filter(pk=user.pk).exists()
+    membership.refresh_from_db()
+    assert membership.user_group == second_group
+
 
 @pytest.mark.django_db
 def test_oidc_email_domain_fallback_requires_explicit_verified_email():
