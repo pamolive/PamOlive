@@ -134,3 +134,20 @@ class ExternalGroupMembership(UUIDTimeStampedModel):
 
     def __str__(self):
         return f"{self.identity} → {self.mapping.user_group}"
+
+
+class OIDCDefaultGroupMembership(UUIDTimeStampedModel):
+    identity = models.OneToOneField(
+        ExternalIdentity,
+        on_delete=models.CASCADE,
+        related_name="oidc_default_group_membership",
+    )
+    user_group = models.ForeignKey(
+        UserGroup,
+        on_delete=models.CASCADE,
+        related_name="oidc_default_memberships",
+    )
+    preserve_membership_on_unlink = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.identity} → {self.user_group} (OIDC default)"

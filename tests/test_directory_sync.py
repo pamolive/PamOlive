@@ -9,6 +9,7 @@ from pamolive.connectors.models import (
     DirectoryGroupMapping,
     ExternalIdentity,
     IdentitySource,
+    OIDCDefaultGroupMembership,
 )
 from pamolive.connectors.oidc import provision_oidc_identity
 from pamolive.connectors.services import set_identity_source_configuration
@@ -210,6 +211,136 @@ def test_oidc_provisioning_can_authorize_verified_email_domain_without_groups():
 
     assert user.email == "cyriel.bovy@mopacy.be"
     assert group.users.filter(pk=user.pk).exists()
+    assert OIDCDefaultGroupMembership.objects.filter(
+        identity__user=user,
+        user_group=group,
+    ).exists()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("email_verified", [False, None, "true"])
+def test_oidc_email_fallback_requires_explicitly_verified_email(email_verified):
+    source = create_oidc_source()
+    group = UserGroup.objects.create(name="Verified OIDC users")
+    configuration = {
+        "issuer": "https://identity.example.test",
+        "client_id": "pam-olive",
+        "client_secret": "oidc-secret",
+        "allowed_email_domains": "example.test",
+        "default_user_group": str(group.pk),
+    }
+    set_identity_source_configuration(source, configuration)
+    source.save(update_fields=("encrypted_configuration", "encryption_key_id", "updated_at"))
+    claims = {
+        "sub": f"unverified-{email_verified}",
+        "preferred_username": f"unverified-{email_verified}",
+        "email": "person@example.test",
+        "email_verified": email_verified,
+    }
+
+    with pytest.raises(PermissionDenied):
+        provision_oidc_identity(source, claims)
+
+    assert not User.objects.filter(username=claims["preferred_username"]).exists()
+    assert not group.users.exists()
+
+
+@pytest.mark.django_db
+def test_disabled_oidc_identity_is_not_reactivated_or_reconciled():
+    source = create_oidc_source()
+    group = UserGroup.objects.create(name="OIDC operators")
+    DirectoryGroupMapping.objects.create(
+        source=source,
+        external_group="operators",
+        user_group=group,
+    )
+    user = User.objects.create_user(username="disabled-oidc")
+    identity = ExternalIdentity.objects.create(
+        source=source,
+        user=user,
+        subject="disabled-subject",
+        username=user.username,
+        enabled=False,
+    )
+
+    with pytest.raises(PermissionDenied):
+        provision_oidc_identity(
+            source,
+            {
+                "sub": identity.subject,
+                "preferred_username": user.username,
+                "groups": ["operators"],
+            },
+        )
+
+    identity.refresh_from_db()
+    assert not identity.enabled
+    assert not group.users.filter(pk=user.pk).exists()
+    assert not identity.managed_group_memberships.exists()
+
+
+@pytest.mark.django_db
+def test_oidc_fallback_membership_is_revoked_when_email_is_no_longer_allowed():
+    source = create_oidc_source()
+    group = UserGroup.objects.create(name="Fallback OIDC users")
+    configuration = {
+        "issuer": "https://identity.example.test",
+        "client_id": "pam-olive",
+        "client_secret": "oidc-secret",
+        "allowed_email_domains": "example.test",
+        "default_user_group": str(group.pk),
+    }
+    set_identity_source_configuration(source, configuration)
+    source.save(update_fields=("encrypted_configuration", "encryption_key_id", "updated_at"))
+    claims = {
+        "sub": "fallback-subject",
+        "preferred_username": "fallback-user",
+        "email": "fallback@example.test",
+        "email_verified": True,
+    }
+    user = provision_oidc_identity(source, claims)
+
+    with pytest.raises(PermissionDenied):
+        provision_oidc_identity(source, {**claims, "email": "fallback@untrusted.test"})
+
+    assert not group.users.filter(pk=user.pk).exists()
+    assert not OIDCDefaultGroupMembership.objects.filter(identity__user=user).exists()
+
+
+@pytest.mark.django_db
+def test_oidc_fallback_revocation_preserves_preexisting_manual_membership():
+    source = create_oidc_source()
+    group = UserGroup.objects.create(name="Manual and fallback OIDC users")
+    configuration = {
+        "issuer": "https://identity.example.test",
+        "client_id": "pam-olive",
+        "client_secret": "oidc-secret",
+        "allowed_email_domains": "example.test",
+        "default_user_group": str(group.pk),
+    }
+    set_identity_source_configuration(source, configuration)
+    source.save(update_fields=("encrypted_configuration", "encryption_key_id", "updated_at"))
+    user = User.objects.create_user(username="manual-fallback", email="manual@example.test")
+    identity = ExternalIdentity.objects.create(
+        source=source,
+        user=user,
+        subject="manual-fallback-subject",
+        username=user.username,
+    )
+    group.users.add(user)
+    claims = {
+        "sub": identity.subject,
+        "preferred_username": user.username,
+        "email": user.email,
+        "email_verified": True,
+    }
+    provision_oidc_identity(source, claims)
+
+    with pytest.raises(PermissionDenied):
+        provision_oidc_identity(source, {**claims, "email": "manual@untrusted.test"})
+
+    assert group.users.filter(pk=user.pk).exists()
+    assert not OIDCDefaultGroupMembership.objects.filter(identity=identity).exists()
 
 
 @pytest.mark.django_db

@@ -5,6 +5,14 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+### Fixed
+
+- Disabled OIDC identities remain disabled during sign-in instead of being
+  reactivated automatically.
+- OIDC email and domain fallback provisioning now requires an explicitly verified
+  email claim and tracks its default-group membership so stale access is revoked
+  without removing pre-existing manual membership.
+
 ## [1.0.2] - 2026-07-18
 
 ### Added
