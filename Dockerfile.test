@@ -8,6 +8,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN addgroup -S pamolive && adduser -S -G pamolive -h /home/pamolive pamolive
 WORKDIR /app
 
+COPY requirements-dev.lock ./
+RUN pip install --require-hashes -r requirements-dev.lock
+
 COPY pyproject.toml README.md ./
 COPY pamolive ./pamolive
 COPY config ./config
@@ -19,7 +22,7 @@ COPY templates ./templates
 COPY static ./static
 COPY tests ./tests
 
-RUN pip install --upgrade pip && pip install ".[dev]" && chown -R pamolive:pamolive /app
+RUN chown -R pamolive:pamolive /app
 
 USER pamolive
 CMD ["pytest", "--cov=pamolive", "--cov-fail-under=90", "-q"]

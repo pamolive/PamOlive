@@ -66,8 +66,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install project and development tools
-        run: python -m pip install -e ".[dev]"
+      - name: Install locked project and development dependencies
+        run: python -m pip install --require-hashes -r requirements-dev.lock
 
       - name: Check dependency consistency
         run: python -m pip check

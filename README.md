@@ -170,10 +170,25 @@ GitHub CI also checks linting, migrations, PostgreSQL, Docker images, and CodeQL
 For a local Python environment:
 
 ```sh
-python -m pip install -e ".[dev]"
+python -m pip install --require-hashes -r requirements-dev.lock
 ruff check .
 python manage.py makemigrations --check --dry-run
 pytest --cov=pamolive --cov-fail-under=90
+```
+
+After changing `pyproject.toml` or `keyring/requirements.txt`, regenerate the locks
+with the pinned `uv` container used by the project:
+
+```sh
+docker run --rm -v "$PWD:/app" -w /app ghcr.io/astral-sh/uv:0.8.22-python3.12-alpine \
+  uv pip compile pyproject.toml --generate-hashes --python-version 3.12 \
+  --output-file requirements.lock
+docker run --rm -v "$PWD:/app" -w /app ghcr.io/astral-sh/uv:0.8.22-python3.12-alpine \
+  uv pip compile pyproject.toml keyring/requirements.txt --extra dev --generate-hashes \
+  --python-version 3.12 --output-file requirements-dev.lock
+docker run --rm -v "$PWD:/app" -w /app ghcr.io/astral-sh/uv:0.8.22-python3.12-alpine \
+  uv pip compile keyring/requirements.txt --generate-hashes --python-version 3.12 \
+  --output-file keyring/requirements.lock
 ```
 
 ## Authorization model

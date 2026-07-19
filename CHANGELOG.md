@@ -5,6 +5,12 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+### Changed
+
+- Python production, development, and keyring dependencies are now fully locked with
+  SHA-256 hashes; Docker and CI install those locks and reuse dependency layers when
+  only application source changes.
+
 ## [1.0.2] - 2026-07-18
 
 ### Added

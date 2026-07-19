@@ -17,7 +17,7 @@ With Python 3.12 or later:
 
 ```sh
 python -m venv .venv
-python -m pip install -e ".[dev]"
+python -m pip install --require-hashes -r requirements-dev.lock
 python manage.py migrate
 ```
 
