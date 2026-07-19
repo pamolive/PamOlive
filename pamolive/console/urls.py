@@ -26,6 +26,7 @@ urlpatterns = [
     path("ldap-sources/<uuid:pk>/", views.ldap_sources, name="ldap_source_edit"),
     path("oidc-sources/", views.oidc_sources, name="oidc_sources"),
     path("oidc-sources/<uuid:pk>/", views.oidc_sources, name="oidc_source_edit"),
+    path("oidc-sources/<uuid:pk>/test/", views.test_oidc_source, name="oidc_source_test"),
     path("directory-mappings/", views.directory_mappings, name="directory_mappings"),
     path(
         "directory-mappings/<uuid:pk>/",

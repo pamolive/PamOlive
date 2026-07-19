@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from pamolive.accounts.models import User
+from pamolive.audit.models import AuditEvent
 from pamolive.connectors.models import IdentitySource
 from pamolive.connectors.services import (
     get_identity_source_configuration,
@@ -31,6 +32,31 @@ def ldap_configuration(password="directory-password"):
         "use_start_tls": False,
         "connect_timeout_seconds": 10,
     }
+
+
+def oidc_configuration(secret="oidc-secret", issuer="https://identity.example.test"):
+    return {
+        "issuer": issuer,
+        "client_id": "pam-olive",
+        "client_secret": secret,
+        "scopes": "openid email profile",
+        "username_claim": "preferred_username",
+        "email_claim": "email",
+        "display_name_claim": "name",
+        "groups_claim": "groups",
+    }
+
+
+def create_oidc_source(name="Infomaniak - Mopacy", slug="infomaniak", enabled=False):
+    source = IdentitySource(
+        name=name,
+        slug=slug,
+        kind=IdentitySource.Kind.OIDC,
+        enabled=enabled,
+    )
+    set_identity_source_configuration(source, oidc_configuration())
+    source.save()
+    return source
 
 
 @pytest.mark.django_db
@@ -93,6 +119,83 @@ def test_administrator_configures_source_without_secret_disclosure(client):
     assert response.status_code == 200
     assert b"super-secret-bind" not in response.content
     assert b"super-secret-bind" not in bytes(source.encrypted_configuration)
+
+
+@pytest.mark.django_db
+def test_oidc_console_shows_callback_and_login_urls(client):
+    administrator = User.objects.create_user(
+        username="oidc-admin",
+        email="oidc-admin@example.test",
+        password="safe-password",
+    )
+    UserGroup.objects.get(name="Administrateurs PAM-olive").users.add(administrator)
+    source = create_oidc_source()
+    client.force_login(administrator)
+
+    response = client.get(reverse("console:oidc_source_edit", args=(source.pk,)))
+
+    assert response.status_code == 200
+    assert b"/accounts/oidc/infomaniak/callback/" in response.content
+    assert b"/accounts/oidc/infomaniak/login/" in response.content
+    assert b"Tester la d\xc3\xa9couverte OIDC avant activation" in response.content
+
+
+@pytest.mark.django_db
+def test_disabled_oidc_source_can_be_tested_before_activation(client, monkeypatch):
+    administrator = User.objects.create_user(
+        username="oidc-test-admin",
+        email="oidc-test-admin@example.test",
+        password="safe-password",
+    )
+    UserGroup.objects.get(name="Administrateurs PAM-olive").users.add(administrator)
+    source = create_oidc_source(enabled=False)
+    client.force_login(administrator)
+    requests_seen = []
+
+    class FakeDiscoveryResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "issuer": "https://identity.example.test",
+                "authorization_endpoint": "https://identity.example.test/authorize",
+                "token_endpoint": "https://identity.example.test/token",
+                "jwks_uri": "https://identity.example.test/jwks",
+            }
+
+    def fake_get(url, timeout, verify):
+        requests_seen.append((url, timeout, verify))
+        return FakeDiscoveryResponse()
+
+    monkeypatch.setattr("pamolive.connectors.services.requests.get", fake_get)
+
+    response = client.post(reverse("console:oidc_source_test", args=(source.pk,)), follow=True)
+
+    assert response.status_code == 200
+    assert requests_seen == [
+        ("https://identity.example.test/.well-known/openid-configuration", 8, True)
+    ]
+    assert AuditEvent.objects.filter(
+        action="console.identitysource.oidc_test_succeeded",
+        resource_id=str(source.pk),
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_login_page_keeps_local_login_with_multiple_oidc_domains(client):
+    create_oidc_source(name="Infomaniak - Mopacy", slug="infomaniak", enabled=True)
+    create_oidc_source(name="Google Workspace", slug="google", enabled=True)
+
+    response = client.get(reverse("login"))
+
+    assert response.status_code == 200
+    assert b"name=\"username\"" in response.content
+    assert b"name=\"password\"" in response.content
+    assert b"Infomaniak - Mopacy" in response.content
+    assert b"Google Workspace" in response.content
+    assert b"/accounts/oidc/infomaniak/login/" in response.content
+    assert b"/accounts/oidc/google/login/" in response.content
 
 
 @pytest.mark.django_db

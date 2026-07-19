@@ -24,6 +24,7 @@ from pamolive.approvals.services import decide_access_request
 from pamolive.audit.models import AuditEvent, SIEMDelivery, SIEMIntegration
 from pamolive.audit.services import record_event, redact_metadata, verify_audit_chain
 from pamolive.connectors.models import DirectoryGroupMapping, IdentitySource
+from pamolive.connectors.services import test_oidc_provider_configuration
 from pamolive.operations.models import RotationJob
 from pamolive.operations.services import queue_rotation
 from pamolive.operations.tasks import execute_rotation_job
@@ -117,7 +118,7 @@ def security_policy(request):
                   "require_mfa_for_all_users": policy.require_mfa_for_all_users,
               },
         )
-        messages.success(request, "La politique de session a été mise à jour.")
+        messages.success(request, "La politique de session a ?t? mise ? jour.")
         return redirect("console:security_policy")
     if not can_manage:
         for field in form.fields.values():
@@ -202,7 +203,7 @@ def host_keys(request):
             },
             source_ip=request.META.get("REMOTE_ADDR"),
         )
-        messages.success(request, "La clé d’hôte SSH a été approuvée et auditée.")
+        messages.success(request, "La cl? d?h?te SSH a ?t? approuv?e et audit?e.")
         return redirect("console:host_keys")
     if not can_manage:
         for field in form.fields.values():
@@ -235,7 +236,7 @@ def revoke_host_key(request, pk):
         },
         source_ip=request.META.get("REMOTE_ADDR"),
     )
-    messages.success(request, "La clé d’hôte SSH a été révoquée.")
+    messages.success(request, "La cl? d?h?te SSH a ?t? r?voqu?e.")
     return redirect("console:host_keys")
 
 
@@ -334,8 +335,8 @@ def dashboard_status(request):
             "failures": [
                 {
                     "at": event.occurred_at.isoformat(),
-                    "source_ip": str(event.source_ip or "—"),
-                    "username": event.metadata.get("username", "—"),
+                    "source_ip": str(event.source_ip or "?"),
+                    "username": event.metadata.get("username", "?"),
                 }
                 for event in data["recent_failures"]
             ],
@@ -353,7 +354,7 @@ def users(request, pk=None):
     form_class = UserUpdateForm if instance else UserCreateForm
     form = form_class(request.POST or None, instance=instance)
     if request.method == "POST":
-        response = _save_form(request, form, "Utilisateur enregistré.", "console:users")
+        response = _save_form(request, form, "Utilisateur enregistr?.", "console:users")
         if response:
             return response
     return _render_resource(
@@ -371,7 +372,7 @@ def user_groups(request, pk=None):
     form = UserGroupForm(request.POST or None, instance=instance)
     if request.method == "POST":
         response = _save_form(
-            request, form, "Groupe d’utilisateurs enregistré.", "console:user_groups"
+            request, form, "Groupe d?utilisateurs enregistr?.", "console:user_groups"
         )
         if response:
             return response
@@ -392,7 +393,7 @@ def roles(request, pk=None):
         can_manage = False
     form = RoleForm(request.POST or None, instance=instance)
     if request.method == "POST":
-        response = _save_form(request, form, "Rôle enregistré.", "console:roles")
+        response = _save_form(request, form, "R?le enregistr?.", "console:roles")
         if response:
             return response
     return _render_resource(
@@ -415,7 +416,7 @@ def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=
         response = _save_form(
             request,
             form,
-            "Source d’identité enregistrée.",
+            "Source d?identit? enregistr?e.",
             redirect_name,
         )
         if response:
@@ -424,8 +425,30 @@ def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=
         identity_count=Count("external_identities", distinct=True),
         mapping_count=Count("group_mappings", distinct=True),
     ).order_by("name")
+    extra_context = None
+    if resource == "oidc_sources":
+        callback_path = (
+            f"/accounts/oidc/{instance.slug}/callback/"
+            if instance
+            else "/accounts/oidc/<identifiant-technique>/callback/"
+        )
+        login_path = (
+            f"/accounts/oidc/{instance.slug}/login/"
+            if instance
+            else "/accounts/oidc/<identifiant-technique>/login/"
+        )
+        extra_context = {
+            "oidc_callback_url": request.build_absolute_uri(callback_path),
+            "oidc_login_url": request.build_absolute_uri(login_path),
+        }
     return _render_resource(
-        request, form, objects, resource, instance, can_manage
+        request,
+        form,
+        objects,
+        resource,
+        instance,
+        can_manage,
+        extra_context=extra_context,
     )
 
 
@@ -456,6 +479,37 @@ def oidc_sources(request, pk=None):
 
 
 @login_required
+@require_POST
+@capability_required(Role.Capability.CONSOLE_ACCESS)
+def test_oidc_source(request, pk):
+    _configuration_permission(
+        request,
+        Role.Capability.IDENTITY_SOURCES_MANAGE,
+        Role.Capability.IDENTITY_SOURCES_VIEW,
+    )
+    source = get_object_or_404(IdentitySource, pk=pk, kind=IdentitySource.Kind.OIDC)
+    try:
+        metadata = test_oidc_provider_configuration(source)
+    except ValidationError as error:
+        messages.error(request, "Test OIDC ?chou? : " + " ".join(error.messages))
+    else:
+        record_event(
+            actor=request.user,
+            action="console.identitysource.oidc_test_succeeded",
+            resource=source,
+            metadata={
+                "issuer": metadata.get("issuer"),
+                "authorization_endpoint": metadata.get("authorization_endpoint"),
+            },
+        )
+        messages.success(
+            request,
+            "Test OIDC r?ussi : la d?couverte du fournisseur r?pond correctement.",
+        )
+    return redirect("console:oidc_source_edit", pk=source.pk)
+
+
+@login_required
 @capability_required(Role.Capability.CONSOLE_ACCESS)
 def identity_sources(request, pk=None):
     return _identity_sources(
@@ -482,7 +536,7 @@ def directory_mappings(request, pk=None):
         response = _save_form(
             request,
             form,
-            "Correspondance de groupe enregistrée.",
+            "Correspondance de groupe enregistr?e.",
             "console:directory_mappings",
         )
         if response:
@@ -514,7 +568,7 @@ def targets(request, pk=None):
                     action="console.credential.created",
                     resource=credential,
                 )
-        messages.success(request, "Cible et identifiant local enregistrés.")
+        messages.success(request, "Cible et identifiant local enregistr?s.")
         return redirect("console:targets")
     return _render_resource(
         request,
@@ -538,7 +592,7 @@ def target_groups(request, pk=None):
     form = TargetGroupForm(request.POST or None, instance=instance)
     if request.method == "POST":
         response = _save_form(
-            request, form, "Groupe de cibles enregistré.", "console:target_groups"
+            request, form, "Groupe de cibles enregistr?.", "console:target_groups"
         )
         if response:
             return response
@@ -556,7 +610,7 @@ def domains(request, pk=None):
     form = DomainForm(request.POST or None, instance=instance)
     if request.method == "POST":
         response = _save_form(
-            request, form, "Domaine enregistré.", "console:domains"
+            request, form, "Domaine enregistr?.", "console:domains"
         )
         if response:
             return response
@@ -579,7 +633,7 @@ def credentials(request, pk=None):
     form = TargetCredentialForm(request.POST or None, instance=instance)
     if request.method == "POST":
         response = _save_form(
-            request, form, "Identifiant de cible enregistré.", "console:credentials"
+            request, form, "Identifiant de cible enregistr?.", "console:credentials"
         )
         if response:
             return response
@@ -612,9 +666,9 @@ def rotate_credential(request, pk):
     )
     if created:
         transaction.on_commit(lambda: execute_rotation_job.delay(str(job.pk)), robust=True)
-        messages.success(request, "La rotation a été placée dans la file sécurisée.")
+        messages.success(request, "La rotation a ?t? plac?e dans la file s?curis?e.")
     else:
-        messages.info(request, "Une rotation est déjà en attente ou en cours.")
+        messages.info(request, "Une rotation est d?j? en attente ou en cours.")
     return redirect("console:rotation_jobs")
 
 
@@ -642,7 +696,7 @@ def policies(request, pk=None):
     instance = get_object_or_404(AccessPolicy, pk=pk) if pk else None
     form = AccessPolicyForm(request.POST or None, instance=instance)
     if request.method == "POST":
-        response = _save_form(request, form, "Politique enregistrée.", "console:policies")
+        response = _save_form(request, form, "Politique enregistr?e.", "console:policies")
         if response:
             return response
     objects = AccessPolicy.objects.prefetch_related(
@@ -661,7 +715,7 @@ def time_frames(request, pk=None):
     form = TimeFrameForm(request.POST or None, instance=instance)
     if request.method == "POST":
         response = _save_form(
-            request, form, "Plage horaire enregistrée.", "console:time_frames"
+            request, form, "Plage horaire enregistr?e.", "console:time_frames"
         )
         if response:
             return response
@@ -682,7 +736,7 @@ def rotation_policies(request, pk=None):
         response = _save_form(
             request,
             form,
-            "Politique de rotation enregistrée.",
+            "Politique de rotation enregistr?e.",
             "console:rotation_policies",
         )
         if response:
@@ -708,7 +762,7 @@ def approvals(request):
                 approve=request.POST.get("decision") == "approve",
                 comment=request.POST.get("comment", ""),
             )
-            messages.success(request, "La demande a été traitée.")
+            messages.success(request, "La demande a ?t? trait?e.")
         except (PermissionDenied, ValidationError) as error:
             messages.error(request, str(error))
         return redirect("console:approvals")
@@ -801,11 +855,11 @@ def _csv_safe(value):
 @capability_required(Role.Capability.AUDIT_EXPORT)
 def audit_export(request, export_format):
     if export_format not in {"csv", "jsonl"}:
-        return HttpResponse("Format d’export non pris en charge.", status=404)
+        return HttpResponse("Format d?export non pris en charge.", status=404)
     integrity = verify_audit_chain()
     if not integrity.valid:
         return HttpResponse(
-            "Export bloqué : l’intégrité de la chaîne d’audit doit être vérifiée.",
+            "Export bloqu? : l?int?grit? de la cha?ne d?audit doit ?tre v?rifi?e.",
             status=409,
         )
 
@@ -893,12 +947,12 @@ def terminate_session(request, pk):
     updated, notify_gateway = request_session_termination(session, actor=request.user)
     if notify_gateway:
         if notify_gateway_termination(updated.pk):
-            messages.success(request, "La coupure a été transmise au broker SSH.")
+            messages.success(request, "La coupure a ?t? transmise au broker SSH.")
         else:
             messages.warning(
                 request,
-                "La terminaison reste en attente : le broker n’a pas répondu.",
+                "La terminaison reste en attente : le broker n?a pas r?pondu.",
             )
     else:
-        messages.success(request, "La session ou son ticket a été fermé.")
+        messages.success(request, "La session ou son ticket a ?t? ferm?.")
     return redirect("console:sessions")

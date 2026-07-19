@@ -10,6 +10,7 @@ nav:
   - Security: security.md
   - Development: development.md
   - Operations: operations.md
+  - OpenID Connect: oidc.md
   - RDP brokering: rdp.md
   - V1 scope: v1-scope.md
   - Permissions: permissions.md
