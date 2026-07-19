@@ -3,6 +3,8 @@ import ipaddress
 import json
 import logging
 import re
+import time
+import uuid
 
 import asyncssh
 
@@ -39,6 +41,7 @@ class GatewayApplication:
         self.bridge = bridge
         self.recorder_class = recorder_class or EncryptedSessionRecorder
         self.cancellations = {}
+        self.control_request_ids = {}
 
     def _dependencies(self):
         config = self.config or GatewayConfig.from_env()
@@ -205,12 +208,35 @@ class GatewayApplication:
                     break
             headers = {key.lower(): value for key, value in scope.get("headers", [])}
             config, _client = self._dependencies()
+            request_id = headers.get(b"x-pam-request-id", b"").decode()
+            signature_version = headers.get(b"x-pam-signature-version", b"").decode()
+            try:
+                request_id = str(uuid.UUID(request_id))
+            except (ValueError, AttributeError):
+                request_id = ""
             valid = verify_request_signature(
                 config.shared_key,
                 headers.get(b"x-pam-timestamp", b"").decode(),
                 body,
                 headers.get(b"x-pam-signature", b"").decode(),
+                method="POST",
+                path="/internal/control/terminate/",
+                request_id=request_id,
             )
+            now = time.time()
+            self.control_request_ids = {
+                key: seen_at
+                for key, seen_at in self.control_request_ids.items()
+                if now - seen_at <= 60
+            }
+            if (
+                signature_version != "2"
+                or not request_id
+                or request_id in self.control_request_ids
+            ):
+                valid = False
+            elif valid:
+                self.control_request_ids[request_id] = now
             try:
                 session_id = str(json.loads(body).get("session_id", ""))
             except (json.JSONDecodeError, UnicodeDecodeError):

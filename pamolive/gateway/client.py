@@ -3,6 +3,7 @@ import json
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 from .config import GatewayConfig
 from .crypto import GatewayProtocolError, decrypt_envelope, request_signature
@@ -20,6 +21,7 @@ class InternalAPIClient:
             separators=(",", ":"),
         ).encode()
         timestamp = str(int(time.time()))
+        request_id = str(uuid.uuid4())
         request = urllib.request.Request(
             f"{self.config.internal_base_url}{path}",
             data=body,
@@ -31,10 +33,15 @@ class InternalAPIClient:
                 # this HMAC-authenticated, CSRF-exempt service-to-service channel.
                 "Host": "localhost",
                 "X-PAM-Timestamp": timestamp,
+                "X-PAM-Request-ID": request_id,
+                "X-PAM-Signature-Version": "2",
                 "X-PAM-Signature": request_signature(
                     self.config.shared_key,
                     timestamp,
                     body,
+                    method="POST",
+                    path=path,
+                    request_id=request_id,
                 ),
             },
         )

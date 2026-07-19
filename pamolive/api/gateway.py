@@ -1,7 +1,9 @@
 import json
 import re
+import uuid
 
 from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.http import JsonResponse
@@ -23,13 +25,25 @@ from pamolive.vault.models import SecretLease
 def _authenticated_payload(request):
     timestamp = request.headers.get("X-PAM-Timestamp", "")
     signature = request.headers.get("X-PAM-Signature", "")
+    request_id = request.headers.get("X-PAM-Request-ID", "")
+    if request.headers.get("X-PAM-Signature-Version") != "2":
+        raise PermissionDenied("Version de signature interne refusée.")
+    try:
+        request_id = str(uuid.UUID(request_id))
+    except (ValueError, TypeError, AttributeError) as error:
+        raise PermissionDenied("Identifiant de requête interne invalide.") from error
     if not verify_request_signature(
         settings.PAMOLIVE_GATEWAY_SHARED_KEY,
         timestamp,
         request.body,
         signature,
+        method=request.method,
+        path=request.path,
+        request_id=request_id,
     ):
         raise PermissionDenied("Authentification interne refusée.")
+    if not cache.add(f"pamolive:gateway-request:{request_id}", True, timeout=60):
+        raise PermissionDenied("Rejeu de requête interne refusé.")
     try:
         payload = json.loads(request.body)
     except (json.JSONDecodeError, UnicodeDecodeError) as error:

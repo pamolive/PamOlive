@@ -4,6 +4,7 @@ import hmac
 import json
 import urllib.error
 import urllib.parse
+import uuid
 
 import pytest
 from asgiref.sync import async_to_sync
@@ -98,15 +99,22 @@ def rdp_session_fixture():
 def signed_gateway_post(client, payload):
     body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     timestamp = "1783980000"
+    request_id = str(uuid.uuid4())
+    path = reverse("gateway_authorize")
     return client.post(
-        reverse("gateway_authorize"),
+        path,
         data=body,
         content_type="application/json",
         HTTP_X_PAM_TIMESTAMP=timestamp,
+        HTTP_X_PAM_REQUEST_ID=request_id,
+        HTTP_X_PAM_SIGNATURE_VERSION="2",
         HTTP_X_PAM_SIGNATURE=request_signature(
             settings.PAMOLIVE_GATEWAY_SHARED_KEY,
             timestamp,
             body,
+            method="POST",
+            path=path,
+            request_id=request_id,
         ),
     )
 
