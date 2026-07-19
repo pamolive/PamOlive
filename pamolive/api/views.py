@@ -20,6 +20,7 @@ from pamolive.accounts.forms import (
     ProfileForm,
 )
 from pamolive.accounts.models import PlatformSecurityPolicy, User
+from pamolive.accounts.recent_mfa import has_recent_mfa, mark_mfa_verified, verify_mfa_step_up
 from pamolive.api.forms import PrivilegedActionJustificationForm
 from pamolive.approvals.forms import AccessRequestForm
 from pamolive.approvals.models import AccessRequest
@@ -55,6 +56,40 @@ def health(request):
     with connection.cursor() as cursor:
         cursor.execute("SELECT 1")
     return JsonResponse({"status": "ok", "database": "ok"})
+
+
+def _mfa_step_up_response(request):
+    if has_recent_mfa(request):
+        return None
+    token = request.POST.get("otp_token", "")
+    if token and verify_mfa_step_up(request, token):
+        record_event(
+            actor=request.user,
+            action="authentication.mfa.step_up_succeeded",
+            resource=request.user,
+            source_ip=request_client_ip(request),
+        )
+        return None
+    if token:
+        record_event(
+            actor=request.user,
+            action="authentication.mfa.step_up_failed",
+            resource=request.user,
+            source_ip=request_client_ip(request),
+        )
+    response = render(
+        request,
+        "mfa/step_up.html",
+        {
+            "error": bool(token),
+            "justification": request.POST.get("justification", ""),
+        },
+        status=403,
+    )
+    patch_cache_control(
+        response, no_cache=True, no_store=True, must_revalidate=True, private=True
+    )
+    return response
 
 
 @login_required
@@ -226,6 +261,9 @@ def reveal_target_credential(request, pk):
     actions = actions_for_target(request.user, credential.target, source_ip=source_ip)
     if AccessPolicy.Action.VIEW_SECRET not in actions:
         raise PermissionDenied
+    step_up_response = _mfa_step_up_response(request)
+    if step_up_response is not None:
+        return step_up_response
     justification_form = PrivilegedActionJustificationForm(request.POST)
     if not justification_form.is_valid():
         return render(
@@ -371,6 +409,9 @@ def start_session(request, pk):
         source_ip=source_ip,
     ):
         raise PermissionDenied
+    step_up_response = _mfa_step_up_response(request)
+    if step_up_response is not None:
+        return step_up_response
     justification_form = PrivilegedActionJustificationForm(request.POST)
     if not justification_form.is_valid():
         response = render(
@@ -587,6 +628,7 @@ def mfa_confirm(request, pk):
         return redirect("account")
     form = MFAConfirmForm(request.POST)
     if form.is_valid() and confirm_totp_device(device, form.cleaned_data["token"]):
+        mark_mfa_verified(request)
         recovery_codes = replace_recovery_codes(request.user, device)
         record_event(actor=request.user, action="account.mfa_enabled", resource=device)
         request.session["new_mfa_recovery_codes"] = recovery_codes
