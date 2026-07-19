@@ -24,6 +24,10 @@ def test_gateway_config_requires_distinct_long_keys(monkeypatch, tmp_path):
     assert config.internal_base_url == "http://web.test"
     assert config.recording_dir == str(tmp_path)
     assert config.connect_timeout == 4.5
+    assert not config.accept_legacy_signatures
+
+    monkeypatch.setenv("PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES", "true")
+    assert GatewayConfig.from_env().accept_legacy_signatures
 
     monkeypatch.setenv("PAMOLIVE_RECORDING_KEY", "short")
     with pytest.raises(GatewayProtocolError, match="RECORDING_KEY"):

@@ -9,6 +9,8 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 - Internal gateway requests now use a versioned signature covering the request ID,
   HTTP method, path, timestamp, and body; request IDs are single-use to reject replay.
+- A disabled-by-default compatibility switch permits a receiver-first rolling upgrade
+  from gateway signature version 1 to version 2.
 
 ## [1.0.2] - 2026-07-18
 

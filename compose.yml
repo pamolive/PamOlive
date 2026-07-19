@@ -152,6 +152,7 @@ services:
       PAMOLIVE_GATEWAY_SHARED_KEY: ${PAMOLIVE_GATEWAY_SHARED_KEY:?PAMOLIVE_GATEWAY_SHARED_KEY must be configured}
       PAMOLIVE_RECORDING_KEY: ${PAMOLIVE_RECORDING_KEY:?PAMOLIVE_RECORDING_KEY must be configured}
       PAMOLIVE_RECORDING_DIR: /recordings
+      PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES: ${PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES:-false}
     expose: ["8001"]
     depends_on:
       recordings-init: {condition: service_completed_successfully}

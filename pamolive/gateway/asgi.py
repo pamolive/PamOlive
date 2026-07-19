@@ -214,28 +214,39 @@ class GatewayApplication:
                 request_id = str(uuid.UUID(request_id))
             except (ValueError, AttributeError):
                 request_id = ""
-            valid = verify_request_signature(
-                config.shared_key,
-                headers.get(b"x-pam-timestamp", b"").decode(),
-                body,
-                headers.get(b"x-pam-signature", b"").decode(),
-                method="POST",
-                path="/internal/control/terminate/",
-                request_id=request_id,
-            )
+            timestamp = headers.get(b"x-pam-timestamp", b"").decode()
+            signature = headers.get(b"x-pam-signature", b"").decode()
+            if signature_version in {"", "1"} and config.accept_legacy_signatures:
+                valid = verify_request_signature(
+                    config.shared_key,
+                    timestamp,
+                    body,
+                    signature,
+                )
+            else:
+                valid = verify_request_signature(
+                    config.shared_key,
+                    timestamp,
+                    body,
+                    signature,
+                    method="POST",
+                    path="/internal/control/terminate/",
+                    request_id=request_id,
+                )
             now = time.time()
             self.control_request_ids = {
                 key: seen_at
                 for key, seen_at in self.control_request_ids.items()
                 if now - seen_at <= 60
             }
-            if (
-                signature_version != "2"
-                or not request_id
-                or request_id in self.control_request_ids
+            legacy_accepted = (
+                signature_version in {"", "1"} and config.accept_legacy_signatures
+            )
+            if not legacy_accepted and (
+                signature_version != "2" or not request_id or request_id in self.control_request_ids
             ):
                 valid = False
-            elif valid:
+            elif valid and not legacy_accepted:
                 self.control_request_ids[request_id] = now
             try:
                 session_id = str(json.loads(body).get("session_id", ""))

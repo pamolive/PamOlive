@@ -8,6 +8,8 @@
 - The SSH/RDP gateway is a separate, least-privileged component.
 - Internal gateway calls use short-lived HMAC signatures bound to the method, path,
   body, and a single-use request ID. Replaying a captured signed request is rejected.
+  Legacy version 1 acceptance is disabled by default and may only be enabled
+  temporarily during the documented rolling upgrade.
 - The RDP interface uses a dedicated origin so its `GUAC_AUTH_TOKEN` cannot be
   read from the main PAM-olive origin.
 - Guacamole JSON is signed with HMAC-SHA256, encrypted with AES-128-CBC, valid for

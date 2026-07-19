@@ -10,6 +10,7 @@ from asgiref.sync import async_to_sync
 from channels.testing import HttpCommunicator, WebsocketCommunicator
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
+from django.test import override_settings
 from django.urls import reverse
 
 from pamolive.accounts.models import User
@@ -104,6 +105,52 @@ def post_signed(client, url, payload, *, timestamp=None):
         content_type="application/json",
         **signed_headers(body, url, timestamp=timestamp),
     )
+
+
+def post_legacy_signed(client, url, payload):
+    body = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    timestamp = str(int(time.time()))
+    return client.post(
+        url,
+        data=body,
+        content_type="application/json",
+        HTTP_X_PAM_TIMESTAMP=timestamp,
+        HTTP_X_PAM_SIGNATURE=request_signature(
+            settings.PAMOLIVE_GATEWAY_SHARED_KEY,
+            timestamp,
+            body,
+        ),
+    )
+
+
+@pytest.mark.django_db
+def test_legacy_gateway_signature_is_rejected_by_default(client):
+    response = post_legacy_signed(
+        client,
+        reverse("gateway_close"),
+        {"session_id": "00000000-0000-0000-0000-000000000099"},
+    )
+
+    assert response.status_code == 403
+
+
+@override_settings(PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES=True)
+@pytest.mark.django_db
+def test_legacy_gateway_signature_can_be_enabled_for_rolling_upgrade(client):
+    user, credential = gateway_session_fixture()
+    session, _ticket, _raw_ticket = issue_session_ticket(
+        user=user,
+        credential=credential,
+        justification="Legacy signature transition test",
+    )
+
+    response = post_legacy_signed(
+        client,
+        reverse("gateway_close"),
+        {"session_id": str(session.pk), "outcome": "closed"},
+    )
+
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db

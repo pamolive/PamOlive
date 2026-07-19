@@ -11,6 +11,7 @@ class GatewayConfig:
     recording_key: str
     recording_dir: str
     connect_timeout: float = 10.0
+    accept_legacy_signatures: bool = False
 
     @classmethod
     def from_env(cls):
@@ -26,4 +27,8 @@ class GatewayConfig:
             recording_key=recording_key,
             recording_dir=os.environ.get("PAMOLIVE_RECORDING_DIR", "/recordings"),
             connect_timeout=float(os.environ.get("PAMOLIVE_GATEWAY_CONNECT_TIMEOUT", "10")),
+            accept_legacy_signatures=(
+                os.environ.get("PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES", "false").lower()
+                in {"1", "true", "yes", "on"}
+            ),
         )
