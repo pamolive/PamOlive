@@ -8,7 +8,7 @@ from pamolive.rbac.models import UserGroup
 
 from .models import ExternalIdentity, IdentitySource
 from .services import get_identity_source_configuration
-from .sync import reconcile_external_memberships, reconcile_oidc_default_membership
+from .sync import reconcile_external_memberships
 
 
 class OIDCProvisioningError(PermissionDenied):
@@ -59,6 +59,10 @@ def _email_allowed_by_configuration(configuration, email):
     return email in allowed_emails or email_domain in allowed_domains
 
 
+def _email_verified_for_fallback(claims):
+    return claims.get("email_verified") is True
+
+
 def _default_group(configuration):
     group_id = configuration.get("default_user_group")
     if not group_id:
@@ -96,11 +100,13 @@ def _provision_oidc_identity(source, claims):
         if mapping.external_group.strip().casefold() in group_names
     ]
     default_group = _default_group(configuration)
-    fallback_authorized = bool(
-        claims.get("email_verified") is True
-        and default_group
-        and _email_allowed_by_configuration(configuration, email)
-    )
+    fallback_matches = bool(default_group and _email_allowed_by_configuration(configuration, email))
+    if fallback_matches and not _email_verified_for_fallback(claims):
+        raise OIDCProvisioningError(
+            "L’adresse e-mail fournie par le fournisseur doit être vérifiée "
+            "pour autoriser une connexion par e-mail ou domaine."
+        )
+    fallback_authorized = fallback_matches
 
     if identity is None:
         if (
@@ -148,7 +154,10 @@ def _provision_oidc_identity(source, claims):
         )
 
     reconcile_external_memberships(identity, matched)
-    reconcile_oidc_default_membership(identity, default_group if fallback_authorized else None)
+    if fallback_authorized:
+        default_group.users.add(identity.user)
+    if not identity.enabled or not identity.user.is_active:
+        raise OIDCProvisioningError("Ce compte externe est désactivé.")
     return identity.user, bool(matched or fallback_authorized)
 
 
