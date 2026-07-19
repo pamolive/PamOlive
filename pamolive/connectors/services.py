@@ -36,6 +36,9 @@ OIDC_FIELDS = {
     "email_claim",
     "display_name_claim",
     "groups_claim",
+    "allowed_email_domains",
+    "allowed_emails",
+    "default_user_group",
 }
 
 SENSITIVE_FIELDS = {"bind_password", "client_secret"}

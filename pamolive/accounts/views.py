@@ -75,7 +75,14 @@ def oidc_callback(request, slug):
         if not claims:
             claims = client.userinfo(token=token)
         user = provision_oidc_identity(source, dict(claims))
-    except (OAuthError, PermissionDenied, ValueError):
+    except (OAuthError, PermissionDenied, ValueError) as error:
+        record_event(
+            actor=None,
+            action="authentication.oidc.failed",
+            resource=source,
+            metadata={"error_type": error.__class__.__name__},
+            source_ip=request_client_ip(request),
+        )
         messages.error(request, "La connexion avec ce fournisseur d’identité a échoué.")
         return redirect("login")
 

@@ -295,6 +295,23 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
     )
     scopes = forms.CharField(label="Scopes OIDC", required=False, initial="openid email profile")
     groups_claim = forms.CharField(label="Claim des groupes", required=False, initial="groups")
+    allowed_email_domains = forms.CharField(
+        label="Domaines e-mail autorisés",
+        required=False,
+        help_text="Séparez plusieurs domaines par des virgules, par exemple mopacy.be, mopacy.eu.",
+    )
+    allowed_emails = forms.CharField(
+        label="Adresses e-mail autorisées",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Optionnel : une adresse par ligne ou séparée par virgule.",
+    )
+    default_user_group = forms.ModelChoiceField(
+        label="Groupe PamOlive par défaut",
+        queryset=UserGroup.objects.filter(enabled=True).order_by("name"),
+        required=False,
+        help_text="Groupe attribué quand le fournisseur ne renvoie pas de groupes.",
+    )
 
     class Meta:
         model = IdentitySource
@@ -331,7 +348,8 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
                     self.fields.pop(field_name, None)
             else:
                 for field_name in (
-                    "issuer", "client_id", "client_secret", "scopes", "groups_claim"
+                    "issuer", "client_id", "client_secret", "scopes", "groups_claim",
+                    "allowed_email_domains", "allowed_emails", "default_user_group"
                 ):
                     self.fields.pop(field_name, None)
         if self.instance.pk and self.instance.encrypted_configuration:
@@ -340,8 +358,11 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
                 if field_name in configuration and field_name not in {
                     "bind_password",
                     "client_secret",
+                    "default_user_group",
                 }:
                     self.fields[field_name].initial = configuration[field_name]
+            if "default_user_group" in self.fields and configuration.get("default_user_group"):
+                self.fields["default_user_group"].initial = configuration["default_user_group"]
 
     def clean(self):
         cleaned = super().clean()
@@ -377,6 +398,13 @@ class IdentitySourceForm(ConsoleFormMixin, forms.ModelForm):
                 "email_claim": existing.get("email_claim", "email"),
                 "display_name_claim": existing.get("display_name_claim", "name"),
                 "groups_claim": cleaned.get("groups_claim") or "groups",
+                "allowed_email_domains": cleaned.get("allowed_email_domains", ""),
+                "allowed_emails": cleaned.get("allowed_emails", ""),
+                "default_user_group": (
+                    str(cleaned["default_user_group"].pk)
+                    if cleaned.get("default_user_group")
+                    else existing.get("default_user_group", "")
+                ),
             }
         try:
             cleaned["configuration"] = validate_identity_source_configuration(kind, configuration)

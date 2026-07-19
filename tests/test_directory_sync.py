@@ -63,6 +63,9 @@ def create_oidc_source():
             "email_claim": "email",
             "display_name_claim": "name",
             "groups_claim": "groups",
+            "allowed_email_domains": "",
+            "allowed_emails": "",
+            "default_user_group": "",
         },
     )
     source.save()
@@ -172,6 +175,41 @@ def test_oidc_provisioning_requires_mapped_group_and_revokes_managed_group():
     with pytest.raises(PermissionDenied):
         provision_oidc_identity(source, {**claims, "groups": []})
     assert not group.users.filter(pk=user.pk).exists()
+
+
+@pytest.mark.django_db
+def test_oidc_provisioning_can_authorize_verified_email_domain_without_groups():
+    source = create_oidc_source()
+    group = UserGroup.objects.create(name="Mopacy OIDC users")
+    configuration = {
+        "issuer": "https://identity.example.test",
+        "client_id": "pam-olive",
+        "client_secret": "oidc-secret",
+        "scopes": "openid email profile",
+        "username_claim": "preferred_username",
+        "email_claim": "email",
+        "display_name_claim": "name",
+        "groups_claim": "groups",
+        "allowed_email_domains": "mopacy.be",
+        "allowed_emails": "",
+        "default_user_group": str(group.pk),
+    }
+    set_identity_source_configuration(source, configuration)
+    source.save(update_fields=("encrypted_configuration", "encryption_key_id", "updated_at"))
+
+    user = provision_oidc_identity(
+        source,
+        {
+            "sub": "infomaniak-cyriel",
+            "preferred_username": "cyriel.bovy",
+            "email": "cyriel.bovy@mopacy.be",
+            "email_verified": True,
+            "name": "Cyriel Bovy",
+        },
+    )
+
+    assert user.email == "cyriel.bovy@mopacy.be"
+    assert group.users.filter(pk=user.pk).exists()
 
 
 @pytest.mark.django_db
