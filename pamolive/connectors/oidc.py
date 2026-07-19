@@ -100,7 +100,9 @@ def _provision_oidc_identity(source, claims):
         if mapping.external_group.strip().casefold() in group_names
     ]
     default_group = _default_group(configuration)
-    fallback_authorized = bool(default_group and _email_allowed_by_configuration(configuration, email))
+    fallback_authorized = bool(
+        default_group and _email_allowed_by_configuration(configuration, email)
+    )
 
     if identity is None:
         if (

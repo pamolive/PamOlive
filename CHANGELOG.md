@@ -5,6 +5,11 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+### Fixed
+
+- TOTP codes are consumed atomically and cannot be replayed during their validity
+  window or after a newer counter has already been accepted.
+
 ## [1.0.2] - 2026-07-18
 
 ### Added

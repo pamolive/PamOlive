@@ -18,6 +18,7 @@ class MFADevice(UUIDTimeStampedModel):
     encryption_key_id = models.CharField(max_length=64, default="keyring-v1")
     confirmed = models.BooleanField(default=False)
     last_used_at = models.DateTimeField(null=True, blank=True)
+    last_accepted_totp_counter = models.BigIntegerField(null=True, blank=True, editable=False)
 
 
 class MFARecoveryCode(UUIDTimeStampedModel):
