@@ -1,4 +1,4 @@
-FROM postgres@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+FROM postgres@sha256:3a82e1f56c8f0f5616a11103ac3d47e632c3938698946a7ad26da0df1334744a
 
 # The upstream image currently ships a gosu binary built with a Go runtime
 # affected by a critical TLS CVE. PAM-olive only needs gosu's user switch for
