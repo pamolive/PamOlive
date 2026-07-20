@@ -32,7 +32,7 @@ jobs:
         run: docker compose --profile test pull --ignore-buildable
 
       - name: Install Trivy 0.70.0 from a SHA-pinned action
-        uses: aquasecurity/setup-trivy@3fb12ec12f41e471780db15c232d5dd185dcb514
+        uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567
         with:
           version: v0.70.0
           cache: true
