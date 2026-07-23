@@ -1,5 +1,10 @@
 # PAM-olive
 
+[![CI](https://github.com/pamolive/PamOlive/actions/workflows/ci.yml/badge.svg)](https://github.com/pamolive/PamOlive/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](https://github.com/pamolive/PamOlive/blob/main/LICENSE)
+[![Python](https://img.shields.io/badge/python-3.12+-blue)](https://python.org)
+[![uv](https://img.shields.io/badge/package%20manager-uv-purple)](https://docs.astral.sh/uv/)
+
 PAM-olive is an open-source privileged access management (PAM) platform built
 with Django, PostgreSQL, Redis, Celery, an isolated SSH gateway, and Apache
 Guacamole for HTML5 RDP brokering.

@@ -1,0 +1,13 @@
+[project]
+name = "pam-olive-keyring"
+version = "1.2.0"
+description = "Isolated encryption microservice for PAM-olive"
+requires-python = ">=3.12"
+dependencies = [
+  "cryptography>=49,<50",
+  "fastapi>=0.128,<1",
+  "uvicorn>=0.40,<1",
+]
+
+[tool.uv]
+package = false
