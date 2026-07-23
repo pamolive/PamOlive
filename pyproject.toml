@@ -53,6 +53,9 @@ dev = [
   "mkdocs-material>=9.6,<10",
 ]
 
+[tool.uv.workspace]
+members = ["keyring"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["pamolive", "config"]
 

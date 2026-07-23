@@ -1,6 +1,8 @@
 services:
   keyring-tls-init:
-    build: ./keyring
+    build:
+      context: .
+      dockerfile: keyring/Dockerfile
     user: "0:0"
     command: ["python", "/app/init_keyring_tls.py"]
     network_mode: none
@@ -18,7 +20,9 @@ services:
     restart: "no"
 
   keyring:
-    build: ./keyring
+    build:
+      context: .
+      dockerfile: keyring/Dockerfile
     environment:
       PAMOLIVE_KEYRING_TOKEN: ${PAMOLIVE_KEYRING_TOKEN:?PAMOLIVE_KEYRING_TOKEN must be configured}
       PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE: ${PAMOLIVE_KEYRING_RATE_LIMIT_PER_MINUTE:-1200}
@@ -78,7 +82,9 @@ services:
     restart: unless-stopped
 
   redis-tls-init:
-    build: ./keyring
+    build:
+      context: .
+      dockerfile: keyring/Dockerfile
     user: "0:0"
     environment:
       REDIS_RUNTIME_UID: ${PAMOLIVE_REDIS_RUNTIME_UID:-999}

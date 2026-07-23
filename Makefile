@@ -1,4 +1,4 @@
-.PHONY: init up test
+.PHONY: init up test lock
 
 init:
 	sh install.sh
@@ -8,3 +8,6 @@ up:
 
 test:
 	docker compose --profile test run --rm --build test
+
+lock:
+	uv lock

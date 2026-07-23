@@ -1,22 +1,25 @@
+FROM ghcr.io/astral-sh/uv:latest@sha256:ecd4de2f060c64bea0ff8ecb182ddf46ba3fcccdc8a60cfdbaf20d1a047d7437 AS uv
 FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
+    UV_LINK_MODE=copy \
     DJANGO_SETTINGS_MODULE=config.settings.test
 
 RUN addgroup -S pamolive && adduser -S -G pamolive -h /home/pamolive pamolive
 WORKDIR /app
 
-COPY requirements-dev.lock ./
-RUN pip install --require-hashes -r requirements-dev.lock
+COPY --from=uv /uv /bin/uv
+COPY pyproject.toml uv.lock README.md ./
+COPY keyring/pyproject.toml ./keyring/
+RUN uv sync --frozen --all-extras
+ENV PATH="/app/.venv/bin:$PATH"
 
-COPY pyproject.toml README.md ./
 COPY pamolive ./pamolive
 COPY config ./config
 COPY keyring ./keyring
 COPY manage.py ./
-COPY compose.yml Dockerfile Dockerfile.guacamole requirements.lock ./
+COPY compose.yml Dockerfile Dockerfile.guacamole ./
 COPY deploy ./deploy
 COPY templates ./templates
 COPY static ./static
