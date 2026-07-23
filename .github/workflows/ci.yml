@@ -71,30 +71,30 @@ jobs:
         run: uv sync --frozen --all-extras
 
       - name: Check dependency consistency
-        run: uv pip check
+        run: uv run pip check
 
       - name: Lint Python
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Check shell script syntax
         run: sh -n install.sh scripts/*.sh
 
       - name: Check Django configuration
-        run: python manage.py check
+        run: uv run python manage.py check
 
       - name: Refuse missing migrations
-        run: python manage.py makemigrations --check --dry-run
+        run: uv run python manage.py makemigrations --check --dry-run
 
       - name: Apply migrations to the fast-test database
-        run: python manage.py migrate --noinput
+        run: uv run python manage.py migrate --noinput
 
       - name: Run tests with coverage gate
         run: >-
-          pytest --cov=pamolive --cov-report=term-missing
+          uv run pytest --cov=pamolive --cov-report=term-missing
           --cov-report=xml:coverage.xml --cov-fail-under=90
 
       - name: Build documentation strictly
-        run: mkdocs build --strict
+        run: uv run mkdocs build --strict
 
       - name: Upload coverage report
         if: always()
