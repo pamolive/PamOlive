@@ -1,0 +1,57 @@
+services:
+  web:
+    environment:
+      PAMOLIVE_EDITION: lab
+      PAMOLIVE_CLUSTER_ENABLED: "true"
+      PAMOLIVE_NODE_ID: lab-node-1
+
+  web-node-2:
+    build: .
+    env_file: .env
+    environment:
+      PAMOLIVE_EDITION: lab
+      PAMOLIVE_CLUSTER_ENABLED: "true"
+      PAMOLIVE_NODE_ID: lab-node-2
+      PAMOLIVE_TRUST_PROXY_HEADERS: "true"
+      PAMOLIVE_KEYRING_URL: https://keyring:8000
+      REDIS_URL: rediss://:${REDIS_PASSWORD:?REDIS_PASSWORD must be configured}@redis:6379/0
+      REDIS_TLS_CA_PATH: /run/redis-tls/ca.crt
+    command: ["sh", "-c", "python -m config.runtime_secrets && daphne -b 0.0.0.0 -p 8000 config.asgi:application"]
+    expose: ["8000"]
+    depends_on:
+      keyring: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      web: {condition: service_healthy}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/ready/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+    networks: [frontend, internal]
+    volumes:
+      - redis_tls_client:/run/redis-tls:ro
+      - keyring_tls_client:/run/keyring-tls:ro
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+
+  worker:
+    environment:
+      PAMOLIVE_EDITION: lab
+      PAMOLIVE_CLUSTER_ENABLED: "true"
+      PAMOLIVE_NODE_ID: lab-worker-1
+
+  beat:
+    environment:
+      PAMOLIVE_EDITION: lab
+      PAMOLIVE_CLUSTER_ENABLED: "true"
+      PAMOLIVE_NODE_ID: lab-beat-1
+
+  proxy:
+    volumes:
+      - ./deploy/Caddyfile.cluster-lab:/etc/caddy/Caddyfile:ro
+    depends_on:
+      web: {condition: service_healthy}
+      web-node-2: {condition: service_healthy}
+      gateway: {condition: service_healthy}

@@ -32,6 +32,7 @@ from pamolive.approvals.forms import AccessRequestForm
 from pamolive.approvals.models import AccessRequest
 from pamolive.audit.services import record_event
 from pamolive.common.network import request_client_ip
+from pamolive.licensing.services import cluster_enabled, get_license_status, node_id
 from pamolive.mfa.models import MFADevice
 from pamolive.mfa.services import (
     begin_totp_enrollment,
@@ -61,7 +62,15 @@ from pamolive.vault.services import VaultCipher, totp_code
 def health(request):
     with connection.cursor() as cursor:
         cursor.execute("SELECT 1")
-    return JsonResponse({"status": "ok", "database": "ok"})
+    return JsonResponse(
+        {
+            "status": "ok",
+            "database": "ok",
+            "node_id": node_id(),
+            "cluster_enabled": cluster_enabled(),
+            "license": get_license_status().as_dict(),
+        }
+    )
 
 
 @login_required

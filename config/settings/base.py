@@ -14,6 +14,13 @@ DEBUG = False
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
 PAMOLIVE_PUBLIC_URL = env("PAMOLIVE_PUBLIC_URL", default="").rstrip("/")
+PAMOLIVE_EDITION = env("PAMOLIVE_EDITION", default="community").lower()
+PAMOLIVE_CLUSTER_ENABLED = env.bool("PAMOLIVE_CLUSTER_ENABLED", default=False)
+PAMOLIVE_NODE_ID = env("PAMOLIVE_NODE_ID", default="node-1")
+PAMOLIVE_LICENSE = env("PAMOLIVE_LICENSE", default="")
+PAMOLIVE_LICENSE_FILE = env("PAMOLIVE_LICENSE_FILE", default="")
+PAMOLIVE_LICENSE_PUBLIC_KEY = env("PAMOLIVE_LICENSE_PUBLIC_KEY", default="")
+PAMOLIVE_LICENSE_PUBLIC_KEY_FILE = env("PAMOLIVE_LICENSE_PUBLIC_KEY_FILE", default="")
 
 DJANGO_APPS = [
     "daphne",
@@ -34,6 +41,7 @@ LOCAL_APPS = [
     "pamolive.sessions",
     "pamolive.audit",
     "pamolive.mfa",
+    "pamolive.licensing",
     "pamolive.connectors",
     "pamolive.operations",
     "pamolive.console",

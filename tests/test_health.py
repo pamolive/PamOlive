@@ -8,7 +8,13 @@ from pamolive.accounts.models import User
 def test_health_endpoint(client):
     response = client.get(reverse("health"))
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "database": "ok"}
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["database"] == "ok"
+    assert payload["node_id"] == "node-1"
+    assert payload["cluster_enabled"] is False
+    assert payload["license"]["edition"] == "community"
+    assert payload["license"]["valid"] is True
 
 
 @pytest.mark.django_db

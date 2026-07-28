@@ -8,6 +8,8 @@ nav:
   - Architecture: architecture.md
   - Installation: installation.md
   - Security: security.md
+  - Licensing: licensing.md
+  - Cluster: cluster.md
   - Development: development.md
   - Operations: operations.md
   - Vault Transit: vault-transit.md
