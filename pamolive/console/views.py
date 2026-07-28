@@ -3,7 +3,7 @@ import csv
 import hashlib
 import io
 import json
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -12,7 +12,7 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import connection, transaction
 from django.db.models import Count, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
@@ -30,7 +30,15 @@ from pamolive.connectors.services import (
     set_identity_source_configuration,
     test_oidc_provider_configuration,
 )
-from pamolive.operations.models import RotationJob
+from pamolive.licensing.services import cluster_enabled, get_license_status, node_id
+from pamolive.operations.governance import (
+    compliance_report,
+    create_access_review_campaign,
+    decide_access_review_item,
+    ranked_policy_risks,
+    security_findings,
+)
+from pamolive.operations.models import AccessReviewCampaign, AccessReviewItem, RotationJob
 from pamolive.operations.services import queue_rotation
 from pamolive.operations.tasks import execute_rotation_job
 from pamolive.policies.models import AccessPolicy, SecretRotationPolicy, TimeFrame
@@ -38,6 +46,7 @@ from pamolive.rbac.models import Role, UserGroup
 from pamolive.rbac.services import can_view_configuration, capability_required, user_has_capability
 from pamolive.sessions.control import notify_gateway_termination
 from pamolive.sessions.models import PrivilegedSession
+from pamolive.sessions.recordings import read_recording_events, recording_text_export
 from pamolive.sessions.services import request_session_termination
 from pamolive.targets.models import Domain, Target, TargetGroup, TargetHostKey
 from pamolive.vault.models import Credential
@@ -124,14 +133,12 @@ def security_policy(request):
             actor=request.user,
             action="system.session_security_policy.updated",
             resource=policy,
-              metadata={
-                  "idle_timeout_minutes": policy.idle_timeout_minutes,
-                  "absolute_session_minutes": policy.absolute_session_minutes,
-                  "require_mfa_for_all_users": policy.require_mfa_for_all_users,
-                  "sensitive_action_mfa_window_minutes": (
-                      policy.sensitive_action_mfa_window_minutes
-                  ),
-              },
+            metadata={
+                "idle_timeout_minutes": policy.idle_timeout_minutes,
+                "absolute_session_minutes": policy.absolute_session_minutes,
+                "require_mfa_for_all_users": policy.require_mfa_for_all_users,
+                "sensitive_action_mfa_window_minutes": (policy.sensitive_action_mfa_window_minutes),
+            },
         )
         messages.success(request, "La politique de session a été mise à jour.")
         return redirect("console:security_policy")
@@ -167,6 +174,120 @@ def _save_form(request, form, success_message, redirect_name):
         messages.success(request, success_message)
         return redirect(redirect_name)
     return None
+
+
+@login_required
+@capability_required(Role.Capability.SYSTEM_VIEW)
+def governance_center(request):
+    findings = security_findings()
+    risks = ranked_policy_risks(limit=15)
+    report = compliance_report()
+    campaigns = AccessReviewCampaign.objects.prefetch_related("items").order_by("-created_at")[:8]
+    return render(
+        request,
+        "console/governance.html",
+        {
+            "findings": findings,
+            "risks": risks,
+            "report": report,
+            "campaigns": campaigns,
+        },
+    )
+
+
+@login_required
+@capability_required(Role.Capability.SYSTEM_VIEW)
+def governance_report_export(request):
+    response = JsonResponse(compliance_report(), json_dumps_params={"indent": 2})
+    response["Content-Disposition"] = 'attachment; filename="pamolive-governance-report.json"'
+    response["Cache-Control"] = "private, no-store, must-revalidate"
+    record_event(
+        actor=request.user,
+        action="governance.report_exported",
+        resource=request.user,
+        source_ip=request.META.get("REMOTE_ADDR"),
+    )
+    return response
+
+
+@login_required
+@capability_required(Role.Capability.SYSTEM_VIEW)
+def access_reviews(request):
+    if request.method == "POST":
+        if not user_has_capability(request.user, Role.Capability.SYSTEM_MANAGE):
+            raise PermissionDenied
+        step_up_response = sensitive_mfa_required(
+            request,
+            action_label="créer une campagne de recertification",
+        )
+        if step_up_response is not None:
+            return step_up_response
+        name = request.POST.get("name", "").strip() or (
+            f"Recertification {timezone.now():%Y-%m-%d}"
+        )
+        due_at = None
+        due_at_text = request.POST.get("due_at", "").strip()
+        if due_at_text:
+            due_at = datetime.fromisoformat(due_at_text)
+            if timezone.is_naive(due_at):
+                due_at = timezone.make_aware(due_at)
+        campaign = create_access_review_campaign(
+            name=name,
+            due_at=due_at,
+            created_by=request.user,
+        )
+        messages.success(request, "Campagne de recertification créée.")
+        return redirect("console:access_review_detail", pk=campaign.pk)
+    campaigns = AccessReviewCampaign.objects.prefetch_related("items").order_by("-created_at")
+    return render(
+        request,
+        "console/access_reviews.html",
+        {
+            "campaigns": campaigns,
+            "can_manage": user_has_capability(request.user, Role.Capability.SYSTEM_MANAGE),
+        },
+    )
+
+
+@login_required
+@capability_required(Role.Capability.SYSTEM_VIEW)
+def access_review_detail(request, pk):
+    campaign = get_object_or_404(AccessReviewCampaign, pk=pk)
+    items = campaign.items.select_related("policy", "decided_by").order_by(
+        "-risk_score",
+        "policy__name",
+    )
+    return render(
+        request,
+        "console/access_review_detail.html",
+        {
+            "campaign": campaign,
+            "items": items,
+            "can_manage": user_has_capability(request.user, Role.Capability.SYSTEM_MANAGE),
+        },
+    )
+
+
+@login_required
+@require_POST
+@capability_required(Role.Capability.SYSTEM_MANAGE)
+def access_review_decide(request, pk, item_pk):
+    campaign = get_object_or_404(AccessReviewCampaign, pk=pk)
+    item = get_object_or_404(AccessReviewItem, pk=item_pk, campaign=campaign)
+    step_up_response = sensitive_mfa_required(
+        request,
+        action_label="décider une recertification d'accès",
+    )
+    if step_up_response is not None:
+        return step_up_response
+    decide_access_review_item(
+        item=item,
+        decision=request.POST.get("decision", AccessReviewItem.Decision.KEEP),
+        actor=request.user,
+        comment=request.POST.get("comment", ""),
+    )
+    messages.success(request, "Décision de recertification enregistrée.")
+    return redirect("console:access_review_detail", pk=campaign.pk)
 
 
 def _render_resource(
@@ -223,9 +344,9 @@ def host_keys(request):
     if not can_manage:
         for field in form.fields.values():
             field.disabled = True
-    objects = TargetHostKey.objects.select_related(
-        "target", "trusted_by", "revoked_by"
-    ).order_by("target__name", "-trusted_at")
+    objects = TargetHostKey.objects.select_related("target", "trusted_by", "revoked_by").order_by(
+        "target__name", "-trusted_at"
+    )
     return render(
         request,
         "console/host_keys.html",
@@ -360,6 +481,34 @@ def dashboard_status(request):
 
 
 @login_required
+@capability_required(Role.Capability.SYSTEM_VIEW)
+def system_status(request):
+    pending_migrations = []
+    try:
+        from django.db.migrations.executor import MigrationExecutor
+
+        executor = MigrationExecutor(connection)
+        pending_migrations = [
+            f"{migration.app_label}.{migration.name}"
+            for migration in executor.migration_plan(executor.loader.graph.leaf_nodes())
+        ]
+    except Exception:  # pragma: no cover - operational diagnostics must not break the page
+        pending_migrations = ["unavailable"]
+    return render(
+        request,
+        "console/system_status.html",
+        {
+            "license": get_license_status(),
+            "cluster_enabled": cluster_enabled(),
+            "node_id": node_id(),
+            "pending_migrations": pending_migrations,
+            "database_ok": _live_dashboard_data()["database_ok"],
+            "cache_ok": _live_dashboard_data()["cache_ok"],
+        },
+    )
+
+
+@login_required
 @capability_required(Role.Capability.CONSOLE_ACCESS)
 def users(request, pk=None):
     can_manage = _configuration_permission(
@@ -460,10 +609,14 @@ def _identity_sources(request, *, kind, form_class, resource, redirect_name, pk=
         )
         if response:
             return response
-    objects = IdentitySource.objects.filter(kind__in=kinds).annotate(
-        identity_count=Count("external_identities", distinct=True),
-        mapping_count=Count("group_mappings", distinct=True),
-    ).order_by("name")
+    objects = (
+        IdentitySource.objects.filter(kind__in=kinds)
+        .annotate(
+            identity_count=Count("external_identities", distinct=True),
+            mapping_count=Count("group_mappings", distinct=True),
+        )
+        .order_by("name")
+    )
     extra_context = None
     if resource == "oidc_sources":
         example_slug = instance.slug if instance else "infomaniak"
@@ -585,9 +738,7 @@ def directory_mappings(request, pk=None):
     objects = DirectoryGroupMapping.objects.select_related("source", "user_group").order_by(
         "source__name", "external_group"
     )
-    return _render_resource(
-        request, form, objects, "directory_mappings", instance, can_manage
-    )
+    return _render_resource(request, form, objects, "directory_mappings", instance, can_manage)
 
 
 @login_required
@@ -650,9 +801,7 @@ def domains(request, pk=None):
     instance = get_object_or_404(Domain, pk=pk) if pk else None
     form = DomainForm(request.POST or None, instance=instance)
     if request.method == "POST":
-        response = _save_form(
-            request, form, "Domaine enregistré.", "console:domains"
-        )
+        response = _save_form(request, form, "Domaine enregistré.", "console:domains")
         if response:
             return response
     objects = Domain.objects.annotate(
@@ -755,9 +904,7 @@ def time_frames(request, pk=None):
     instance = get_object_or_404(TimeFrame, pk=pk) if pk else None
     form = TimeFrameForm(request.POST or None, instance=instance)
     if request.method == "POST":
-        response = _save_form(
-            request, form, "Plage horaire enregistrée.", "console:time_frames"
-        )
+        response = _save_form(request, form, "Plage horaire enregistrée.", "console:time_frames")
         if response:
             return response
     return _render_resource(
@@ -783,9 +930,7 @@ def rotation_policies(request, pk=None):
         if response:
             return response
     objects = SecretRotationPolicy.objects.prefetch_related("target_groups").order_by("name")
-    return _render_resource(
-        request, form, objects, "rotation_policies", instance, can_manage
-    )
+    return _render_resource(request, form, objects, "rotation_policies", instance, can_manage)
 
 
 @login_required
@@ -823,8 +968,7 @@ def approvals(request):
     )
     if can_decide and not request.user.is_superuser:
         requests = requests.filter(
-            Q(policy__approver_groups__isnull=True)
-            | Q(policy__approver_groups__users=request.user)
+            Q(policy__approver_groups__isnull=True) | Q(policy__approver_groups__users=request.user)
         ).distinct()
     requests = requests.order_by("status", "-created_at")
     return render(
@@ -924,19 +1068,23 @@ def audit_export(request, export_format):
         content_type = "application/x-ndjson; charset=utf-8"
     else:
         output = io.StringIO(newline="")
-        fieldnames = tuple(rows[0]) if rows else (
-            "sequence",
-            "occurred_at",
-            "actor",
-            "action",
-            "resource_type",
-            "resource_id",
-            "source_ip",
-            "metadata",
-            "previous_hash",
-            "event_hash",
-            "signature",
-            "hash_version",
+        fieldnames = (
+            tuple(rows[0])
+            if rows
+            else (
+                "sequence",
+                "occurred_at",
+                "actor",
+                "action",
+                "resource_type",
+                "resource_id",
+                "source_ip",
+                "metadata",
+                "previous_hash",
+                "event_hash",
+                "signature",
+                "hash_version",
+            )
         )
         writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
@@ -990,6 +1138,75 @@ def sessions(request):
             ),
         },
     )
+
+
+@require_GET
+@login_required
+@capability_required(Role.Capability.SESSIONS_VIEW)
+def sessions_status(request):
+    objects = PrivilegedSession.objects.select_related("user", "target", "credential").order_by(
+        "-created_at"
+    )[:100]
+    return JsonResponse(
+        {
+            "sessions": [
+                {
+                    "id": str(session.pk),
+                    "user": str(session.user),
+                    "target": session.target.name,
+                    "protocol": session.target.protocol,
+                    "account": session.credential.username if session.credential else "",
+                    "status": session.status,
+                    "started_at": session.started_at.isoformat() if session.started_at else None,
+                    "last_activity_at": session.last_activity_at.isoformat()
+                    if session.last_activity_at
+                    else None,
+                    "recorded": bool(session.recording_reference),
+                }
+                for session in objects
+            ]
+        }
+    )
+
+
+@login_required
+@capability_required(Role.Capability.SESSIONS_VIEW)
+def session_replay(request, pk):
+    session = get_object_or_404(PrivilegedSession, pk=pk)
+    if not session.recording_reference:
+        raise Http404("Aucun enregistrement n'est disponible pour cette session.")
+    try:
+        events = read_recording_events(session.recording_reference)
+    except FileNotFoundError as error:
+        raise Http404("L'enregistrement scellé est introuvable.") from error
+    return render(
+        request,
+        "console/session_replay.html",
+        {"privileged_session": session, "events": events},
+    )
+
+
+@login_required
+@capability_required(Role.Capability.SESSIONS_VIEW)
+def session_recording_export(request, pk):
+    session = get_object_or_404(PrivilegedSession, pk=pk)
+    if not session.recording_reference:
+        raise Http404("Aucun enregistrement n'est disponible pour cette session.")
+    try:
+        content = recording_text_export(session.recording_reference)
+    except FileNotFoundError as error:
+        raise Http404("L'enregistrement scellé est introuvable.") from error
+    record_event(
+        actor=request.user,
+        action="session.recording_exported",
+        resource=session,
+        metadata={"format": "txt"},
+        source_ip=request.META.get("REMOTE_ADDR"),
+    )
+    response = HttpResponse(content, content_type="text/plain; charset=utf-8")
+    response["Content-Disposition"] = f'attachment; filename="pamolive-session-{session.pk}.txt"'
+    response["Cache-Control"] = "private, no-store, must-revalidate"
+    return response
 
 
 @require_POST

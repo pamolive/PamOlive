@@ -20,6 +20,31 @@ def _token_hash(token):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _active_session_count(user, target, policy, *, now):
+    return (
+        PrivilegedSession.objects.filter(
+            user=user,
+            target=target,
+            policy=policy,
+        )
+        .filter(
+            Q(
+                status__in=(
+                    PrivilegedSession.Status.ACTIVE,
+                    PrivilegedSession.Status.TERMINATING,
+                )
+            )
+            | Q(
+                status=PrivilegedSession.Status.CREATED,
+                ticket__expires_at__gt=now,
+                ticket__consumed_at__isnull=True,
+                ticket__revoked_at__isnull=True,
+            )
+        )
+        .count()
+    )
+
+
 @transaction.atomic
 def issue_session_ticket(
     *, user, credential, justification, lifetime_seconds=60, source_ip=None, mfa_verified_at=None
@@ -56,24 +81,7 @@ def issue_session_ticket(
     # PostgreSQL READ COMMITTED and pending tickets already reserve capacity.
     policy = AccessPolicy.objects.select_for_update().get(pk=policy.pk)
     now = timezone.now()
-    concurrent = PrivilegedSession.objects.filter(
-        user=user,
-        target=credential.target,
-        policy=policy,
-    ).filter(
-        Q(
-            status__in=(
-                PrivilegedSession.Status.ACTIVE,
-                PrivilegedSession.Status.TERMINATING,
-            )
-        )
-        | Q(
-            status=PrivilegedSession.Status.CREATED,
-            ticket__expires_at__gt=now,
-            ticket__consumed_at__isnull=True,
-            ticket__revoked_at__isnull=True,
-        )
-    ).count()
+    concurrent = _active_session_count(user, credential.target, policy, now=now)
     if concurrent >= policy.max_concurrent_sessions:
         raise PermissionDenied("Le nombre maximal de sessions simultanées est atteint.")
     duration = policy.max_duration_minutes
@@ -109,6 +117,55 @@ def issue_session_ticket(
         source_ip=source_ip,
     )
     return session, ticket, raw_token
+
+
+@transaction.atomic
+def start_web_session(*, user, credential, justification, source_ip=None, mfa_verified_at=None):
+    justification = normalize_justification(justification)
+    if credential.target.protocol != credential.target.Protocol.WEB:
+        raise PermissionDenied("Cette cible n'est pas une application web.")
+
+    policy, access_request = authorizing_policy_for(
+        user,
+        credential,
+        AccessPolicy.Action.START_SESSION,
+        source_ip=source_ip,
+        mfa_verified_at=mfa_verified_at,
+    )
+    policy = AccessPolicy.objects.select_for_update().get(pk=policy.pk)
+    now = timezone.now()
+    concurrent = _active_session_count(user, credential.target, policy, now=now)
+    if concurrent >= policy.max_concurrent_sessions:
+        raise PermissionDenied("Le nombre maximal de sessions simultanÃ©es est atteint.")
+    duration = policy.max_duration_minutes
+    if access_request:
+        duration = min(duration, access_request.requested_duration_minutes)
+    session = PrivilegedSession.objects.create(
+        user=user,
+        target=credential.target,
+        credential=credential,
+        policy=policy,
+        access_request=access_request,
+        status=PrivilegedSession.Status.ACTIVE,
+        started_at=now,
+        last_activity_at=now,
+        expires_at=now + timedelta(minutes=duration),
+        client_ip=source_ip,
+        justification=justification,
+    )
+    record_event(
+        actor=user,
+        action="session.web_opened",
+        resource=session,
+        metadata={
+            "credential_id": str(credential.pk),
+            "policy_id": str(policy.pk),
+            "protocol": credential.target.protocol,
+            "justification": justification,
+        },
+        source_ip=source_ip,
+    )
+    return session
 
 
 @transaction.atomic

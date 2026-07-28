@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="auth-shell">
+  <div class="login-card">
+    <span class="auth-badge">Session web contrôlée</span>
+    <h1>{{ privileged_session.target.name }}</h1>
+    <p>
+      PAM-olive a créé une session auditée pour cette application web.
+      Ouvrez la cible dans un nouvel onglet et fermez la session depuis la console
+      lorsque votre intervention est terminée.
+    </p>
+    <a class="primary-button" href="{{ target_url }}" target="_blank" rel="noopener noreferrer">
+      Ouvrir l'application web →
+    </a>
+    <p class="muted">
+      Session {{ privileged_session.pk }} · expiration
+      {{ privileged_session.expires_at|date:"d/m/Y H:i" }}
+    </p>
+  </div>
+</section>
+{% endblock %}

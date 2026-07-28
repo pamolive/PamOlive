@@ -1,6 +1,7 @@
 import json
 import re
 import uuid
+from hashlib import sha256
 
 from django.conf import settings
 from django.core.cache import cache
@@ -122,6 +123,8 @@ def gateway_authorize(request):
                 raise PermissionDenied("Aucune clé d’hôte active n’est disponible.")
             envelope_data["known_hosts"] = known_hosts
             envelope_data["host_key_policy"] = session.target.ssh_host_key_policy
+            envelope_data["command_deny_patterns"] = session.policy.command_deny_patterns
+            envelope_data["command_alert_patterns"] = session.policy.command_alert_patterns
         elif session.target.protocol == session.target.Protocol.RDP:
             if credential.kind != credential.Kind.PASSWORD:
                 raise PermissionDenied("RDP requiert un identifiant de type mot de passe.")
@@ -194,6 +197,38 @@ def gateway_trust_host_key(request):
     except (PermissionDenied, ValidationError, ValueError):
         return JsonResponse({"detail": "Host key registration denied."}, status=403)
     return JsonResponse({"status": "trusted", "fingerprint": fingerprint})
+
+
+@csrf_exempt
+@require_POST
+def gateway_command_event(request):
+    try:
+        payload = _authenticated_payload(request)
+        session = get_object_or_404(PrivilegedSession, pk=payload.get("session_id"))
+        command = str(payload.get("command", ""))[:2000]
+        disposition = str(payload.get("disposition", "alerted"))[:30]
+        pattern = str(payload.get("pattern", ""))[:500]
+        if disposition not in {"alerted", "denied"}:
+            raise ValidationError("Disposition de commande invalide.")
+        record_event(
+            actor=session.user,
+            action=(
+                "session.command_denied"
+                if disposition == "denied"
+                else "session.command_alerted"
+            ),
+            resource=session,
+            metadata={
+                "command_preview": command[:200],
+                "command_sha256": sha256(command.encode()).hexdigest(),
+                "pattern": pattern,
+                "protocol": session.target.protocol,
+            },
+            source_ip=session.client_ip or request_client_ip(request),
+        )
+    except (PermissionDenied, ValidationError, ValueError):
+        return JsonResponse({"detail": "Rapport de commande refusé."}, status=403)
+    return JsonResponse({"status": "recorded"})
 
 
 @csrf_exempt

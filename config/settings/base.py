@@ -157,6 +157,8 @@ PAMOLIVE_GATEWAY_SHARED_KEY = env(
     "PAMOLIVE_GATEWAY_SHARED_KEY",
     default="unsafe-local-gateway-key-change-before-production",
 )
+PAMOLIVE_RECORDING_DIR = env("PAMOLIVE_RECORDING_DIR", default="/recordings")
+PAMOLIVE_RECORDING_KEY = env("PAMOLIVE_RECORDING_KEY", default="")
 PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES = env.bool(
     "PAMOLIVE_GATEWAY_ACCEPT_LEGACY_SIGNATURES", default=False
 )

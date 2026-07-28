@@ -8,6 +8,8 @@ nav:
   - Architecture: architecture.md
   - Installation: installation.md
   - Security: security.md
+  - IAM governance: iam-governance.md
+  - Session supervision: session-supervision.md
   - Licensing: licensing.md
   - Cluster: cluster.md
   - Development: development.md

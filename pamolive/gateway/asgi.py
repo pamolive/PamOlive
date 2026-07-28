@@ -127,6 +127,15 @@ class GatewayApplication:
                     session_id=session_id,
                     public_key=public_key,
                 )
+            bridge_options["command_policy"] = {
+                "deny": envelope.get("command_deny_patterns", []),
+                "alert": envelope.get("command_alert_patterns", []),
+            }
+            bridge_options["command_event_callback"] = (
+                lambda **payload: client.report_command_event(
+                    {"session_id": session_id, **payload}
+                )
+            )
             reason = await self.bridge(
                 envelope,
                 receive,

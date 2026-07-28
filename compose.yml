@@ -156,6 +156,7 @@ services:
     volumes:
       - redis_tls_client:/run/redis-tls:ro
       - keyring_tls_client:/run/keyring-tls:ro
+      - recordings_data:/recordings:ro
     restart: unless-stopped
     security_opt: ["no-new-privileges:true"]
 

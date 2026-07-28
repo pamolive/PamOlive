@@ -1,0 +1,57 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Gouvernance IAM</span>
+    <h1>Centre de contrôle des habilitations</h1>
+    <p>Risque, recertification, conformité et signaux de sécurité sur les accès privilégiés.</p>
+  </div>
+  <a class="secondary-button" href="{% url 'console:governance_report_export' %}">Exporter le rapport JSON</a>
+</header>
+
+<div class="console-stat-grid">
+  <div class="console-stat"><span>Politiques MFA</span><strong>{{ report.controls.mfa_enforced_policies }}</strong><small>Politiques actives avec MFA</small></div>
+  <div class="console-stat"><span>Approbation</span><strong>{{ report.controls.approval_enforced_policies }}</strong><small>Politiques avec validation</small></div>
+  <div class="console-stat"><span>Accès directs</span><strong>{{ report.controls.direct_access_policies }}</strong><small>À surveiller</small></div>
+  <div class="console-stat"><span>Revues ouvertes</span><strong>{{ report.controls.open_access_reviews }}</strong><small>Campagnes en cours</small></div>
+</div>
+
+<section class="data-panel">
+  <div class="panel-heading"><div><span class="panel-kicker">Alert center</span><h2>Signaux sécurité</h2></div></div>
+  {% for finding in findings %}
+  <article class="data-table-row">
+    <span><strong>{{ finding.title }}</strong><small>{{ finding.detail }}</small></span>
+    <span class="request-status status-{{ finding.severity }}">{{ finding.severity|upper }}</span>
+  </article>
+  {% empty %}
+  <div class="empty-state compact-empty"><h3>Aucune alerte active</h3><p>Les contrôles opérationnels ne remontent pas d'écart immédiat.</p></div>
+  {% endfor %}
+</section>
+
+<section class="data-panel">
+  <div class="panel-heading"><div><span class="panel-kicker">Entitlement risk</span><h2>Politiques les plus risquées</h2></div></div>
+  {% for entry in risks %}
+  <article class="data-table-row">
+    <span>
+      <strong>{{ entry.policy.name }}</strong>
+      <small>{% for reason in entry.risk.reasons|slice:":4" %}{{ reason }}{% if not forloop.last %} · {% endif %}{% endfor %}</small>
+    </span>
+    <span><strong>{{ entry.risk.score }}/100</strong><small>{{ entry.risk.level }}</small></span>
+  </article>
+  {% empty %}
+  <div class="empty-state compact-empty"><h3>Aucune politique</h3></div>
+  {% endfor %}
+</section>
+
+<section class="data-panel">
+  <div class="panel-heading"><div><span class="panel-kicker">Access reviews</span><h2>Campagnes récentes</h2></div><a class="inline-link" href="{% url 'console:access_reviews' %}">Voir tout</a></div>
+  {% for campaign in campaigns %}
+  <article class="data-table-row">
+    <span><strong>{{ campaign.name }}</strong><small>{{ campaign.decided_count }} décidée(s) · {{ campaign.pending_count }} en attente</small></span>
+    <a class="inline-link" href="{% url 'console:access_review_detail' campaign.pk %}">Ouvrir</a>
+  </article>
+  {% empty %}
+  <div class="empty-state compact-empty"><h3>Aucune campagne</h3><p>Créez une recertification pour figer et revoir les habilitations.</p></div>
+  {% endfor %}
+</section>
+{% endblock %}

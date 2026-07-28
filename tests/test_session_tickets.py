@@ -22,6 +22,7 @@ from pamolive.sessions.services import (
     consume_session_ticket,
     issue_session_ticket,
     request_session_termination,
+    start_web_session,
 )
 from pamolive.targets.models import Target, TargetGroup, TargetHostKey
 from pamolive.vault.models import Credential
@@ -167,6 +168,35 @@ def test_session_ticket_rejects_unsupported_protocol_foreign_user_and_changed_ip
             credential=web_credential,
             justification="Routine operational session test",
         )
+
+
+@pytest.mark.django_db
+def test_web_session_creates_audited_active_session_without_ticket(client):
+    user, credential, policy = session_fixture(protocol=Target.Protocol.WEB)
+    policy.max_concurrent_sessions = 2
+    policy.save(update_fields=("max_concurrent_sessions", "updated_at"))
+
+    session = start_web_session(
+        user=user,
+        credential=credential,
+        justification="Routine operational web access",
+        source_ip="127.0.0.1",
+    )
+
+    assert session.status == PrivilegedSession.Status.ACTIVE
+    assert session.started_at is not None
+    assert not SessionTicket.objects.filter(session=session).exists()
+    assert AuditEvent.objects.filter(action="session.web_opened", resource_id=session.pk).exists()
+
+    client.force_login(user)
+    confirm_recent_mfa(client, user)
+    response = client.post(
+        reverse("start_session", args=[credential.pk]),
+        {"justification": "Routine operational web access"},
+    )
+    assert response.status_code == 200
+    assert "no-store" in response.headers["Cache-Control"]
+    assert b"Session web" in response.content
 
 
 @pytest.mark.django_db

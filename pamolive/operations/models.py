@@ -58,3 +58,89 @@ class RotationJob(UUIDTimeStampedModel):
 
     def __str__(self):
         return f"{self.credential} · {self.get_status_display()}"
+
+
+class AccessReviewCampaign(UUIDTimeStampedModel):
+    class Status(models.TextChoices):
+        OPEN = "open", "Ouverte"
+        CLOSED = "closed", "Clôturée"
+
+    name = models.CharField(max_length=160)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.OPEN)
+    due_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="created_access_review_campaigns",
+    )
+    closed_at = models.DateTimeField(null=True, blank=True)
+    closed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="closed_access_review_campaigns",
+    )
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    @property
+    def pending_count(self):
+        return self.items.filter(decision=AccessReviewItem.Decision.PENDING).count()
+
+    @property
+    def decided_count(self):
+        return self.items.exclude(decision=AccessReviewItem.Decision.PENDING).count()
+
+    def __str__(self):
+        return self.name
+
+
+class AccessReviewItem(UUIDTimeStampedModel):
+    class Decision(models.TextChoices):
+        PENDING = "pending", "À revoir"
+        KEEP = "keep", "Maintenir"
+        REVOKE = "revoke", "Révoquer"
+
+    campaign = models.ForeignKey(
+        AccessReviewCampaign,
+        on_delete=models.PROTECT,
+        related_name="items",
+    )
+    policy = models.ForeignKey(
+        "policies.AccessPolicy",
+        on_delete=models.PROTECT,
+        related_name="access_review_items",
+    )
+    snapshot = models.JSONField(default=dict, blank=True)
+    risk_score = models.PositiveSmallIntegerField(default=0)
+    decision = models.CharField(
+        max_length=16,
+        choices=Decision.choices,
+        default=Decision.PENDING,
+        db_index=True,
+    )
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="access_review_decisions",
+    )
+    decided_at = models.DateTimeField(null=True, blank=True)
+    comment = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ("-risk_score", "policy__name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("campaign", "policy"),
+                name="unique_policy_per_access_review_campaign",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.campaign} · {self.policy} · {self.get_decision_display()}"

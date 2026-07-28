@@ -5,6 +5,31 @@ from V1 onward; `0.x` releases may still evolve interfaces and the schema.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-29
+
+### Added
+
+- Add encrypted SSH session replay and text export from sealed gateway recordings,
+  with read-only web access to the recording volume and audited exports.
+- Add live session inventory improvements, JSON session status, and operator actions
+  for replay, export, and administrative termination.
+- Add SSH command-control policy rules for blocked and alerted commands, including
+  gateway-side enforcement before a denied command reaches the target.
+- Add basic web-session launch management for `WEB` targets, creating an audited
+  privileged session before opening the external application.
+- Add an installation and upgrade preflight view plus `preflight_status` management
+  command covering database, cache, migrations, license, cluster state, and node ID.
+- Add IAM governance with policy risk scoring, security findings, compliance report
+  export, and access-review campaigns with maintain/revoke decisions.
+
+### Changed
+
+- Extend access policies with SSH command deny/alert patterns.
+- Extend target and policy forms to include web targets and governance-oriented
+  session controls.
+- Document session supervision, command control, web-session launch, preflight, and
+  IAM governance operations.
+
 ## [1.2.0] - 2026-07-20
 
 ### Security

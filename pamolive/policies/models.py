@@ -94,6 +94,8 @@ class AccessPolicy(UUIDTimeStampedModel):
     )
     allow_clipboard_copy = models.BooleanField(default=False)
     allow_clipboard_paste = models.BooleanField(default=False)
+    command_deny_patterns = models.JSONField(default=list, blank=True)
+    command_alert_patterns = models.JSONField(default=list, blank=True)
     valid_from = models.DateTimeField(null=True, blank=True)
     valid_until = models.DateTimeField(null=True, blank=True)
     weekdays = models.JSONField(default=list, blank=True)

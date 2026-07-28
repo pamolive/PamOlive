@@ -823,6 +823,60 @@ def test_ssh_input_preserves_pasted_utf8_command():
     assert recorded == [("input", expected)]
 
 
+def test_ssh_input_denies_matching_command_without_forwarding():
+    incoming = [
+        {
+            "type": "websocket.receive",
+            "text": json.dumps({"type": "terminal.input", "data": "rm -rf /\r"}),
+        },
+        {"type": "websocket.disconnect"},
+    ]
+    written = []
+    recorded = []
+    messages = []
+    events = []
+
+    async def receive():
+        return incoming.pop(0)
+
+    async def send(message):
+        messages.append(message)
+
+    async def report_event(**payload):
+        events.append(payload)
+
+    class Input:
+        def write(self, data):
+            written.append(data)
+
+    class Process:
+        stdin = Input()
+
+        def change_terminal_size(self, cols, rows):
+            pass
+
+    class Recorder:
+        def write(self, direction, data):
+            recorded.append((direction, data))
+
+    result = async_to_sync(_forward_input)(
+        receive,
+        Process(),
+        Recorder(),
+        send,
+        command_policy={"deny": [r"^rm\s+-rf\s+/"]},
+        command_event_callback=report_event,
+    )
+
+    assert result == "client_disconnect"
+    assert written == []
+    assert recorded == [("command_denied", b"rm -rf /")]
+    assert json.loads(messages[0]["text"])["type"] == "command.denied"
+    assert events == [
+        {"command": "rm -rf /", "disposition": "denied", "pattern": r"^rm\s+-rf\s+/"}
+    ]
+
+
 def test_asyncssh_accepts_approved_host_key_and_rejects_mismatch():
     class NoAuthServer(asyncssh.SSHServer):
         def begin_auth(self, username):

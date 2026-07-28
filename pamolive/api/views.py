@@ -52,11 +52,20 @@ from pamolive.policies.services import (
     targets_for_policies,
 )
 from pamolive.sessions.models import PrivilegedSession
-from pamolive.sessions.services import issue_session_ticket
+from pamolive.sessions.services import issue_session_ticket, start_web_session
 from pamolive.vault.forms import PersonalVaultGroupForm, PersonalVaultItemForm
 from pamolive.vault.leases import consume_secret_lease, issue_secret_lease
 from pamolive.vault.models import Credential, PersonalVaultItem
 from pamolive.vault.services import VaultCipher, totp_code
+
+
+def _web_target_url(target):
+    hostname = target.hostname.strip()
+    if hostname.startswith(("http://", "https://")):
+        return hostname
+    scheme = "https" if target.port == 443 else "http"
+    port = "" if target.port in {80, 443} else f":{target.port}"
+    return f"{scheme}://{hostname}{port}/"
 
 
 def health(request):
@@ -412,13 +421,23 @@ def start_session(request, pk):
         )
         return response
     try:
-        session, _ticket, raw_ticket = issue_session_ticket(
-            user=request.user,
-            credential=credential,
-            justification=justification_form.cleaned_data["justification"],
-            source_ip=source_ip,
-            mfa_verified_at=request.session.get(MFA_SESSION_KEY),
-        )
+        if credential.target.protocol == credential.target.Protocol.WEB:
+            session = start_web_session(
+                user=request.user,
+                credential=credential,
+                justification=justification_form.cleaned_data["justification"],
+                source_ip=source_ip,
+                mfa_verified_at=request.session.get(MFA_SESSION_KEY),
+            )
+            raw_ticket = ""
+        else:
+            session, _ticket, raw_ticket = issue_session_ticket(
+                user=request.user,
+                credential=credential,
+                justification=justification_form.cleaned_data["justification"],
+                source_ip=source_ip,
+                mfa_verified_at=request.session.get(MFA_SESSION_KEY),
+            )
     except PermissionDenied as error:
         if "clé d’hôte SSH approuvée" not in str(error):
             raise
@@ -437,7 +456,13 @@ def start_session(request, pk):
             response, no_cache=True, no_store=True, must_revalidate=True, private=True
         )
         return response
-    if credential.target.protocol == credential.target.Protocol.RDP:
+    if credential.target.protocol == credential.target.Protocol.WEB:
+        template_name = "sessions/web_launch.html"
+        context = {
+            "privileged_session": session,
+            "target_url": _web_target_url(credential.target),
+        }
+    elif credential.target.protocol == credential.target.Protocol.RDP:
         template_name = "sessions/rdp_launch.html"
         context = {
             "privileged_session": session,

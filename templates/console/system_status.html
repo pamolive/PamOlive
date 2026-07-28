@@ -1,0 +1,25 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Exploitation</span>
+    <h1>État système & licence</h1>
+    <p>Préflight d'installation, d'upgrade et d'exploitation cluster.</p>
+  </div>
+  <span class="admin-badge"><span></span>{{ license.edition|upper }} · {{ node_id }}</span>
+</header>
+<div class="console-stat-grid">
+  <div class="console-stat"><span>Licence</span><strong>{% if license.valid %}Valide{% else %}Invalide{% endif %}</strong><small>{{ license.source }}{% if license.reason %} · {{ license.reason }}{% endif %}</small></div>
+  <div class="console-stat"><span>Cluster</span><strong>{% if cluster_enabled %}Activé{% else %}Désactivé{% endif %}</strong><small>{% if license.cluster_allowed %}Autorisé{% else %}Non autorisé{% endif %}</small></div>
+  <div class="console-stat"><span>Base de données</span><strong>{% if database_ok %}OK{% else %}Erreur{% endif %}</strong><small>Vérification SQL</small></div>
+  <div class="console-stat"><span>Cache / Redis</span><strong>{% if cache_ok %}OK{% else %}Erreur{% endif %}</strong><small>Probe cache</small></div>
+</div>
+<section class="data-panel">
+  <div class="panel-heading"><div><span class="panel-kicker">Upgrade</span><h2>Préflight migrations</h2></div></div>
+  {% if pending_migrations %}
+    {% for migration in pending_migrations %}<div class="data-table-row"><span>{{ migration }}</span><span class="request-status status-pending">À appliquer</span></div>{% endfor %}
+  {% else %}
+    <div class="empty-state compact-empty"><h3>Aucune migration en attente</h3><p>Le schéma applicatif est aligné.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

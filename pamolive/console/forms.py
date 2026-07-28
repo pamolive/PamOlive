@@ -1,4 +1,5 @@
 import ipaddress
+import re
 from datetime import timedelta
 
 from django import forms
@@ -523,6 +524,7 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
         self.fields["protocol"].choices = (
             (Target.Protocol.SSH, "SSH"),
             (Target.Protocol.RDP, "RDP"),
+            (Target.Protocol.WEB, "WEB"),
         )
         self.fields["kind"].required = False
         self.fields["kind"].initial = Target.Kind.DEVICE
@@ -545,13 +547,23 @@ class TargetForm(ConsoleFormMixin, forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        cleaned["kind"] = Target.Kind.DEVICE
+        if cleaned.get("protocol") == Target.Protocol.WEB:
+            cleaned["kind"] = Target.Kind.WEB_APPLICATION
+        else:
+            cleaned["kind"] = Target.Kind.DEVICE
         cleaned["ssh_host_key_policy"] = (
             cleaned.get("ssh_host_key_policy")
             or Target.SSHHostKeyPolicy.TRUST_ON_FIRST_USE
         )
-        if cleaned.get("protocol") not in {Target.Protocol.SSH, Target.Protocol.RDP}:
-            self.add_error("protocol", "Seuls les équipements SSH et RDP sont disponibles.")
+        if cleaned.get("protocol") not in {
+            Target.Protocol.SSH,
+            Target.Protocol.RDP,
+            Target.Protocol.WEB,
+        }:
+            self.add_error(
+                "protocol",
+                "Seuls les équipements SSH, RDP et WEB sont disponibles.",
+            )
         if cleaned.get("protocol") == Target.Protocol.RDP:
             cleaned["rdp_security"] = cleaned.get("rdp_security") or Target.RDPSecurity.NLA
             cleaned["rdp_server_layout"] = cleaned.get("rdp_server_layout") or "fr-be-azerty"
@@ -644,8 +656,12 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
     )
     protocols = forms.MultipleChoiceField(
         label="Protocoles autorisés",
-        choices=((Target.Protocol.SSH, "SSH"), (Target.Protocol.RDP, "RDP")),
-        widget=forms.SelectMultiple(attrs={"size": 2}),
+        choices=(
+            (Target.Protocol.SSH, "SSH"),
+            (Target.Protocol.RDP, "RDP"),
+            (Target.Protocol.WEB, "WEB"),
+        ),
+        widget=forms.SelectMultiple(attrs={"size": 3}),
         required=False,
         help_text="Vide : tous les protocoles des cibles liées.",
     )
@@ -654,6 +670,24 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
         required=False,
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text="Un CIDR par ligne ou séparé par une virgule. Vide : toute origine.",
+    )
+    command_deny_patterns = forms.CharField(
+        label="Commandes SSH bloquées",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4}),
+        help_text=(
+            "Expressions régulières, une par ligne. Si une commande correspond, "
+            "elle n'est pas envoyée à la cible SSH."
+        ),
+    )
+    command_alert_patterns = forms.CharField(
+        label="Commandes SSH à alerter",
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 4}),
+        help_text=(
+            "Expressions régulières, une par ligne. La commande est autorisée mais "
+            "un événement d'audit est généré."
+        ),
     )
 
     field_sections = (
@@ -687,6 +721,8 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
                 "max_concurrent_sessions",
                 "allow_clipboard_copy",
                 "allow_clipboard_paste",
+                "command_deny_patterns",
+                "command_alert_patterns",
             ),
         ),
         (
@@ -717,6 +753,8 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
             "max_concurrent_sessions",
             "allow_clipboard_copy",
             "allow_clipboard_paste",
+            "command_deny_patterns",
+            "command_alert_patterns",
             "valid_from",
             "valid_until",
             "source_cidrs",
@@ -737,6 +775,8 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
             "max_concurrent_sessions": "Sessions simultanées maximales",
             "allow_clipboard_copy": "Autoriser la copie depuis la session",
             "allow_clipboard_paste": "Autoriser le collage vers la session",
+            "command_deny_patterns": "Commandes SSH bloquées",
+            "command_alert_patterns": "Commandes SSH à alerter",
             "valid_from": "Valide à partir de",
             "valid_until": "Valide jusqu’au",
             "enabled": "Politique active",
@@ -759,6 +799,12 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
         self.fields["max_concurrent_sessions"].initial = 1
         if self.instance.pk and not self.is_bound:
             self.initial["source_cidrs"] = "\n".join(self.instance.source_cidrs)
+            self.initial["command_deny_patterns"] = "\n".join(
+                self.instance.command_deny_patterns
+            )
+            self.initial["command_alert_patterns"] = "\n".join(
+                self.instance.command_alert_patterns
+            )
 
     def clean(self):
         cleaned = super().clean()
@@ -772,6 +818,12 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
             except ValueError:
                 self.add_error("source_cidrs", f"Le réseau « {cidr} » n’est pas un CIDR valide.")
         cleaned["source_cidrs"] = cidrs
+        cleaned["command_deny_patterns"] = self._clean_command_patterns(
+            "command_deny_patterns"
+        )
+        cleaned["command_alert_patterns"] = self._clean_command_patterns(
+            "command_alert_patterns"
+        )
         if not cleaned.get("user_groups"):
             self.add_error("user_groups", "Sélectionnez au moins un groupe d’utilisateurs.")
         if not cleaned.get("target_groups"):
@@ -785,6 +837,20 @@ class AccessPolicyForm(ConsoleFormMixin, forms.ModelForm):
         ):
             self.add_error("valid_until", "La fin de validité doit être postérieure au début.")
         return cleaned
+
+    def _clean_command_patterns(self, field_name):
+        text = self.cleaned_data.get(field_name, "")
+        patterns = [
+            item.strip()
+            for item in text.replace(",", "\n").splitlines()
+            if item.strip()
+        ]
+        for pattern in patterns:
+            try:
+                re.compile(pattern)
+            except re.error as error:
+                self.add_error(field_name, f"Expression invalide « {pattern} » : {error}.")
+        return patterns
 
 
 class TimeFrameForm(ConsoleFormMixin, forms.ModelForm):

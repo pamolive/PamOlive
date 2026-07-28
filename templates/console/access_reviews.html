@@ -1,0 +1,36 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Recertification</span>
+    <h1>Campagnes de revue d'accès</h1>
+    <p>Figez les habilitations PAM, faites-les valider, et révoquez ce qui n'est plus justifié.</p>
+  </div>
+</header>
+
+{% if can_manage %}
+<section class="resource-form-card">
+  <div class="resource-card-title"><span>Créer</span><strong>Nouvelle campagne</strong></div>
+  <form method="post" class="console-form">
+    {% csrf_token %}
+    <label>Nom de campagne</label>
+    <input type="text" name="name" placeholder="Recertification trimestrielle production">
+    <label>Échéance</label>
+    <input type="datetime-local" name="due_at">
+    <button class="primary-button" type="submit">Créer la campagne <span>→</span></button>
+  </form>
+</section>
+{% endif %}
+
+<section class="data-panel">
+  {% for campaign in campaigns %}
+  <article class="data-table-row">
+    <span><strong>{{ campaign.name }}</strong><small>{{ campaign.created_at|date:"d/m/Y H:i" }}{% if campaign.due_at %} · échéance {{ campaign.due_at|date:"d/m/Y H:i" }}{% endif %}</small></span>
+    <span><strong>{{ campaign.pending_count }} en attente</strong><small>{{ campaign.decided_count }} décidée(s)</small></span>
+    <a class="inline-link" href="{% url 'console:access_review_detail' campaign.pk %}">Ouvrir</a>
+  </article>
+  {% empty %}
+  <div class="empty-state"><h3>Aucune campagne</h3></div>
+  {% endfor %}
+</section>
+{% endblock %}

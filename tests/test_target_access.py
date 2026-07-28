@@ -198,10 +198,10 @@ def test_administrator_creates_target_with_initial_local_credential(client):
         VaultCipher().decrypt(target.credentials.get().encrypted_secret) == "secret-local-password"
     )
 
-    unsupported = client.post(
+    web_target = client.post(
         reverse("console:targets"),
         {
-            "name": "Unsupported web app",
+            "name": "Web application",
             "hostname": "example.test",
             "port": 443,
             "protocol": "web",
@@ -210,5 +210,7 @@ def test_administrator_creates_target_with_initial_local_credential(client):
             "credential_password": "secret",
         },
     )
-    assert unsupported.status_code == 200
-    assert not Target.objects.filter(name="Unsupported web app").exists()
+    assert web_target.status_code == 302
+    created_web_target = Target.objects.get(name="Web application")
+    assert created_web_target.kind == Target.Kind.WEB_APPLICATION
+    assert created_web_target.credentials.count() == 1

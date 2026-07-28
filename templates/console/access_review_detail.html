@@ -1,0 +1,45 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Access review</span>
+    <h1>{{ campaign.name }}</h1>
+    <p>{{ campaign.pending_count }} habilitation(s) à revoir · {{ campaign.decided_count }} décision(s) enregistrée(s).</p>
+  </div>
+  <a class="secondary-button" href="{% url 'console:access_reviews' %}">Retour</a>
+</header>
+
+<section class="data-panel">
+  {% for item in items %}
+  <article class="data-table-row">
+    <span>
+      <strong>{{ item.policy.name }}</strong>
+      <small>
+        Score {{ item.risk_score }}/100 ·
+        {% for reason in item.snapshot.risk_reasons|slice:":4" %}{{ reason }}{% if not forloop.last %} · {% endif %}{% endfor %}
+      </small>
+      <small>
+        Utilisateurs : {{ item.snapshot.user_groups|join:", " }} ·
+        Cibles : {{ item.snapshot.target_groups|join:", " }}
+      </small>
+    </span>
+    <span>
+      <span class="request-status status-{{ item.decision }}">{{ item.get_decision_display }}</span>
+      {% if item.decided_by %}<small>{{ item.decided_by }} · {{ item.decided_at|date:"d/m/Y H:i" }}</small>{% endif %}
+    </span>
+    {% if can_manage and item.decision == 'pending' %}
+    <form method="post" action="{% url 'console:access_review_decide' campaign.pk item.pk %}">
+      {% csrf_token %}
+      <input type="text" name="comment" placeholder="Commentaire de décision">
+      <button class="secondary-button" type="submit" name="decision" value="keep">Maintenir</button>
+      <button class="reject-button" type="submit" name="decision" value="revoke">Révoquer</button>
+    </form>
+    {% elif item.comment %}
+    <small>{{ item.comment }}</small>
+    {% endif %}
+  </article>
+  {% empty %}
+  <div class="empty-state"><h3>Aucune habilitation dans cette campagne</h3></div>
+  {% endfor %}
+</section>
+{% endblock %}

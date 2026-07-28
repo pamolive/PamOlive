@@ -1,0 +1,22 @@
+{% extends "console/base.html" %}
+{% block console_content %}
+<header class="console-page-header compact">
+  <div>
+    <span class="eyebrow"><i></i> Forensic replay</span>
+    <h1>Replay de session</h1>
+    <p>{{ privileged_session.user }} → {{ privileged_session.target.name }} · {{ privileged_session.target.protocol|upper }}</p>
+  </div>
+  <a class="secondary-button" href="{% url 'console:session_recording_export' privileged_session.pk %}">Exporter TXT</a>
+</header>
+<section class="data-panel">
+  {% for event in events %}
+  <article class="data-table-row">
+    <span><strong>{{ event.at }}</strong><small>{{ event.direction|upper }} · {{ event.size }} octets</small></span>
+    <pre class="recording-replay-line">{{ event.text }}</pre>
+  </article>
+  {% empty %}
+  <div class="empty-state"><h3>Aucun événement lisible</h3><p>La trace est vide ou tronquée.</p></div>
+  {% endfor %}
+</section>
+{% endblock %}
+

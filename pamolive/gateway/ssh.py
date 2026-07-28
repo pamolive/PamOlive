@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import json
+import re
 
 import asyncssh
 
@@ -27,7 +28,27 @@ async def _forward_output(reader, direction, send, recorder):
         )
 
 
-async def _forward_input(receive, process, recorder):
+def _first_matching_pattern(command, patterns):
+    for pattern in patterns or []:
+        try:
+            if re.search(pattern, command):
+                return pattern
+        except re.error:
+            continue
+    return ""
+
+
+async def _forward_input(
+    receive,
+    process,
+    recorder,
+    send=None,
+    *,
+    command_policy=None,
+    command_event_callback=None,
+):
+    command_policy = command_policy or {}
+    pending_command = ""
     while True:
         message = await receive()
         if message["type"] == "websocket.disconnect":
@@ -39,7 +60,56 @@ async def _forward_input(receive, process, recorder):
         except json.JSONDecodeError:
             continue
         if payload.get("type") == "terminal.input":
-            data = str(payload.get("data", "")).encode()[:65536]
+            text = str(payload.get("data", ""))[:65536]
+            candidate = f"{pending_command}{text}"
+            completed = [item.strip() for item in re.split(r"[\r\n]+", candidate) if item.strip()]
+            if "\n" not in text and "\r" not in text:
+                pending_command = candidate[-4000:]
+            else:
+                pending_command = ""
+            deny_match = ""
+            alert_match = ""
+            inspected_command = ""
+            if "\n" in text or "\r" in text:
+                for command in completed:
+                    deny_match = _first_matching_pattern(
+                        command,
+                        command_policy.get("deny"),
+                    )
+                    if deny_match:
+                        inspected_command = command
+                        break
+                    if not alert_match:
+                        alert_match = _first_matching_pattern(
+                            command,
+                            command_policy.get("alert"),
+                        )
+                        if alert_match:
+                            inspected_command = command
+                if deny_match:
+                    recorder.write("command_denied", inspected_command.encode())
+                    if send is not None:
+                        await _send_json(
+                            send,
+                            {
+                                "type": "command.denied",
+                                "message": "Commande bloquée par la politique PAM-olive.",
+                            },
+                        )
+                    if command_event_callback is not None:
+                        await command_event_callback(
+                            command=inspected_command,
+                            disposition="denied",
+                            pattern=deny_match,
+                        )
+                    continue
+                if alert_match and command_event_callback is not None:
+                    await command_event_callback(
+                        command=inspected_command,
+                        disposition="alerted",
+                        pattern=alert_match,
+                    )
+            data = text.encode()
             recorder.write("input", data)
             process.stdin.write(data)
         elif payload.get("type") == "terminal.resize":
@@ -57,6 +127,8 @@ async def bridge_ssh(
     connect_timeout=10,
     cancellation=None,
     host_key_callback=None,
+    command_policy=None,
+    command_event_callback=None,
 ):
     if envelope.get("protocol") != "ssh":
         raise GatewayProtocolError("Le broker SSH refuse ce protocole.")
@@ -94,7 +166,16 @@ async def bridge_ssh(
             encoding=None,
         )
         await _send_json(send, {"type": "status", "state": "connected"})
-        input_task = asyncio.create_task(_forward_input(receive, process, recorder))
+        input_task = asyncio.create_task(
+            _forward_input(
+                receive,
+                process,
+                recorder,
+                send,
+                command_policy=command_policy,
+                command_event_callback=command_event_callback,
+            )
+        )
         stdout_task = asyncio.create_task(
             _forward_output(process.stdout, "stdout", send, recorder)
         )

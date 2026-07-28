@@ -80,6 +80,17 @@ class InternalAPIClient:
             return False
         return True
 
+    async def report_command_event(self, payload):
+        try:
+            await asyncio.to_thread(
+                self._post,
+                "/api/internal/gateway/command-event/",
+                payload,
+            )
+        except GatewayProtocolError:
+            return False
+        return True
+
     async def trust_host_key(self, *, session_id, public_key):
         try:
             response = await asyncio.to_thread(
