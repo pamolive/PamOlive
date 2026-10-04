@@ -7,7 +7,7 @@ RUN python -m zipfile -c /pamolive-session-lifecycle.jar \
 
 FROM tomcat@sha256:417d9eba5b60dda304f3d966ffa048aedd70a13b4f35e484a45bb53f62df6b9f AS patched_tomcat
 
-FROM guacamole/guacamole@sha256:f344085e618bb05e22b964b0208dbd06d3468275bac70206f93805245e067b40
+FROM guacamole/guacamole@sha256:0742cc7ab2b087e0df0c58d221a5b94836be7b154760fa44d92e377dc4c39590
 
 USER root
 
